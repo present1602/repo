@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 !.env.example
+
+# 참고용으로 클론해둔 별도 저장소 — 이 저장소에 포함하지 않는다
+/ref/
