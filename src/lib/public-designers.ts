@@ -5,6 +5,8 @@ import type {
   PublicWork,
   PublicDesignerCard,
   PublicDesignerDetail,
+  FeedDesigner,
+  FeedWork,
 } from './designer-shape'
 
 /* 로그인 없이 보이는 화면(탐색·상세)이 쓰는 조회.
@@ -20,14 +22,49 @@ import type {
 
 /* 공개 화면에 내보낼 컬럼만 적는다 — select('*') 로 두면
    컬럼이 늘 때 temp_password 같은 값이 조용히 함께 나간다. */
-const DESIGNER_COLS = 'id, name, avatar_url, one_liner, bio, tags'
+const DESIGNER_COLS =
+  'id, name, avatar_url, one_liner, bio, tags, design_price, premium_price, premium_enabled'
 const WORK_COLS =
-  'id, designer_id, image_url, width, height, title, description, row_span, client, sort_order'
+  'id, designer_id, image_url, width, height, title, description, row_span, client, ai_used, sort_order'
+
+/* 008 마이그레이션 전에도 화면이 뜨게 하는 대비책.
+
+   ai_used 가 없는 DB 에서는 위 질의가 통째로 실패한다 — 컬럼 하나 때문에
+   홈·탐색·상세가 전부 비는 건 과하다. 007 이 featured 에 쓴 방침과 같게,
+   표기 기능만 쉬고 화면은 평소대로 뜨게 한다.
+   008 을 적용하고 나면 selectWorks 의 재시도는 지워도 된다.
+
+   ai_used 가 없어서 실패했으면 그 컬럼만 빼고 한 번 더 묻는다.
+
+   질의마다 필터 체인이 달라 결과를 공통으로 감쌀 수 없으므로,
+   컬럼 목록을 받아 질의를 만드는 함수를 넘겨받는다. 재시도는
+   ai_used 가 원인일 때만 한다 — 권한·네트워크 실패까지 다시 물으면
+   원인이 가려지고 호출만 두 배가 된다. */
+async function selectWorks<T>(
+  build: (cols: string) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  cols: string = WORK_COLS,
+) {
+  const first = await build(cols)
+  if (!first.error || !first.error.message.includes('ai_used')) return first
+
+  return build(cols.replace(', ai_used', ''))
+}
+
+/* 홈 피드는 정렬에 featured_at 을 쓰므로 함께 받아야 한다 —
+   Postgres 는 select 에 없는 컬럼으로도 정렬하지만, 두 질의를 합칠 때
+   어느 것이 "고른 작업"인지 코드에서 구분해야 해서 같이 들고 온다. */
+const FEED_WORK_COLS = `${WORK_COLS}, featured, featured_at`
 
 /* 카드에 미리 보여줄 썸네일 장수 — 나머지는 "+N개 더보기" 로 접는다 */
 export const CARD_THUMBS = 4
 
-type WorkWithOwner = PublicWork & { designer_id: string; sort_order: number }
+type WorkWithOwner = PublicWork & {
+  designer_id: string
+  sort_order: number
+  /* 홈 피드 질의에서만 함께 온다 — 공개 화면으로는 내보내지 않는다 */
+  featured?: boolean
+  featured_at?: string | null
+}
 
 /* 정렬 기준을 한곳에 둔다 — 목록과 상세가 어긋나면 같은 작업이 다른 순서로 보인다 */
 function byOrder(a: WorkWithOwner, b: WorkWithOwner) {
@@ -40,6 +77,9 @@ function byOrder(a: WorkWithOwner, b: WorkWithOwner) {
    한 번에 받아 designer_id 로 묶는다. */
 export async function listPublicDesigners(): Promise<PublicDesignerCard[]> {
   if (!supabaseAdmin) return []
+  /* 아래 selectWorks 콜백 안에서는 위 가드로 좁힌 타입이 유지되지 않는다 —
+     지역 변수로 고정해 호출마다 non-null 단정을 붙이지 않는다. */
+  const db = supabaseAdmin
 
   const { data: rows, error } = await supabaseAdmin
     .from('designers')
@@ -57,14 +97,17 @@ export async function listPublicDesigners(): Promise<PublicDesignerCard[]> {
   const designers = (rows ?? []) as PublicDesignerCard[]
   if (designers.length === 0) return []
 
-  const { data: workRows, error: workError } = await supabaseAdmin
-    .from('designer_works')
-    .select(WORK_COLS)
-    .eq('visible', true)
-    .in(
-      'designer_id',
-      designers.map((d) => d.id),
-    )
+  const { data: workRows, error: workError } = await selectWorks<WorkWithOwner>((cols) =>
+    db
+      .from('designer_works')
+      .select(cols)
+      .eq('visible', true)
+      .in(
+        'designer_id',
+        designers.map((d) => d.id),
+      )
+      .overrideTypes<WorkWithOwner[]>(),
+  )
 
   if (workError) {
     /* 작업을 못 받아도 디자이너 카드는 보여준다 — 썸네일만 비운다 */
@@ -95,6 +138,7 @@ export async function listPublicDesigners(): Promise<PublicDesignerCard[]> {
    숨긴 계정이나 비공개 프로필이면 null 을 돌려준다(호출부에서 notFound). */
 export async function getPublicDesigner(id: string): Promise<PublicDesignerDetail | null> {
   if (!supabaseAdmin) return null
+  const db = supabaseAdmin
 
   /* id 가 uuid 가 아니면 Postgres 가 22P02 로 떨어진다 —
      잘못된 URL 은 에러가 아니라 404 로 다뤄야 한다. */
@@ -114,12 +158,15 @@ export async function getPublicDesigner(id: string): Promise<PublicDesignerDetai
   }
   if (!data) return null
 
-  const { data: workRows, error: workError } = await supabaseAdmin
-    .from('designer_works')
-    .select(WORK_COLS)
-    .eq('designer_id', id)
-    .eq('visible', true)
-    .limit(MAX_WORKS)
+  const { data: workRows, error: workError } = await selectWorks<WorkWithOwner>((cols) =>
+    db
+      .from('designer_works')
+      .select(cols)
+      .eq('designer_id', id)
+      .eq('visible', true)
+      .limit(MAX_WORKS)
+      .overrideTypes<WorkWithOwner[]>(),
+  )
 
   if (workError) {
     console.error('[public] 작업 조회 실패:', workError.message)
@@ -130,10 +177,115 @@ export async function getPublicDesigner(id: string): Promise<PublicDesignerDetai
   return { ...(data as PublicDesignerDetail), works }
 }
 
+/* 홈 화면 피드 — 어드민이 고른 작업을 앞에, 나머지는 최신순으로.
+
+   탐색 목록과 달리 디자이너가 아니라 작업이 단위다. 작업마다 누가 올렸는지
+   함께 보여줘야 하므로 디자이너 요약을 붙여서 내보낸다.
+
+   어드민이 아무것도 고르지 않았으면 전부 최신순으로 채운다 — 처음 열었을 때
+   홈이 비어 있으면 설정을 안 한 게 아니라 고장으로 읽힌다. */
+export async function listRecentWorks(limit: number): Promise<FeedWork[]> {
+  if (!supabaseAdmin) return []
+  const db = supabaseAdmin
+
+  /* 공개 디자이너를 먼저 추린다 — 작업에는 visible 만 있고
+     "프로필이 공개인지"는 디자이너 행에만 있기 때문이다.
+     숨긴 프로필의 작업이 홈에 뜨면 비공개로 둔 의미가 없다. */
+  const { data: rows, error } = await supabaseAdmin
+    .from('designers')
+    .select('id, name, avatar_url, tags')
+    .eq('visible', true)
+    .eq('profile_public', true)
+    .limit(200)
+
+  if (error) {
+    console.error('[public] 홈 피드 디자이너 조회 실패:', error.message)
+    return []
+  }
+
+  const owners = new Map(
+    (rows ?? []).map((d) => [d.id, d as FeedDesigner & { id: string }]),
+  )
+  if (owners.size === 0) return []
+
+  const ids = Array.from(owners.keys())
+
+  const withOwner = (w: WorkWithOwner): FeedWork => {
+    const owner = owners.get(w.designer_id)!
+    return {
+      ...strip(w),
+      designer: {
+        id: owner.id,
+        name: owner.name,
+        avatar_url: owner.avatar_url,
+        tags: owner.tags,
+      },
+    }
+  }
+
+  /* 1) 어드민이 고른 작업 — 고른 순서대로.
+        디자이너가 그 사이 숨겼으면(visible=false) 빠진다. 어드민이 골랐더라도
+        본인이 내린 작업을 공개 화면에 올리지는 않는다. */
+  const { data: picked, error: pickError } = await selectWorks<WorkWithOwner>(
+    (cols) =>
+      db
+        .from('designer_works')
+        .select(cols)
+        .eq('visible', true)
+        .eq('featured', true)
+        .in('designer_id', ids)
+        .order('featured_at', { ascending: false })
+        .limit(limit)
+        .overrideTypes<WorkWithOwner[]>(),
+    FEED_WORK_COLS,
+  )
+
+  if (pickError) {
+    console.error('[public] 홈 피드 선택 작업 조회 실패:', pickError.message)
+  }
+
+  const feed = ((picked ?? []) as WorkWithOwner[]).map(withOwner)
+  if (feed.length >= limit) return feed.slice(0, limit)
+
+  /* 2) 모자란 만큼 최신순으로 채운다.
+        정렬은 작업의 created_at 으로 한다 — sort_order 는 디자이너가
+        자기 포트폴리오 안에서 매긴 순서라 디자이너끼리 비교할 수 없다. */
+  const chosen = new Set(feed.map((w) => w.id))
+
+  /* 채우기 질의는 featured 를 읽지 않는다 — 정렬에도 쓰지 않으므로
+     007 마이그레이션 전에도 홈이 평소대로 뜬다. 고르는 기능만 쉬고
+     화면이 비지는 않는다. */
+  const { data: workRows, error: workError } = await selectWorks<WorkWithOwner>((cols) =>
+    db
+      .from('designer_works')
+      .select(cols)
+      .eq('visible', true)
+      .in('designer_id', ids)
+      .order('created_at', { ascending: false })
+      /* 이미 고른 것이 섞여 들어오므로 그만큼 더 받아 둔다 */
+      .limit(limit + chosen.size)
+      .overrideTypes<WorkWithOwner[]>(),
+  )
+
+  if (workError) {
+    console.error('[public] 홈 피드 작업 조회 실패:', workError.message)
+    return feed
+  }
+
+  for (const row of (workRows ?? []) as WorkWithOwner[]) {
+    if (feed.length >= limit) break
+    if (chosen.has(row.id)) continue
+    feed.push(withOwner(row))
+  }
+
+  return feed
+}
+
 /* 공개 화면에 보낼 모양으로 — 묶는 데만 쓴 두 값을 떼어낸다 */
 function strip(w: WorkWithOwner): PublicWork {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { designer_id, sort_order, ...rest } = w
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars --
+     묶기·정렬에만 쓴 값들을 떼어낸다 */
+  const { designer_id, sort_order, featured, featured_at, ...rest } = w
   return rest
 }
 

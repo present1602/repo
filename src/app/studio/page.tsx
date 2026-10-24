@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getDesignerUser } from '@/lib/designer-auth'
 import { listWorks } from '@/lib/designers-db'
+import { getPlanCopy } from '@/lib/site-settings'
 import { displayName } from '@/lib/display-name'
 import { logout } from './actions'
 import { DesignerConsole } from '@/components/designers/console'
@@ -17,7 +18,7 @@ export default async function DesignerHomePage() {
   const d = await getDesignerUser()
   if (!d) redirect('/studio/login')
 
-  const works = await listWorks(d.id)
+  const [works, planCopy] = await Promise.all([listWorks(d.id), getPlanCopy()])
 
   /* 비밀번호 해시는 화면으로 내려보내지 않는다 */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -39,7 +40,7 @@ export default async function DesignerHomePage() {
         </header>
 
         <div className="mt-8">
-          <DesignerConsole designer={safe} works={works} />
+          <DesignerConsole designer={safe} works={works} planCopy={planCopy} />
         </div>
       </div>
     </main>

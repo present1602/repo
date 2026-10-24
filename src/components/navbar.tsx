@@ -5,15 +5,17 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 // 메뉴는 앞으로 더 붙는다 — 배열에 항목만 추가하면 된다
-const menu = [{ href: '/explore', label: '탐색' }]
+const menu = [
+  { href: '/', label: '홈' },
+  { href: '/explore', label: '탐색' },
+]
 
 export function Navbar() {
   return (
     <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur">
-      <div className="flex h-14 items-center gap-4 px-4 md:px-6">
-        <Link href="/" className="flex items-center gap-2 text-sm font-bold tracking-tight">
-          <span className="grid size-6 place-items-center rounded-md bg-indigo-600 text-[11px] text-white">F</span>
-          folio
+      <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 md:px-8">
+        <Link href="/" className="text-lg font-black tracking-tight">
+          SOOM
         </Link>
 
         {/* 현재 경로는 런타임에만 알 수 있어 프리렌더를 막는다.
@@ -22,6 +24,13 @@ export function Navbar() {
         <Suspense fallback={<MenuLinks />}>
           <MenuWithCurrent />
         </Suspense>
+
+        <Link
+          href="/studio"
+          className="ml-auto rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium transition hover:border-neutral-900"
+        >
+          시안 목록
+        </Link>
       </div>
     </header>
   )
@@ -35,14 +44,20 @@ function MenuWithCurrent() {
 /* pathname 을 모르면 아무것도 강조하지 않는다 — 링크 위치와 글자는 같다 */
 function MenuLinks({ pathname }: { pathname?: string }) {
   return (
-    <nav className="ml-auto flex items-center gap-1">
+    <nav className="flex gap-5 text-sm">
       {menu.map((m) => {
-        const on = pathname ? pathname === m.href || pathname.startsWith(`${m.href}/`) : false
+        /* 홈('/')은 접두사로 비교하면 모든 경로에 걸린다 — 정확히 같을 때만 */
+        const on = !pathname
+          ? false
+          : m.href === '/'
+            ? pathname === '/'
+            : pathname === m.href || pathname.startsWith(`${m.href}/`)
+
         return (
           <Link
             key={m.href}
             href={m.href}
-            className={`px-2 py-1.5 text-sm transition ${
+            className={`transition ${
               on ? 'font-semibold text-neutral-900' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >

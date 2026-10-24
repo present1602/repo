@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { WorkRow } from '@/lib/portfolio-limits'
 import { MAX_WORKS, MAX_DESCRIPTION } from '@/lib/portfolio-limits'
 import {
+  adminAddWork,
   adminUpdateWork,
   adminSetWorkVisible,
   adminDeleteWork,
@@ -26,14 +27,26 @@ export function AdminPortfolio({
   const open = works.find((w) => w.id === openId) ?? null
 
   const shown = works.filter((w) => w.visible).length
+  /* 묻기 전에 올라간 작업 — 디자이너에게 확인해 채워야 할 몫이다 */
+  const unanswered = works.filter((w) => w.ai_used === null).length
 
   return (
     <section className="min-w-0">
-      <header className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">포트폴리오</h2>
-        <p className="text-xs text-neutral-500">
-          {works.length} / {MAX_WORKS}개 · 노출 {shown}개
-        </p>
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-sm font-semibold">포트폴리오</h2>
+          <p className="text-xs text-neutral-500">
+            {works.length} / {MAX_WORKS}개 · 노출 {shown}개
+            {unanswered > 0 && (
+              <span className="ml-1.5 text-amber-700">· AI 미응답 {unanswered}개</span>
+            )}
+          </p>
+        </div>
+        <AddWorkButton
+          designerId={designerId}
+          disabled={works.length >= MAX_WORKS}
+          onNotice={setNotice}
+        />
       </header>
 
       {notice && (
@@ -49,6 +62,10 @@ export function AdminPortfolio({
       {works.length === 0 ? (
         <p className="rounded-xl border border-dashed border-neutral-300 py-16 text-center text-sm text-neutral-500">
           등록된 작업이 없습니다.
+          <br />
+          <span className="text-xs text-neutral-400">
+            위의 &lsquo;작업 추가&rsquo;로 대신 올려줄 수 있습니다.
+          </span>
         </p>
       ) : (
         <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl ring-1 ring-neutral-200">
@@ -76,6 +93,16 @@ export function AdminPortfolio({
                     {!w.visible && (
                       <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-600">
                         숨김
+                      </span>
+                    )}
+                    {w.ai_used && (
+                      <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[11px] text-indigo-700">
+                        AI 사용
+                      </span>
+                    )}
+                    {w.ai_used === null && (
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-800">
+                        AI 미응답
                       </span>
                     )}
                   </div>
@@ -114,6 +141,267 @@ export function AdminPortfolio({
   )
 }
 
+/* ─────────── 추가 ─────────── */
+
+/* 어드민이 디자이너를 대신해 작업을 올린다.
+   여러 장을 한 번에 고를 수 있다 — 대신 올려주는 상황에서는 보통 묶음이다. */
+function AddWorkButton({
+  designerId,
+  disabled,
+  onNotice,
+}: {
+  designerId: string
+  disabled: boolean
+  onNotice: (n: Notice) => void
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [pending, start] = useTransition()
+  /* 여러 장일 때 어디까지 갔는지 — 큰 파일은 한참 걸린다 */
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const router = useRouter()
+  /* 고른 파일을 붙잡아 두고 AI 사용 여부를 먼저 묻는다.
+     묶음 전체에 한 번만 묻는다 — 대신 올려주는 상황에서 장마다 묻는 건
+     쓸 수 없고, 묶음은 보통 한 작업의 여러 컷이다. 장마다 다르면
+     나눠 올리거나 올린 뒤 상세에서 고친다. */
+  const [picked, setPicked] = useState<File[] | null>(null)
+  const [aiUsed, setAiUsed] = useState<boolean | null>(null)
+
+  /* 올리기 전에 원본 크기를 읽어둔다 — 세로로 긴 이미지는 2칸으로 시작한다 */
+  const measure = (file: File) =>
+    new Promise<{ width: number | null; height: number | null }>((resolve) => {
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.onload = () => {
+        resolve({ width: img.naturalWidth, height: img.naturalHeight })
+        URL.revokeObjectURL(url)
+      }
+      img.onerror = () => {
+        resolve({ width: null, height: null })
+        URL.revokeObjectURL(url)
+      }
+      img.src = url
+    })
+
+  const upload = (files: File[], ai: boolean) => {
+    onNotice(null)
+    start(async () => {
+      const failed: string[] = []
+
+      /* 한 장씩 차례로 올린다. 동시에 보내면 상한(30개) 검사가
+         서로를 못 보고 통과해 버린다 — DB 트리거가 막더라도
+         이미 올라간 이미지가 버킷에 남는다. */
+      for (let i = 0; i < files.length; i++) {
+        setProgress({ done: i, total: files.length })
+
+        const file = files[i]
+        const { width, height } = await measure(file)
+
+        const form = new FormData()
+        form.set('designerId', designerId)
+        form.set('image', file)
+        /* 파일명을 제목의 출발점으로 쓴다 — 확장자는 뗀다.
+           어드민이 여러 장을 올릴 때 하나하나 제목을 적기 어렵다. */
+        form.set('title', file.name.replace(/\.[^.]+$/, ''))
+        if (width) form.set('width', String(width))
+        if (height) form.set('height', String(height))
+        /* 답했다는 사실과 답 자체를 따로 보낸다 — 체크하지 않은 체크박스는
+           브라우저가 전송하지 않아 '아니오'와 '묻지 않음'이 구분되지 않는다. */
+        form.set('aiAnswered', '1')
+        if (ai) form.set('aiUsed', '1')
+
+        const r = await adminAddWork(form)
+        if (!r.ok) {
+          failed.push(`${file.name}: ${r.error}`)
+          /* 상한에 걸렸으면 나머지도 전부 실패한다 — 여기서 멈춘다 */
+          if (r.error.includes('최대')) break
+        }
+      }
+
+      setProgress(null)
+      setPicked(null)
+      setAiUsed(null)
+      router.refresh()
+
+      if (failed.length === 0) {
+        onNotice({ kind: 'ok', text: `${files.length}개를 올렸습니다.` })
+      } else if (failed.length === files.length) {
+        onNotice({ kind: 'error', text: failed[0] })
+      } else {
+        onNotice({
+          kind: 'error',
+          text: `${files.length - failed.length}개 성공 · ${failed.length}개 실패 (${failed[0]})`,
+        })
+      }
+    })
+  }
+
+  return (
+    <>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? [])
+          if (files.length > 0) {
+            setPicked(files)
+            setAiUsed(null)
+          }
+          /* 같은 파일을 다시 고를 수 있게 비운다 */
+          e.target.value = ''
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={disabled || pending}
+        title={disabled ? `최대 ${MAX_WORKS}개까지 올릴 수 있습니다` : undefined}
+        className="rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+      >
+        {pending
+          ? progress && progress.total > 1
+            ? `올리는 중 ${progress.done + 1}/${progress.total}…`
+            : '올리는 중…'
+          : '작업 추가'}
+      </button>
+
+      {picked && (
+        <AiPromptDialog
+          files={picked}
+          value={aiUsed}
+          onChange={setAiUsed}
+          pending={pending}
+          onCancel={() => {
+            setPicked(null)
+            setAiUsed(null)
+          }}
+          onConfirm={() => {
+            if (aiUsed === null) return
+            upload(picked, aiUsed)
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+/* ─────────── AI 사용 여부 ───────────
+
+   올리기 전에 한 번 묻는다. 기본값을 정해두면 그대로 통과해 버리므로
+   둘 중 하나를 직접 고를 때까지 올리는 버튼을 잠근다.
+
+   어드민은 본인이 아니라 디자이너를 대신해 답하는 자리다 —
+   확실하지 않으면 올리지 말고 본인에게 확인하라고 화면에서 알려준다. */
+
+function AiPromptDialog({
+  files,
+  value,
+  onChange,
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  files: File[]
+  value: boolean | null
+  onChange: (v: boolean) => void
+  pending: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const many = files.length > 1
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-sm rounded-xl bg-white p-5">
+        <h3 className="text-sm font-semibold">
+          {many ? `${files.length}개 작업에 AI를 사용했나요?` : '이 작업에 AI를 사용했나요?'}
+        </h3>
+        <p className="mt-1.5 truncate text-xs text-neutral-500">
+          {many ? `${files[0].name} 외 ${files.length - 1}개` : files[0].name}
+        </p>
+        {many && (
+          <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
+            고른 전체에 같은 값이 들어갑니다. 장마다 다르면 나눠 올리거나 올린 뒤 상세에서
+            고쳐 주세요.
+          </p>
+        )}
+
+        <div className="mt-4 space-y-2">
+          <AiChoice
+            checked={value === true}
+            onSelect={() => onChange(true)}
+            label="AI를 사용했습니다"
+            hint="생성·보정·업스케일 등 과정 일부에 썼다면 포함됩니다."
+          />
+          <AiChoice
+            checked={value === false}
+            onSelect={() => onChange(false)}
+            label="사용하지 않았습니다"
+            hint="전 과정을 직접 작업했습니다."
+          />
+        </div>
+
+        <p className="mt-3 text-[11px] leading-relaxed text-amber-700">
+          디자이너를 대신해 답하는 항목입니다. 확실하지 않으면 본인에게 확인해 주세요.
+        </p>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            className="rounded-lg border border-neutral-300 px-3.5 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending || value === null}
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+          >
+            {pending ? '올리는 중…' : '올리기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AiChoice({
+  checked,
+  onSelect,
+  label,
+  hint,
+}: {
+  checked: boolean
+  onSelect: () => void
+  label: string
+  hint: string
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer gap-2.5 rounded-lg border p-3 transition ${
+        checked ? 'border-indigo-600 bg-indigo-50' : 'border-neutral-300 hover:bg-neutral-50'
+      }`}
+    >
+      <input
+        type="radio"
+        name="admin-ai-used"
+        checked={checked}
+        onChange={onSelect}
+        className="mt-0.5 accent-indigo-600"
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">{hint}</span>
+      </span>
+    </label>
+  )
+}
+
 /* ─────────── 상세 ─────────── */
 
 function WorkDialog({
@@ -130,13 +418,20 @@ function WorkDialog({
   const [title, setTitle] = useState(w.title ?? '')
   const [description, setDescription] = useState(w.description ?? '')
   const [client, setClient] = useState(w.client ?? '')
+  /* 묻기 전에 올라간 작업은 null 이다 — 체크박스로는 둘 중 하나만 고를 수
+     있으므로 '아직 답하지 않음'으로 보고 꺼진 상태에서 시작한다. */
+  const [aiUsed, setAiUsed] = useState(w.ai_used === true)
   const [pending, start] = useTransition()
   const router = useRouter()
 
+  /* 아직 답하지 않은 작업(null)은 체크박스를 건드리지 않아도 저장할 수 있어야
+     한다 — 끈 채로 저장하는 것이 '쓰지 않았다'는 답이다. null 을 false 와
+     같다고 보면 저장 버튼이 잠겨 영원히 미응답으로 남는다. */
   const dirty =
     title !== (w.title ?? '') ||
     description !== (w.description ?? '') ||
-    client !== (w.client ?? '')
+    client !== (w.client ?? '') ||
+    aiUsed !== w.ai_used
 
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
   useEffect(() => {
@@ -250,10 +545,29 @@ function WorkDialog({
             />
           </label>
 
+          {/* AI 사용 여부 — 공개 화면에는 켠 것만 표기된다 */}
+          <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 p-3">
+            <input
+              type="checkbox"
+              checked={aiUsed}
+              onChange={(e) => setAiUsed(e.target.checked)}
+              className="mt-0.5 accent-indigo-600"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">AI 사용</span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
+                {w.ai_used === null
+                  ? '아직 답하지 않은 작업입니다. 디자이너에게 확인한 뒤 정해 주세요.'
+                  : '켜면 공개 화면에 AI 활용 표기가 붙습니다.'}
+              </span>
+            </span>
+          </label>
+
           <button
             onClick={() =>
               act(
-                () => adminUpdateWork({ id: w.id, designerId, title, description, client }),
+                () =>
+                  adminUpdateWork({ id: w.id, designerId, title, description, client, aiUsed }),
                 () => onNotice({ kind: 'ok', text: '저장했습니다.' }),
               )
             }

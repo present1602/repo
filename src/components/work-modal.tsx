@@ -44,8 +44,11 @@ export function WorkModal({
   })
 
   /* 제목·클라이언트·설명은 모두 선택 입력이다.
-     하나도 없으면 설명 시트를 띄우지 않는다 — 빈 흰 칸이 이미지를 가린다. */
-  const meta = w.client ?? ''
+     하나도 없으면 설명 시트를 띄우지 않는다 — 빈 흰 칸이 이미지를 가린다.
+
+     AI 사용 표기는 true 일 때만 붙인다 — null(묻기 전에 올라간 작업)과
+     false 를 구분해 보여주지 않는다. */
+  const meta = [w.client, w.ai_used ? 'AI 활용' : null].filter(Boolean).join(' · ')
   const hasSheet = Boolean(w.title || meta || w.description)
 
   return (

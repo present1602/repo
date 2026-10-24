@@ -9,4 +9,13 @@
   body {
     font-family: var(--font-sans), system-ui, sans-serif;
   }
+
+  /* 같은 화면 안 앵커(#works 등)로 부드럽게 내려간다.
+     "동작 줄이기"를 켠 사용자에게는 적용하지 않는다 — 긴 화면이
+     갑자기 흐르듯 움직이면 어지러움을 유발할 수 있다. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
 }

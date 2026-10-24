@@ -7,7 +7,8 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { generateTempPassword, hashPassword } from '@/lib/password'
 import { sendTempPassword } from '@/lib/designer-mail'
 import { displayName } from '@/lib/display-name'
-import { MAX_DESCRIPTION, MAX_BIO } from '@/lib/portfolio-limits'
+import { putImage } from '@/lib/upload'
+import { MAX_DESCRIPTION, MAX_BIO, MAX_WORKS } from '@/lib/portfolio-limits'
 
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
    페이지에서 막았더라도 여기서 권한을 다시 확인해야 한다. */
@@ -244,6 +245,76 @@ export async function deleteDesigner(id: string): Promise<Result> {
    어드민은 누구의 작업이든 다룰 수 있어야 하므로 여기에 따로 둔다 —
    대신 getAdminUser() 로 권한을 확인한다. */
 
+/* 체크박스 값을 셋 중 하나로 읽는다(008_work_ai_used.sql).
+   studio/actions.ts 의 같은 이름 함수와 규칙이 같다 — 양쪽 화면이
+   같은 체크박스를 쓰므로 읽는 방식도 어긋나지 않아야 한다. */
+function readAiUsed(form: FormData): boolean | null {
+  if (form.get('aiAnswered') == null) return null
+  return form.get('aiUsed') != null
+}
+
+/* 어드민이 디자이너를 대신해 작업을 올린다.
+
+   본인용(app/studio/actions.ts)은 세션에서 id 를 꺼내 범위를 묶지만,
+   어드민은 어떤 디자이너든 다룰 수 있어야 하므로 designerId 를 받는다 —
+   대신 guard() 로 관리자 권한을 확인한다. */
+export async function adminAddWork(form: FormData): Promise<Result<{ id: string }>> {
+  const db = await guard()
+
+  const designerId = String(form.get('designerId') ?? '')
+  if (!designerId) return fail('디자이너를 찾을 수 없습니다.')
+
+  const file = form.get('image')
+  const title = String(form.get('title') ?? '').trim()
+  const width = Number(form.get('width')) || null
+  const height = Number(form.get('height')) || null
+  const aiUsed = readAiUsed(form)
+
+  if (!(file instanceof File) || file.size === 0) return fail('이미지를 선택해 주세요.')
+
+  /* 상한은 DB 트리거가 최종 방어하지만, 업로드를 먼저 하면
+     거부될 이미지가 버킷에 남는다 — 여기서 먼저 센다. */
+  const { count } = await db
+    .from('designer_works')
+    .select('id', { count: 'exact', head: true })
+    .eq('designer_id', designerId)
+
+  if ((count ?? 0) >= MAX_WORKS) {
+    return fail(`포트폴리오는 최대 ${MAX_WORKS}개까지 올릴 수 있습니다.`)
+  }
+
+  /* 경로는 본인이 올릴 때와 같게 둔다 — 누가 올렸든 같은 디자이너의 폴더에 모인다 */
+  const up = await putImage(file, `works/${designerId}`)
+  if (!up.ok) return fail(up.error)
+
+  /* 세로로 긴 이미지는 기본 2칸 — 올린 뒤 조절할 수 있다 */
+  const rowSpan = width && height && height > width * 1.4 ? 2 : 1
+
+  const { data, error } = await db
+    .from('designer_works')
+    .insert({
+      designer_id: designerId,
+      image_url: up.url,
+      width,
+      height,
+      title: title || null,
+      ai_used: aiUsed,
+      row_span: rowSpan,
+      sort_order: count ?? 0,
+    })
+    .select('id')
+    .maybeSingle()
+
+  if (error || !data) {
+    console.error('[works] 어드민 등록 실패:', error?.message)
+    /* 트리거가 막은 경우 메시지를 그대로 보여준다 */
+    return fail(error?.message.includes('최대') ? error.message : '등록에 실패했습니다.')
+  }
+
+  refresh(designerId)
+  return { ok: true, id: data.id as string }
+}
+
 export type AdminWorkInput = {
   id: string
   designerId: string
@@ -251,6 +322,9 @@ export type AdminWorkInput = {
   description: string
   /* 선택 입력 — 빈 문자열이면 지운다 */
   client: string
+  /* 상세 화면은 체크박스로 받으므로 true/false 만 온다 —
+     한 번 저장하면 null(미응답)로 되돌릴 수 없다. 의도된 동작이다. */
+  aiUsed: boolean
 }
 
 export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
@@ -268,6 +342,7 @@ export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
       title: input.title.trim() || null,
       description: description || null,
       client: input.client.trim() || null,
+      ai_used: input.aiUsed,
     })
     .eq('id', input.id)
 
@@ -294,6 +369,36 @@ export async function adminSetWorkVisible(
   }
 
   refresh(designerId)
+  return { ok: true }
+}
+
+/* ─────────── 메인 노출 ─────────── */
+
+/* 어드민이 메인 화면에 걸 작업을 고르고 내린다.
+
+   디자이너의 visible 은 건드리지 않는다 — 주인이 다르다. 여기서 켜도
+   디자이너가 숨긴 작업은 메인에 뜨지 않고, 화면에 그 이유를 표시한다. */
+export async function setWorkFeatured(id: string, featured: boolean): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db
+    .from('designer_works')
+    .update({
+      featured,
+      /* 고른 순서를 기억한다 — 메인은 최근에 고른 것부터 깐다.
+         내릴 때 비워 두면 다시 골랐을 때 예전 자리로 돌아가지 않는다. */
+      featured_at: featured ? new Date().toISOString() : null,
+    })
+    .eq('id', id)
+
+  if (error) {
+    console.error('[works] 메인 노출 변경 실패:', error.message)
+    return fail('변경에 실패했습니다.')
+  }
+
+  revalidatePath('/admin/featured')
+  /* 메인이 바로 바뀌어야 한다 — 어드민이 고른 뒤 홈을 열어 확인한다 */
+  revalidatePath('/')
   return { ok: true }
 }
 

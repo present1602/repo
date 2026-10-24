@@ -3,27 +3,39 @@
 import { useState } from 'react'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import type { WorkRow } from '@/lib/portfolio-limits'
+import type { PlanCopy } from '@/lib/plans'
 import { ProfileForm } from './profile-form'
 import { PortfolioManager } from './portfolio-manager'
-import { ChangePasswordForm } from './change-password-form'
+import { SettingsPanel } from './settings-panel'
 
-type Tab = 'profile' | 'portfolio' | 'password'
+type Tab = 'profile' | 'portfolio' | 'settings'
 
 export function DesignerConsole({
   designer,
   works,
+  planCopy,
 }: {
   designer: AdminDesigner
   works: WorkRow[]
+  planCopy: PlanCopy
 }) {
-  /* 임시 비밀번호를 아직 쓰고 있으면 비밀번호 탭부터 열어준다 */
-  const [tab, setTab] = useState<Tab>(designer.temp_password ? 'password' : 'profile')
+  /* 임시 비밀번호를 아직 쓰고 있으면 설정 탭을 먼저 연다 —
+     비밀번호 변경이 그 안에 있다(다이얼로그도 함께 열린다). */
+  const temp = Boolean(designer.temp_password)
+  const [tab, setTab] = useState<Tab>(temp ? 'settings' : 'profile')
 
   return (
     <div>
-      {designer.temp_password && (
+      {temp && (
         <p className="mb-6 rounded-lg bg-amber-50 px-3.5 py-3 text-sm text-amber-800">
-          아직 임시 비밀번호를 쓰고 있습니다. 먼저 비밀번호를 변경해 주세요.
+          아직 임시 비밀번호를 쓰고 있습니다. 먼저{' '}
+          <button
+            onClick={() => setTab('settings')}
+            className="font-semibold underline underline-offset-2"
+          >
+            설정
+          </button>
+          에서 비밀번호를 변경해 주세요.
         </p>
       )}
 
@@ -34,15 +46,17 @@ export function DesignerConsole({
         <TabButton on={tab === 'portfolio'} onClick={() => setTab('portfolio')}>
           포트폴리오 <span className="text-neutral-400">{works.length}</span>
         </TabButton>
-        <TabButton on={tab === 'password'} onClick={() => setTab('password')}>
-          비밀번호
+        <TabButton on={tab === 'settings'} onClick={() => setTab('settings')}>
+          설정
         </TabButton>
       </nav>
 
       <div className="pt-6">
         {tab === 'profile' && <ProfileForm designer={designer} />}
         {tab === 'portfolio' && <PortfolioManager works={works} />}
-        {tab === 'password' && <ChangePasswordForm onChanged={() => setTab('profile')} />}
+        {tab === 'settings' && (
+          <SettingsPanel designer={designer} copy={planCopy} openPasswordAtFirst={temp} />
+        )}
       </div>
     </div>
   )

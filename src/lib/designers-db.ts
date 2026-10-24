@@ -1,6 +1,6 @@
 import 'server-only'
 import { supabaseAdmin } from './supabase-admin'
-import { MAX_WORKS, type WorkRow } from './portfolio-limits'
+import { MAX_WORKS, type WorkRow, type FeaturedCandidate } from './portfolio-limits'
 import type { DesignerRow, DesignerActivity, AdminDesignerListRow } from './designer-shape'
 
 /* 행·제한값의 모양은 designer-shape / portfolio-limits 에 있다 —
@@ -11,7 +11,7 @@ export type {
   DesignerActivity,
   AdminDesignerListRow,
 } from './designer-shape'
-export type { WorkRow } from './portfolio-limits'
+export type { WorkRow, FeaturedCandidate } from './portfolio-limits'
 
 /* 한 디자이너의 작업 전부 — 숨긴 것까지. 본인 관리 화면과 어드민이 쓴다. */
 export async function listWorks(designerId: string): Promise<WorkRow[]> {
@@ -30,6 +30,34 @@ export async function listWorks(designerId: string): Promise<WorkRow[]> {
     return []
   }
   return (data ?? []) as WorkRow[]
+}
+
+/* 메인 노출 설정 화면이 쓰는 목록 — 모든 디자이너의 작업을 한 줄로.
+
+   listWorks 는 한 사람의 작업만 돌려준다. 이 화면은 "누구 작업이든
+   메인에 걸 것"을 고르는 자리라 디자이너를 가로지른다.
+
+   디자이너가 숨긴 작업(visible=false)은 빼지 않고 함께 싣는다 —
+   어드민이 왜 메인에 안 뜨는지 알 수 있어야 하기 때문이다(화면에서 '숨김'으로 표시). */
+export async function listWorksForFeature(): Promise<FeaturedCandidate[]> {
+  if (!supabaseAdmin) return []
+
+  const { data, error } = await supabaseAdmin
+    .from('designer_works')
+    .select('*, designer:designers!inner(id, name, email, avatar_url, visible, profile_public)')
+    /* 고른 것을 위로 — 어드민이 방금 고른 구성을 바로 확인한다 */
+    .order('featured', { ascending: false })
+    .order('featured_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    /* 검색은 브라우저에서 거른다(입력마다 왕복하지 않게) —
+       그래서 한 번에 받아 둘 수 있는 양으로 끊는다. */
+    .limit(500)
+
+  if (error) {
+    console.error('[works] 메인 노출 후보 조회 실패:', error.message)
+    return []
+  }
+  return (data ?? []) as FeaturedCandidate[]
 }
 
 /* 관리 화면 목록 — 숨긴 계정까지 전부 */

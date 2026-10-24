@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import { MAX_BIO } from '@/lib/portfolio-limits'
+import { formatPrice } from '@/lib/plans'
 import { displayName } from '@/lib/display-name'
 import {
   updateDesigner,
@@ -24,6 +26,24 @@ export function DesignerDetail({ designer: d }: { designer: AdminDesigner }) {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">{displayName(d)}</h1>
           <p className="mt-1 text-sm text-neutral-500">{d.email}</p>
+
+          {/* 공개 페이지로 — 숨겨져 있으면 열어도 404 라 이유를 대신 보여준다 */}
+          {d.visible && d.profile_public ? (
+            <Link
+              href={`/designers/${d.id}`}
+              target="_blank"
+              rel="noopener"
+              className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 transition hover:text-indigo-800"
+            >
+              공개 페이지 보기 ↗
+            </Link>
+          ) : (
+            <p className="mt-2 text-xs text-neutral-400">
+              {!d.visible
+                ? '계정이 비활성이라 공개 페이지가 열리지 않습니다.'
+                : '디자이너가 프로필을 숨겨 공개 페이지가 열리지 않습니다.'}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           {/* 두 상태는 축이 다르다 — 계정은 관리자가, 프로필은 디자이너 본인이 정한다 */}
@@ -64,8 +84,52 @@ export function DesignerDetail({ designer: d }: { designer: AdminDesigner }) {
 
       <ProfileForm designer={d} onNotice={setNotice} />
 
+      <PlanSummary designer={d} />
+
       <AccountSection designer={d} onNotice={setNotice} />
     </div>
+  )
+}
+
+/* ─────────── 가격 ─────────── */
+
+/* 금액은 디자이너 본인이 고른다 — 어드민은 확인만 한다.
+   문구를 바꾸려면 설정 화면으로 간다. */
+function PlanSummary({ designer: d }: { designer: AdminDesigner }) {
+  return (
+    <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold">가격 플랜</h2>
+        <Link
+          href="/admin/settings"
+          className="text-xs font-medium text-indigo-600 transition hover:text-indigo-800"
+        >
+          문구 수정 →
+        </Link>
+      </div>
+
+      <dl className="mt-3 space-y-2 text-sm">
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-neutral-500">디자인</dt>
+          <dd className="font-medium">{formatPrice(d.design_price)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-neutral-500">프리미엄</dt>
+          <dd className="flex items-center gap-1.5">
+            {!d.premium_enabled && (
+              <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-600">
+                숨김
+              </span>
+            )}
+            <span className={d.premium_enabled ? 'font-medium' : 'text-neutral-400'}>
+              {formatPrice(d.premium_price)}
+            </span>
+          </dd>
+        </div>
+      </dl>
+
+      <p className="mt-3 text-xs text-neutral-400">금액은 디자이너가 직접 설정합니다.</p>
+    </section>
   )
 }
 

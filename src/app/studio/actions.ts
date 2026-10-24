@@ -12,6 +12,7 @@ import {
   MAX_ROW_SPAN,
   MAX_BIO,
 } from '@/lib/portfolio-limits'
+import { isDesignPrice, isPremiumPrice } from '@/lib/plans'
 
 export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string }
 
@@ -156,6 +157,45 @@ export async function setProfilePublic(isPublic: boolean): Promise<Result> {
   return { ok: true }
 }
 
+/* ─────────── 가격 ─────────── */
+
+export type PlanInput = {
+  designPrice: number
+  premiumPrice: number
+  premiumEnabled: boolean
+}
+
+/* 금액은 정해진 보기 중에서만 고를 수 있다.
+   서버 액션은 누구나 부를 수 있으므로 클라이언트가 보낸 숫자를 믿지 않는다 —
+   보기에 없으면 DB check 제약이 막기 전에 여기서 돌려보낸다. */
+export async function updatePlans(input: PlanInput): Promise<Result> {
+  const { db, id } = await guard()
+
+  if (!isDesignPrice(input.designPrice)) {
+    return fail('선택할 수 없는 금액입니다.')
+  }
+  if (!isPremiumPrice(input.premiumPrice)) {
+    return fail('선택할 수 없는 금액입니다.')
+  }
+
+  const { error } = await db
+    .from('designers')
+    .update({
+      design_price: input.designPrice,
+      premium_price: input.premiumPrice,
+      premium_enabled: input.premiumEnabled,
+    })
+    .eq('id', id)
+
+  if (error) {
+    console.error('[designers] 가격 설정 실패:', error.message)
+    return fail('저장에 실패했습니다.')
+  }
+
+  refresh(id)
+  return { ok: true }
+}
+
 export async function updateAvatar(form: FormData): Promise<Result<{ url: string }>> {
   const { db, id } = await guard()
 
@@ -180,6 +220,17 @@ export async function updateAvatar(form: FormData): Promise<Result<{ url: string
 /* designer_works.year 컬럼은 남아 있지만 화면에서 쓰지 않는다 —
    입력도 표시도 없으므로 여기서 다루지 않고 null 로 둔다. */
 
+/* 체크박스 값을 셋 중 하나로 읽는다(008_work_ai_used.sql).
+
+   FormData 에 아예 키가 없으면 null — 구버전 클라이언트나 다른 호출부가
+   묻지 않고 올린 경우다. 키가 있으면 본인이 답한 것이므로 true/false 로 굳힌다.
+   체크하지 않은 체크박스는 브라우저가 전송하지 않으므로, 화면에서는
+   hidden 으로 '답했다'는 사실을 함께 보낸다. */
+function readAiUsed(form: FormData): boolean | null {
+  if (form.get('aiAnswered') == null) return null
+  return form.get('aiUsed') != null
+}
+
 export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   const { db, id } = await guard()
 
@@ -189,6 +240,7 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   const client = String(form.get('client') ?? '').trim()
   const width = Number(form.get('width')) || null
   const height = Number(form.get('height')) || null
+  const aiUsed = readAiUsed(form)
 
   if (!(file instanceof File) || file.size === 0) return fail('이미지를 선택해 주세요.')
   if (description.length > MAX_DESCRIPTION) {
@@ -223,6 +275,7 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
       title: title || null,
       description: description || null,
       client: client || null,
+      ai_used: aiUsed,
       row_span: rowSpan,
       sort_order: count ?? 0,
     })
@@ -246,6 +299,9 @@ export type WorkInput = {
   /* 선택 입력 — 빈 문자열이면 지운다 */
   client: string
   rowSpan: number
+  /* 편집 화면은 체크박스로 받으므로 true/false 만 온다 —
+     한 번 편집하면 null(미응답)로 되돌릴 수 없다. 의도된 동작이다. */
+  aiUsed: boolean
 }
 
 export async function updateWork(input: WorkInput): Promise<Result> {
@@ -265,6 +321,7 @@ export async function updateWork(input: WorkInput): Promise<Result> {
       title: input.title.trim() || null,
       description: description || null,
       client: input.client.trim() || null,
+      ai_used: input.aiUsed,
       row_span: rowSpan,
     })
     .eq('id', input.id)

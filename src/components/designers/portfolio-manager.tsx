@@ -72,6 +72,10 @@ function AddButton({
   const fileRef = useRef<HTMLInputElement>(null)
   const [pending, start] = useTransition()
   const router = useRouter()
+  /* 고른 파일을 바로 올리지 않고 붙잡아 둔다 — AI 사용 여부를 먼저 묻는다.
+     기본값을 정해두면 아무 생각 없이 넘어가므로 고를 때까지 비워둔다. */
+  const [picked, setPicked] = useState<File | null>(null)
+  const [aiUsed, setAiUsed] = useState<boolean | null>(null)
 
   /* 올리기 전에 원본 크기를 읽어둔다 — 세로로 긴 이미지는 2칸으로 시작한다 */
   const measure = (file: File) =>
@@ -89,7 +93,7 @@ function AddButton({
       img.src = url
     })
 
-  const upload = (file: File) => {
+  const upload = (file: File, ai: boolean) => {
     onMessage(null)
     start(async () => {
       const { width, height } = await measure(file)
@@ -98,12 +102,18 @@ function AddButton({
       form.set('image', file)
       if (width) form.set('width', String(width))
       if (height) form.set('height', String(height))
+      /* 답했다는 사실과 답 자체를 따로 보낸다 — 체크하지 않은 체크박스는
+         브라우저가 전송하지 않아 '아니오'와 '묻지 않음'이 구분되지 않는다. */
+      form.set('aiAnswered', '1')
+      if (ai) form.set('aiUsed', '1')
 
       const r = await addWork(form)
       if (!r.ok) {
         onMessage({ ok: false, text: r.error })
         return
       }
+      setPicked(null)
+      setAiUsed(null)
       router.refresh()
     })
   }
@@ -117,7 +127,10 @@ function AddButton({
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0]
-          if (f) upload(f)
+          if (f) {
+            setPicked(f)
+            setAiUsed(null)
+          }
           e.target.value = ''
         }}
       />
@@ -127,9 +140,122 @@ function AddButton({
         disabled={disabled || pending}
         className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
       >
-        {pending ? '올리는 중…' : '작업 추가'}
+        작업 추가
       </button>
+
+      {picked && (
+        <AiPromptDialog
+          fileName={picked.name}
+          value={aiUsed}
+          onChange={setAiUsed}
+          pending={pending}
+          onCancel={() => {
+            setPicked(null)
+            setAiUsed(null)
+          }}
+          onConfirm={() => {
+            if (aiUsed === null) return
+            upload(picked, aiUsed)
+          }}
+        />
+      )}
     </>
+  )
+}
+
+/* ─────────── AI 사용 여부 ───────────
+
+   올리기 전에 한 번 묻는다. 기본값을 정해두면 그대로 통과해 버리므로
+   둘 중 하나를 직접 고를 때까지 올리는 버튼을 잠근다. */
+
+function AiPromptDialog({
+  fileName,
+  value,
+  onChange,
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  fileName: string
+  value: boolean | null
+  onChange: (v: boolean) => void
+  pending: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-sm rounded-xl bg-white p-5">
+        <h3 className="text-sm font-semibold">이 작업에 AI를 사용했나요?</h3>
+        <p className="mt-1.5 truncate text-xs text-neutral-500">{fileName}</p>
+
+        <div className="mt-4 space-y-2">
+          <AiChoice
+            checked={value === true}
+            onSelect={() => onChange(true)}
+            label="AI를 사용했습니다"
+            hint="생성·보정·업스케일 등 과정 일부에 썼다면 포함됩니다."
+          />
+          <AiChoice
+            checked={value === false}
+            onSelect={() => onChange(false)}
+            label="사용하지 않았습니다"
+            hint="전 과정을 직접 작업했습니다."
+          />
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            className="rounded-lg border border-neutral-300 px-3.5 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending || value === null}
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+          >
+            {pending ? '올리는 중…' : '올리기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AiChoice({
+  checked,
+  onSelect,
+  label,
+  hint,
+}: {
+  checked: boolean
+  onSelect: () => void
+  label: string
+  hint: string
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer gap-2.5 rounded-lg border p-3 transition ${
+        checked ? 'border-indigo-600 bg-indigo-50' : 'border-neutral-300 hover:bg-neutral-50'
+      }`}
+    >
+      <input
+        type="radio"
+        name="ai-used"
+        checked={checked}
+        onChange={onSelect}
+        className="mt-0.5 accent-indigo-600"
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">{hint}</span>
+      </span>
+    </label>
   )
 }
 
@@ -152,6 +278,9 @@ function WorkCard({
   const [description, setDescription] = useState(w.description ?? '')
   const [client, setClient] = useState(w.client ?? '')
   const [rowSpan, setRowSpan] = useState(w.row_span)
+  /* 묻기 전에 올라간 작업은 null 이다 — 체크박스로는 둘 중 하나만 고를 수
+     있으므로 '아직 답하지 않음'으로 보고 꺼진 상태에서 시작한다. */
+  const [aiUsed, setAiUsed] = useState(w.ai_used === true)
   const [pending, start] = useTransition()
   const router = useRouter()
 
@@ -181,11 +310,18 @@ function WorkCard({
         className={`h-full w-full ${w.visible ? '' : 'opacity-40'}`}
       />
 
-      {!w.visible && (
-        <span className="absolute left-2 top-2 rounded bg-neutral-900/80 px-1.5 py-0.5 text-[11px] text-white">
-          숨김
-        </span>
-      )}
+      <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+        {!w.visible && (
+          <span className="rounded bg-neutral-900/80 px-1.5 py-0.5 text-[11px] text-white">
+            숨김
+          </span>
+        )}
+        {w.ai_used && (
+          <span className="rounded bg-indigo-600/90 px-1.5 py-0.5 text-[11px] text-white">
+            AI
+          </span>
+        )}
+      </div>
 
       {!editing && (
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/70 to-transparent p-2">
@@ -224,6 +360,24 @@ function WorkCard({
               className="h-8 w-full rounded border border-neutral-300 px-2 text-xs outline-none ring-indigo-500 focus:ring-2"
             />
 
+            {/* AI 사용 여부 — 공개 화면에는 켠 것만 표기된다 */}
+            <label className="flex cursor-pointer items-start gap-2 rounded border border-neutral-300 p-2">
+              <input
+                type="checkbox"
+                checked={aiUsed}
+                onChange={(e) => setAiUsed(e.target.checked)}
+                className="mt-0.5 accent-indigo-600"
+              />
+              <span className="min-w-0">
+                <span className="block text-[11px] font-medium">AI 사용</span>
+                {w.ai_used === null && (
+                  <span className="mt-0.5 block text-[10px] leading-snug text-amber-700">
+                    아직 답하지 않은 작업입니다
+                  </span>
+                )}
+              </span>
+            </label>
+
             <div>
               <label className="flex items-center justify-between text-[11px] text-neutral-600">
                 세로 길이
@@ -250,6 +404,7 @@ function WorkCard({
                       description,
                       client,
                       rowSpan,
+                      aiUsed,
                     })
                     if (r.ok) onClose()
                     return r
@@ -263,6 +418,7 @@ function WorkCard({
               <button
                 onClick={() => {
                   setRowSpan(w.row_span)
+                  setAiUsed(w.ai_used === true)
                   onClose()
                 }}
                 disabled={pending}

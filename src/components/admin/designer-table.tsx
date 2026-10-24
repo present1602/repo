@@ -84,6 +84,21 @@ export function DesignerTable({ designers }: { designers: AdminDesignerListRow[]
               <Metrics activity={d.activity} />
             </Link>
 
+            {/* 공개 페이지 미리보기 — 행 전체 링크 안에 중첩하면 안 되므로 밖에 둔다.
+                숨겨진 프로필은 열어도 404 라 아예 버튼을 만들지 않는다. */}
+            {d.visible && d.profile_public && (
+              <Link
+                href={`/designers/${d.id}`}
+                target="_blank"
+                rel="noopener"
+                title="공개 페이지 보기 (새 탭)"
+                aria-label={`${displayName(d)} 공개 페이지 (새 탭)`}
+                className="shrink-0 rounded-md border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100"
+              >
+                공개 ↗
+              </Link>
+            )}
+
             <VisibleToggle designer={d} onError={setError} />
 
             <Link

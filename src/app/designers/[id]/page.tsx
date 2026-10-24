@@ -3,7 +3,8 @@ import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { getPublicDesigner } from '@/lib/public-designers'
 import { displayNameOf } from '@/lib/display-name'
-import { PLACEHOLDER_PLANS } from '@/lib/plans-placeholder'
+import { getPlanCopy } from '@/lib/site-settings'
+import { formatPrice } from '@/lib/plans'
 import { Img } from '@/components/img'
 import { WorkGallery } from '@/components/work-gallery'
 
@@ -36,6 +37,9 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
   const { id } = await params
   const d = await getPublicDesigner(id)
   if (!d) notFound()
+
+  /* 플랜 문구는 전역 설정 — 디자이너 조회와 함께 기다릴 필요가 없어 여기서 받는다 */
+  const copy = await getPlanCopy()
 
   const name = displayNameOf(d)
 
@@ -117,29 +121,22 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
         </section>
 
         <section className="border-t border-neutral-200 pt-10">
-          {/* ⚠ 플랜은 아직 DB에 없다 — 모든 디자이너에게 같은 값이 보인다.
-              의뢰인이 실제 금액으로 믿지 않도록 안내를 함께 띄운다. */}
-          <p className="mb-3 rounded-lg bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
-            아래 금액은 예시입니다. 실제 견적은 문의 후 안내됩니다.
-          </p>
-          <div className="grid gap-3 md:grid-cols-2">
-            {PLACEHOLDER_PLANS.map((p) => (
-              <div key={p.name} className="rounded-xl bg-neutral-50 p-6 ring-1 ring-neutral-200">
-                <div className="flex items-baseline justify-between">
-                  <p className="font-semibold">{p.name}</p>
-                  <p className="text-sm text-neutral-500">{p.period}</p>
-                </div>
-                <p className="mt-2 text-2xl font-bold tracking-tight">{p.price}</p>
-                <ul className="mt-4 space-y-1.5 text-sm text-neutral-600">
-                  {p.items.map((it) => (
-                    <li key={it} className="flex gap-2">
-                      <span className="text-indigo-600">·</span>
-                      {it}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          {/* 금액은 디자이너가 정하고, 이름·설명은 전역 설정에서 온다.
+              프리미엄은 디자이너가 끌 수 있어 한 장만 나올 수 있다 —
+              그때는 한 칸을 비우지 않고 폭을 채운다. */}
+          <div className={`grid gap-3 ${d.premium_enabled ? 'md:grid-cols-2' : ''}`}>
+            <PlanCard
+              name={copy.design_plan_name}
+              desc={copy.design_plan_desc}
+              price={d.design_price}
+            />
+            {d.premium_enabled && (
+              <PlanCard
+                name={copy.premium_plan_name}
+                desc={copy.premium_plan_desc}
+                price={d.premium_price}
+              />
+            )}
           </div>
         </section>
       </div>
@@ -183,6 +180,17 @@ function DetailSkeleton() {
           </div>
         </section>
       </div>
+    </div>
+  )
+}
+
+/* 공개 화면의 플랜 한 장 — 이름·설명은 전역 설정, 금액은 디자이너가 정한다 */
+function PlanCard({ name, desc, price }: { name: string; desc: string; price: number }) {
+  return (
+    <div className="rounded-xl bg-neutral-50 p-6 ring-1 ring-neutral-200">
+      <p className="font-semibold">{name}</p>
+      <p className="mt-2 text-2xl font-bold tracking-tight">{formatPrice(price)}</p>
+      <p className="mt-3 text-sm leading-relaxed text-neutral-600">{desc}</p>
     </div>
   )
 }

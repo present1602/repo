@@ -29,6 +29,11 @@ export type DesignerRow = {
   /* 디자이너 본인이 정하는 공개 여부 — false면 탐색 화면에서만 숨는다.
      visible 과 섞지 않는다(004_designer_activity.sql 주석 참고). */
   profile_public: boolean
+  /* 가격 플랜 — 정해진 보기 중에서 고른다(plans.ts).
+     디자인 플랜은 필수라 끄는 스위치가 없고, 프리미엄만 켜고 끌 수 있다. */
+  design_price: number
+  premium_price: number
+  premium_enabled: boolean
 }
 
 /* 화면으로 내려보내는 모양 — 비밀번호 해시를 뺀 나머지 전부 */
@@ -49,6 +54,9 @@ export type PublicWork = {
   description: string | null
   row_span: number
   client: string | null
+  /* AI 사용 여부 — true 일 때만 화면에 표기한다.
+     null(묻기 전에 올라간 작업)과 false 를 구분해 보여주지 않는다. */
+  ai_used: boolean | null
 }
 
 export type PublicDesigner = {
@@ -58,6 +66,10 @@ export type PublicDesigner = {
   one_liner: string | null
   bio: string | null
   tags: string[]
+  /* 가격 — 문구(이름·설명)는 전역 설정에서 따로 받는다 */
+  design_price: number
+  premium_price: number
+  premium_enabled: boolean
 }
 
 /* 상세 화면 — 프로필과 작업을 함께 받는다 */
@@ -68,6 +80,23 @@ export type PublicDesignerCard = PublicDesigner & {
   works: PublicWork[]
   works_total: number
 }
+
+/* 홈 피드 한 장 — 작업에 "누가 올렸는지"를 붙인 모양.
+
+   탐색 카드(PublicDesignerCard)와 방향이 반대다. 저쪽은 디자이너 아래에
+   작업이 달리고, 여기서는 작업마다 디자이너가 달린다. 홈은 여러 디자이너의
+   작업을 한 피드로 섞어 보여주기 때문이다.
+
+   디자이너 쪽은 피드에 실제로 쓰는 값만 담는다 — 프로필 전체를 실으면
+   작업 40장마다 소개글·가격까지 따라 나간다. */
+export type FeedDesigner = {
+  id: string
+  name: string | null
+  avatar_url: string | null
+  tags: string[]
+}
+
+export type FeedWork = PublicWork & { designer: FeedDesigner }
 
 /* 어드민 목록에 함께 싣는 집계. designer_activity 뷰에서 온다. */
 export type DesignerActivity = {
