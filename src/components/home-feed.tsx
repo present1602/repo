@@ -7,6 +7,7 @@ import { displayNameOf } from '@/lib/display-name'
 import { Img } from './img'
 import { WorkModal } from './work-modal'
 import { thumbOf } from './work-ratio'
+import { cropOf } from '@/lib/crop'
 
 /* 홈의 작업 피드 — 여러 디자이너의 작업을 한 벽으로 섞어 보여준다.
 
@@ -54,20 +55,39 @@ export function HomeFeed({ works }: { works: FeedWork[] }) {
 }
 
 /* 썸네일 — 상세 화면과 같은 규칙으로 자리를 잡는다(work-ratio.ts).
-   1:1.8 보다 긴 이미지는 거기서 끊고 아래를 흰색으로 녹인다. */
+   1:1.8 보다 긴 이미지는 거기서 끊고 아래를 흰색으로 녹인다.
+
+   thumb_url 은 목록용으로 작게 만들어 둔 파일이라 영역을 잡아 뒀으면
+   이미 잘려 있다 — 여기서 다시 자르지 않고 자리 비율만 맞춘다
+   (work-gallery.tsx 와 같은 방침). */
 function Thumbnail({ work: w }: { work: FeedWork }) {
+  const crop = cropOf(w)
+  const cropped = crop && w.width && w.height
   const { cls, clipped } = thumbOf(w)
 
   return (
-    <div className="relative overflow-hidden rounded-xl">
-      <Img
-        src={w.image_url}
-        alt={w.title ?? ''}
-        ratio={cls}
-        className="transition duration-500 group-hover:scale-[1.03]"
-      />
+    <div
+      className="relative overflow-hidden rounded-xl"
+      style={cropped ? { aspectRatio: `${(w.width! * crop.w) / (w.height! * crop.h)}` } : undefined}
+    >
+      {cropped ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={w.thumb_url}
+          alt={w.title ?? ''}
+          loading="lazy"
+          className="size-full object-cover transition duration-500 group-hover:scale-[1.03]"
+        />
+      ) : (
+        <Img
+          src={w.thumb_url}
+          alt={w.title ?? ''}
+          ratio={cls}
+          className="transition duration-500 group-hover:scale-[1.03]"
+        />
+      )}
 
-      {clipped && (
+      {!cropped && clipped && (
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-white"

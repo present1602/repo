@@ -17,6 +17,10 @@ export function DesignerList({
   const [tag, setTag] = useState<string | null>(null)
   const [q, setQ] = useState('')
 
+  /* 한 행에 카드를 몇 장 깔지. 좁은 화면에서는 2열이 너무 답답해
+     아래 그리드에서 md 이상일 때만 2열이 된다. */
+  const [cols, setCols] = useState<1 | 2>(1)
+
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return designers.filter((d) => {
@@ -55,9 +59,29 @@ export function DesignerList({
       <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
         {/* 타이틀 영역 우측 끝에 키워드 검색 */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{tag ?? '모든 디자이너'}</h1>
-            <p className="mt-1 text-sm text-neutral-500">{list.length}명 · 작업물로 먼저 확인하세요</p>
+          <div className="flex items-start gap-3">
+            {/* 보기 전환 — 좁은 화면에서는 어차피 1열이라 띄우지 않는다 */}
+            <div className="hidden shrink-0 gap-0.5 rounded-lg bg-white p-0.5 ring-1 ring-neutral-300 md:flex">
+              <ColumnButton on={cols === 1} onClick={() => setCols(1)} label="1열로 보기">
+                {/* 가로로 넓은 칸 하나 */}
+                <rect x="2" y="3" width="12" height="4.5" rx="1" />
+                <rect x="2" y="8.5" width="12" height="4.5" rx="1" />
+              </ColumnButton>
+              <ColumnButton on={cols === 2} onClick={() => setCols(2)} label="2열로 보기">
+                {/* 좌우로 나뉜 칸 둘 */}
+                <rect x="2" y="3" width="5.5" height="10" rx="1" />
+                <rect x="8.5" y="3" width="5.5" height="10" rx="1" />
+              </ColumnButton>
+            </div>
+
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+                {tag ?? '모든 디자이너'}
+              </h1>
+              <p className="mt-1 text-sm text-neutral-500">
+                {list.length}명 · 작업물로 먼저 확인하세요
+              </p>
+            </div>
           </div>
 
           <input
@@ -81,25 +105,35 @@ export function DesignerList({
           </div>
         )}
 
-        <div className="space-y-4">
+        {/* 2열은 넓은 화면에서만 — 좁은 화면에서 반으로 쪼개면
+            썸네일 줄이 한두 장밖에 들어가지 않는다.
+            클래스는 통째로 적는다: Tailwind 는 빌드 때 글자를 훑으므로
+            `grid-cols-${n}` 처럼 조립하면 CSS 에 그 클래스가 없다. */}
+        <div
+          className={`grid gap-4 ${cols === 2 ? 'md:grid-cols-2' : 'grid-cols-1'}`}
+        >
           {list.map((d) => (
             <DesignerCard key={d.id} designer={d} />
           ))}
-
-          {list.length === 0 && (
-            <p className="py-20 text-center text-sm text-neutral-500">
-              {designers.length === 0
-                ? '아직 공개된 디자이너가 없습니다.'
-                : '조건에 맞는 디자이너가 없습니다.'}
-            </p>
-          )}
         </div>
+
+        {list.length === 0 && (
+          <p className="py-20 text-center text-sm text-neutral-500">
+            {designers.length === 0
+              ? '아직 공개된 디자이너가 없습니다.'
+              : '조건에 맞는 디자이너가 없습니다.'}
+          </p>
+        )}
       </main>
     </div>
   )
 }
 
-function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) {
+/* 목록 한 줄.
+
+   어드민 미리보기(designer-detail.tsx)도 이것을 그대로 쓴다 —
+   베껴 두면 한쪽만 고쳐져 "실제로 이렇게 보인다"가 거짓이 된다. */
+export function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) {
   const href = `/designers/${d.id}`
   const name = displayNameOf(d)
 
@@ -149,7 +183,7 @@ function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) {
               className="group relative h-full shrink-0 overflow-hidden rounded-lg"
             >
               <Img
-                src={w.image_url}
+                src={w.thumb_url}
                 alt={w.title ?? ''}
                 className={`h-full transition duration-500 group-hover:scale-[1.03] ${
                   isLandscape(w) ? 'aspect-[16/10]' : 'aspect-[9/16]'
@@ -219,6 +253,40 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       }`}
     >
       {children}
+    </button>
+  )
+}
+
+/* 1열·2열 전환 버튼.
+
+   children 으로 아이콘의 도형만 받는다 — 두 아이콘이 크기·색을 공유하므로
+   svg 껍데기를 양쪽에 베껴 두면 한쪽만 고쳐질 여지가 생긴다.
+   아이콘뿐이라 이름은 aria-label 로 남긴다. */
+function ColumnButton({
+  on,
+  onClick,
+  label,
+  children,
+}: {
+  on: boolean
+  onClick: () => void
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={on}
+      title={label}
+      className={`rounded-md p-1.5 transition ${
+        on ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100'
+      }`}
+    >
+      <svg viewBox="0 0 16 16" fill="currentColor" className="size-4">
+        {children}
+      </svg>
     </button>
   )
 }

@@ -1,6 +1,6 @@
 import 'server-only'
 import { supabaseAdmin } from './supabase-admin'
-import { MAX_WORKS } from './portfolio-limits'
+import { MAX_WORKS, CARD_THUMBS } from './portfolio-limits'
 import type {
   PublicWork,
   PublicDesignerCard,
@@ -24,30 +24,38 @@ import type {
    컬럼이 늘 때 temp_password 같은 값이 조용히 함께 나간다. */
 const DESIGNER_COLS =
   'id, name, avatar_url, one_liner, bio, tags, design_price, premium_price, premium_enabled'
+const CROP_COLS = 'crop_x, crop_y, crop_w, crop_h'
 const WORK_COLS =
-  'id, designer_id, image_url, width, height, title, description, row_span, client, ai_used, sort_order'
+  `id, designer_id, image_url, thumb_url, width, height, title, description, row_span, client, ai_used, ${CROP_COLS}, sort_order`
 
-/* 008 마이그레이션 전에도 화면이 뜨게 하는 대비책.
+/* 008·009 마이그레이션 전에도 화면이 뜨게 하는 대비책.
 
-   ai_used 가 없는 DB 에서는 위 질의가 통째로 실패한다 — 컬럼 하나 때문에
-   홈·탐색·상세가 전부 비는 건 과하다. 007 이 featured 에 쓴 방침과 같게,
-   표기 기능만 쉬고 화면은 평소대로 뜨게 한다.
-   008 을 적용하고 나면 selectWorks 의 재시도는 지워도 된다.
+   없는 컬럼을 물으면 질의가 통째로 실패한다 — 컬럼 하나 때문에 홈·탐색·
+   상세가 전부 비는 건 과하다. 007 이 featured 에 쓴 방침과 같게, 그 컬럼이
+   쓰이는 기능만 쉬고 화면은 평소대로 뜨게 한다.
+   008·009·010 을 적용하고 나면 이 재시도는 지워도 된다. */
+const OPTIONAL_COLS = ['ai_used', 'thumb_url', ...CROP_COLS.split(', ')]
 
-   ai_used 가 없어서 실패했으면 그 컬럼만 빼고 한 번 더 묻는다.
+/* 아직 없는 컬럼 때문에 실패했으면 그것만 빼고 한 번 더 묻는다.
 
    질의마다 필터 체인이 달라 결과를 공통으로 감쌀 수 없으므로,
-   컬럼 목록을 받아 질의를 만드는 함수를 넘겨받는다. 재시도는
-   ai_used 가 원인일 때만 한다 — 권한·네트워크 실패까지 다시 물으면
-   원인이 가려지고 호출만 두 배가 된다. */
+   컬럼 목록을 받아 질의를 만드는 함수를 넘겨받는다. 재시도는 위 목록의
+   컬럼이 원인일 때만 한다 — 권한·네트워크 실패까지 다시 물으면
+   원인이 가려지고 호출만 두 배가 된다.
+
+   한 번에 전부 빼고 다시 묻는다. 하나씩 빼며 되묻으면 008·009 를 둘 다
+   건너뛴 DB 에서 질의가 여러 번 왕복한다. */
 async function selectWorks<T>(
   build: (cols: string) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
   cols: string = WORK_COLS,
 ) {
   const first = await build(cols)
-  if (!first.error || !first.error.message.includes('ai_used')) return first
+  const msg = first.error?.message
+  if (!msg || !OPTIONAL_COLS.some((c) => msg.includes(c))) return first
 
-  return build(cols.replace(', ai_used', ''))
+  let fallback = cols
+  for (const c of OPTIONAL_COLS) fallback = fallback.replace(`, ${c}`, '')
+  return build(fallback)
 }
 
 /* 홈 피드는 정렬에 featured_at 을 쓰므로 함께 받아야 한다 —
@@ -55,10 +63,16 @@ async function selectWorks<T>(
    어느 것이 "고른 작업"인지 코드에서 구분해야 해서 같이 들고 온다. */
 const FEED_WORK_COLS = `${WORK_COLS}, featured, featured_at`
 
-/* 카드에 미리 보여줄 썸네일 장수 — 나머지는 "+N개 더보기" 로 접는다 */
-export const CARD_THUMBS = 4
+/* 카드에 미리 보여줄 썸네일 장수. 값은 portfolio-limits.ts 에 있다 —
+   어드민 미리보기(클라이언트 컴포넌트)도 같은 값을 써야 하는데, 이 모듈은
+   server-only 라 거기서 가져갈 수 없다. 기존 import 경로를 지키려고
+   여기서 다시 내보낸다. */
+export { CARD_THUMBS } from './portfolio-limits'
 
-type WorkWithOwner = PublicWork & {
+/* DB 에서 막 읽은 모양 — thumb_url 이 아직 빌 수 있다.
+   strip() 이 원본으로 메워 내보내므로, 그 바깥에서는 늘 채워져 있다. */
+type WorkWithOwner = Omit<PublicWork, 'thumb_url'> & {
+  thumb_url: string | null
   designer_id: string
   sort_order: number
   /* 홈 피드 질의에서만 함께 온다 — 공개 화면으로는 내보내지 않는다 */
@@ -131,6 +145,56 @@ export async function listPublicDesigners(): Promise<PublicDesignerCard[]> {
       works: works.slice(0, CARD_THUMBS).map(strip),
     }
   })
+}
+
+/* 어드민 미리보기 — 목록에 어떻게 실릴지 한 명만 카드 모양으로.
+
+   listPublicDesigners 와 달리 공개 여부를 묻지 않는다. 아직 숨겨 둔
+   디자이너의 카드도 미리 봐야 하기 때문이다 — 공개 전에 확인하는 것이
+   이 화면의 쓰임이다. 어드민 전용이므로 호출부에서 권한을 확인한다.
+
+   작업은 디자이너가 숨긴 것(visible=false)만 뺀다. 공개 목록과 같은
+   규칙이라야 "실제로 이렇게 보인다"가 맞는 말이 된다. */
+export async function getDesignerCardPreview(id: string): Promise<PublicDesignerCard | null> {
+  if (!supabaseAdmin) return null
+  const db = supabaseAdmin
+
+  if (!isUuid(id)) return null
+
+  const { data, error } = await db
+    .from('designers')
+    .select(DESIGNER_COLS)
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[admin] 카드 미리보기 조회 실패:', error.message)
+    return null
+  }
+  if (!data) return null
+
+  const { data: workRows, error: workError } = await selectWorks<WorkWithOwner>((cols) =>
+    db
+      .from('designer_works')
+      .select(cols)
+      .eq('designer_id', id)
+      .eq('visible', true)
+      .overrideTypes<WorkWithOwner[]>(),
+  )
+
+  if (workError) {
+    console.error('[admin] 카드 미리보기 작업 조회 실패:', workError.message)
+    return { ...(data as PublicDesignerCard), works: [], works_total: 0 }
+  }
+
+  const works = ((workRows ?? []) as WorkWithOwner[]).sort(byOrder)
+
+  return {
+    ...(data as PublicDesignerCard),
+    /* 총 개수는 자르기 전에 센다 — "+N개" 가 틀리지 않게 */
+    works_total: works.length,
+    works: works.slice(0, CARD_THUMBS).map(strip),
+  }
 }
 
 /* 상세 화면 — 프로필 + 공개된 작업 전부.
@@ -281,12 +345,19 @@ export async function listRecentWorks(limit: number): Promise<FeedWork[]> {
   return feed
 }
 
-/* 공개 화면에 보낼 모양으로 — 묶는 데만 쓴 두 값을 떼어낸다 */
+/* 공개 화면에 보낼 모양으로 — 묶는 데만 쓴 두 값을 떼어낸다.
+
+   thumb_url 이 비는 경우를 여기서 한 번만 메운다. 화면마다 "없으면 원본"
+   을 적으면 그 분기가 카드·피드·모달에 흩어져 영영 남는다. 내보내는
+   모양(PublicWork)에서 string 으로 보장하면 화면은 그냥 쓰면 된다.
+
+   비는 때는 둘뿐이다 — 010 마이그레이션 전이거나, 썸네일을 만들지 못해
+   원본으로 올린 작업. 둘 다 원본을 쓰는 것이 맞는 답이다. */
 function strip(w: WorkWithOwner): PublicWork {
   /* eslint-disable-next-line @typescript-eslint/no-unused-vars --
      묶기·정렬에만 쓴 값들을 떼어낸다 */
   const { designer_id, sort_order, featured, featured_at, ...rest } = w
-  return rest
+  return { ...rest, thumb_url: rest.thumb_url || rest.image_url }
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { DesignerList } from '@/components/designer-list'
 import { listPublicDesigners, collectTags } from '@/lib/public-designers'
+import { listVisibleSpecialties } from '@/lib/specialties'
 
 export const metadata: Metadata = {
   title: '탐색 · folio',
@@ -22,9 +23,17 @@ export default function ExplorePage() {
 }
 
 async function ExploreContent() {
-  const designers = await listPublicDesigners()
+  const [designers, managed] = await Promise.all([
+    listPublicDesigners(),
+    listVisibleSpecialties(),
+  ])
 
-  return <DesignerList designers={designers} tags={collectTags(designers)} />
+  /* 어드민이 정한 목록을 쓴다(011_specialties.sql). 비어 있으면 —
+     마이그레이션 전이거나 아직 하나도 등록하지 않았으면 — 지금까지처럼
+     디자이너가 적어 둔 값을 모아 쓴다. 필터가 통째로 비는 것보다 낫다. */
+  const tags = managed.length > 0 ? managed : collectTags(designers)
+
+  return <DesignerList designers={designers} tags={tags} />
 }
 
 /* 실제 화면과 같은 골격으로 둔다 — 목록이 들어올 때 레이아웃이 튀지 않게 */

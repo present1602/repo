@@ -7,6 +7,7 @@ import { getPlanCopy } from '@/lib/site-settings'
 import { formatPrice } from '@/lib/plans'
 import { Img } from '@/components/img'
 import { WorkGallery } from '@/components/work-gallery'
+import { InquiryButtons } from '@/components/inquiry/inquiry-buttons'
 
 /* 공개 여부가 수시로 바뀌므로 캐시하지 않는다 — 비공개로 돌리면 곧 404 가 된다.
    "use cache" 를 쓰지 않으면 cacheComponents 아래에서 요청마다 새로 읽는다.
@@ -43,16 +44,9 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
 
   const name = displayNameOf(d)
 
-  const actions = (
-    <div className="flex gap-2">
-      <button className="flex-1 rounded-lg border border-neutral-300 px-6 py-3 text-sm font-medium transition hover:bg-neutral-100 md:flex-none">
-        문의하기
-      </button>
-      <button className="flex-1 rounded-lg bg-neutral-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-600 md:flex-none">
-        의뢰하기
-      </button>
-    </div>
-  )
+  /* 폼을 띄우려면 상태가 필요하다 — 이 페이지는 서버 컴포넌트이므로
+     버튼만 클라이언트 쪽으로 떼어 둔다 */
+  const actions = <InquiryButtons designerName={name} />
 
   return (
     <div className="flex-1 bg-white">

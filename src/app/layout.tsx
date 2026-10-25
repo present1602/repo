@@ -24,7 +24,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-neutral-100 text-neutral-900">
+      {/* min-h-screen — 내용이 짧아도 화면 끝까지 늘어난다.
+          min-h-full(=100%) 은 부모 높이에 기대므로 내용만큼만 차지해,
+          스튜디오 좌측 메뉴 같은 세로 레이아웃이 바닥까지 닿지 못한다. */}
+      <body className="flex min-h-screen flex-col bg-neutral-100 text-neutral-900">
         <Navbar />
         <div className="flex flex-1 flex-col">{children}</div>
       </body>

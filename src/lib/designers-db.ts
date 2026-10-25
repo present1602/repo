@@ -60,6 +60,29 @@ export async function listWorksForFeature(): Promise<FeaturedCandidate[]> {
   return (data ?? []) as FeaturedCandidate[]
 }
 
+/* 메인에 걸어 둔 작업만 — 어드민 첫 화면이 쓴다.
+
+   후보 전체(listWorksForFeature)는 고르는 화면에서만 받는다. 첫 화면은
+   지금 구성만 보여주면 되므로 500개를 다 받을 이유가 없다. */
+export async function listFeaturedWorks(): Promise<FeaturedCandidate[]> {
+  if (!supabaseAdmin) return []
+
+  const { data, error } = await supabaseAdmin
+    .from('designer_works')
+    .select('*, designer:designers!inner(id, name, email, avatar_url, visible, profile_public)')
+    .eq('featured', true)
+    /* 고른 차례대로 — 메인도 이 순서로 깔린다(public-designers.ts) */
+    .order('featured_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    /* 007 마이그레이션 전이면 featured 컬럼이 없다 — 화면은 비우고 넘어간다 */
+    console.error('[works] 메인 노출 목록 조회 실패:', error.message)
+    return []
+  }
+  return (data ?? []) as FeaturedCandidate[]
+}
+
 /* 관리 화면 목록 — 숨긴 계정까지 전부 */
 export async function listAllDesigners(): Promise<DesignerRow[]> {
   if (!supabaseAdmin) return []

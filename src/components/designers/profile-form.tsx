@@ -4,17 +4,34 @@ import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import { MAX_BIO } from '@/lib/portfolio-limits'
+import { MAX_TAGS } from '@/lib/specialty-shape'
 import { updateProfile, updateAvatar, setProfilePublic } from '@/app/studio/actions'
 import { Img } from '@/components/img'
 
-export function ProfileForm({ designer: d }: { designer: AdminDesigner }) {
+export function ProfileForm({
+  designer: d,
+  options,
+}: {
+  designer: AdminDesigner
+  /* 고를 수 있는 분야 — 어드민이 켜 둔 것만 온다(011_specialties.sql) */
+  options: string[]
+}) {
   const [name, setName] = useState(d.name ?? '')
   const [oneLiner, setOneLiner] = useState(d.one_liner ?? '')
   const [bio, setBio] = useState(d.bio ?? '')
+  /* 서버에는 지금까지처럼 쉼표 문자열로 보낸다 — 화면만 체크박스로 바뀌었다 */
   const [tags, setTags] = useState(d.tags.join(', '))
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, start] = useTransition()
   const router = useRouter()
+
+  /* 지금 고른 분야. 목록에 없는 것(어드민이 바꾸거나 지운 이름)은
+     체크박스로 끌 수 없으므로 따로 모아 알려준다. */
+  const picked = tags
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const orphans = picked.filter((t) => !options.includes(t))
 
   /* 관리자가 이름을 정해줬으면 잠겨 있다 — 변경은 관리자에게 요청한다 */
   const locked = d.name_locked
@@ -106,17 +123,62 @@ export function ProfileForm({ designer: d }: { designer: AdminDesigner }) {
           </span>
         </label>
 
-        <label className="block">
+        {/* 전문 분야 — 어드민이 정한 목록에서 고른다(011_specialties.sql).
+            자유 입력을 두면 같은 분야가 조금씩 다른 이름으로 서서
+            탐색 필터가 금세 지저분해진다. */}
+        <div>
           <span className="mb-1.5 block text-xs font-medium text-neutral-600">
-            전문 분야 <span className="font-normal text-neutral-400">(쉼표로 구분)</span>
+            전문 분야{' '}
+            <span className="font-normal text-neutral-400">(최대 {MAX_TAGS}개)</span>
           </span>
-          <input
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            placeholder="UX/UI, 브랜딩"
-            className={input}
-          />
-        </label>
+
+          {options.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-neutral-300 px-3 py-4 text-xs text-neutral-500">
+              아직 고를 수 있는 분야가 없습니다. 관리자에게 문의해 주세요.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {options.map((name) => {
+                const on = picked.includes(name)
+                /* 상한에 닿으면 켜져 있는 것만 끌 수 있다 */
+                const blocked = !on && picked.length >= MAX_TAGS
+                return (
+                  <label
+                    key={name}
+                    className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm transition ${
+                      on
+                        ? 'border-indigo-600 bg-indigo-50 font-medium text-indigo-700'
+                        : blocked
+                          ? 'border-neutral-200 text-neutral-300'
+                          : 'cursor-pointer border-neutral-300 hover:bg-neutral-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      disabled={blocked}
+                      onChange={() =>
+                        setTags(
+                          (on ? picked.filter((t) => t !== name) : [...picked, name]).join(', '),
+                        )
+                      }
+                      className="accent-indigo-600"
+                    />
+                    {name}
+                  </label>
+                )
+              })}
+            </div>
+          )}
+
+          {/* 목록에서 빠진 분야를 쓰고 있으면 알려준다 — 어드민이 이름을
+              바꾸거나 지운 경우다. 저장하면 사라지므로 미리 보여준다. */}
+          {orphans.length > 0 && (
+            <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
+              {orphans.join(', ')} — 지금은 고를 수 없는 분야입니다. 저장하면 빠집니다.
+            </p>
+          )}
+        </div>
 
         <div className="flex items-center gap-2 pt-1">
           <button

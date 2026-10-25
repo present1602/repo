@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { AdminDesigner } from '@/lib/designer-shape'
-import { MAX_BIO } from '@/lib/portfolio-limits'
+import type { AdminDesigner, PublicDesignerCard } from '@/lib/designer-shape'
+import { DesignerCard } from '@/components/designer-list'
+import { MAX_BIO, CARD_THUMBS } from '@/lib/portfolio-limits'
 import { formatPrice } from '@/lib/plans'
 import { displayName } from '@/lib/display-name'
 import {
@@ -17,8 +18,16 @@ import { Field, input, ghostButton } from './form-bits'
 
 type Notice = { kind: 'ok' | 'warn' | 'error'; text: string } | null
 
-export function DesignerDetail({ designer: d }: { designer: AdminDesigner }) {
+export function DesignerDetail({
+  designer: d,
+  cardPreview,
+}: {
+  designer: AdminDesigner
+  /* 목록에 어떻게 실릴지 — 공개 전이라 아직 안 보이는 경우에도 받는다 */
+  cardPreview: PublicDesignerCard | null
+}) {
   const [notice, setNotice] = useState<Notice>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   return (
     <div className="min-w-0 space-y-6">
@@ -43,6 +52,19 @@ export function DesignerDetail({ designer: d }: { designer: AdminDesigner }) {
                 ? '계정이 비활성이라 공개 페이지가 열리지 않습니다.'
                 : '디자이너가 프로필을 숨겨 공개 페이지가 열리지 않습니다.'}
             </p>
+          )}
+
+          {/* 목록에 어떻게 실릴지 — 공개 전에도 확인할 수 있어야 하므로
+              위 조건(공개 여부) 바깥에 둔다. 공개 페이지는 숨기면 404 지만
+              이것은 어드민 화면 안에서 그려 보이는 미리보기다. */}
+          {cardPreview && (
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className="mt-1.5 block text-sm font-medium text-indigo-600 transition hover:text-indigo-800"
+            >
+              목록 페이지 미리보기
+            </button>
           )}
         </div>
         <div className="flex items-center gap-1.5">
@@ -87,6 +109,94 @@ export function DesignerDetail({ designer: d }: { designer: AdminDesigner }) {
       <PlanSummary designer={d} />
 
       <AccountSection designer={d} onNotice={setNotice} />
+
+      {previewOpen && cardPreview && (
+        <ListPreviewDialog designer={cardPreview} onClose={() => setPreviewOpen(false)} />
+      )}
+    </div>
+  )
+}
+
+/* ─────────── 목록 미리보기 ───────────
+
+   탐색 목록에서 이 디자이너만 걸러낸 모습을 그대로 보여준다.
+   카드는 공개 화면과 같은 컴포넌트(DesignerCard)를 쓴다 — 베껴 두면
+   한쪽만 고쳐져 "실제로 이렇게 보인다"가 거짓이 된다.
+
+   좁은 좌측 칸이 아니라 넓은 모달에 띄운다. 실제 목록은 사이드바를 뺀
+   폭을 쓰므로, 좁은 칸에 끼워 넣으면 썸네일이 몇 장 안 보여 미리보기
+   구실을 못 한다. */
+function ListPreviewDialog({
+  designer: d,
+  onClose,
+}: {
+  designer: PublicDesignerCard
+  onClose: () => void
+}) {
+  /* Esc 로 닫고, 열려 있는 동안 뒤쪽이 스크롤되지 않게 한다 */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [onClose])
+
+  const hidden = !d.works.length
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 md:p-8"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-5xl rounded-xl bg-white p-5 md:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">목록 페이지 미리보기</h3>
+            <p className="mt-1 text-xs text-neutral-500">
+              탐색 목록에서 이 디자이너만 검색했을 때의 한 줄입니다. 썸네일은 최대{' '}
+              {CARD_THUMBS}장까지 실립니다.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="닫기"
+            className="shrink-0 rounded p-1 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* 실제 목록과 같은 바탕색 위에 올려야 카드가 같은 느낌으로 보인다 */}
+        <div className="rounded-lg bg-neutral-100 p-4">
+          <DesignerCard designer={d} />
+        </div>
+
+        <div className="mt-3 space-y-1">
+          {hidden && (
+            <p className="text-xs text-amber-700">
+              공개된 작업이 없어 썸네일 줄이 비어 있습니다.
+            </p>
+          )}
+          {d.works_total > CARD_THUMBS && (
+            <p className="text-xs text-neutral-500">
+              작업 {d.works_total}개 중 {CARD_THUMBS}장이 실리고, 나머지
+              {d.works_total - CARD_THUMBS}개는 &lsquo;+더보기&rsquo;로 접힙니다.
+            </p>
+          )}
+          <p className="text-xs text-neutral-400">
+            포트폴리오 순서를 바꾸면 여기 실리는 썸네일도 함께 바뀝니다.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

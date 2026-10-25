@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
 import { supabaseConfigured } from '@/lib/supabase-admin'
 import { getPlanCopy } from '@/lib/site-settings'
+import { listAllSpecialties } from '@/lib/specialties'
 import { PlanCopyForm } from '@/components/admin/plan-copy-form'
+import { SpecialtyManager } from '@/components/admin/specialty-manager'
 
 export const metadata: Metadata = {
   title: '설정 · folio',
@@ -16,7 +18,8 @@ export default async function AdminSettingsPage() {
   const user = await getAdminUser()
   if (!user) redirect('/admin/login')
 
-  const copy = await getPlanCopy()
+  /* 둘은 서로 기다릴 이유가 없다 */
+  const [copy, specialties] = await Promise.all([getPlanCopy(), listAllSpecialties()])
 
   return (
     <main className="min-w-0 flex-1 px-5 py-6 md:px-8">
@@ -33,8 +36,9 @@ export default async function AdminSettingsPage() {
         </p>
       )}
 
-      <div className="max-w-2xl">
+      <div className="max-w-2xl space-y-6">
         <PlanCopyForm copy={copy} />
+        <SpecialtyManager specialties={specialties} />
       </div>
     </main>
   )

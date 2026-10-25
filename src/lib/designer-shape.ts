@@ -47,7 +47,11 @@ export type AdminDesigner = Omit<DesignerRow, 'password_hash'>
 
 export type PublicWork = {
   id: string
+  /* 원본 — 상세 모달처럼 크게 띄우는 자리에 쓴다 */
   image_url: string
+  /* 목록·피드용 작은 이미지(010_work_thumbnails.sql).
+     조회 계층이 항상 채워 내보내므로 화면은 분기 없이 그냥 쓴다. */
+  thumb_url: string
   width: number | null
   height: number | null
   title: string | null
@@ -57,6 +61,12 @@ export type PublicWork = {
   /* AI 사용 여부 — true 일 때만 화면에 표기한다.
      null(묻기 전에 올라간 작업)과 false 를 구분해 보여주지 않는다. */
   ai_used: boolean | null
+  /* 어드민이 잡아 둔 썸네일 영역 — 원본에 대한 0~1 비율.
+     넷 다 null 이면 work-ratio.ts 규칙으로 자리를 잡는다. */
+  crop_x: number | null
+  crop_y: number | null
+  crop_w: number | null
+  crop_h: number | null
 }
 
 export type PublicDesigner = {

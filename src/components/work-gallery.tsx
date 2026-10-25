@@ -5,6 +5,7 @@ import type { PublicWork } from '@/lib/designer-shape'
 import { Img } from './img'
 import { WorkModal } from './work-modal'
 import { thumbOf } from './work-ratio'
+import { cropOf } from '@/lib/crop'
 
 export function WorkGallery({ works }: { works: PublicWork[] }) {
   const [index, setIndex] = useState<number | null>(null)
@@ -53,16 +54,39 @@ export function WorkGallery({ works }: { works: PublicWork[] }) {
 
 /* 썸네일 한 장.
 
-   1:1.8 보다 세로로 긴 이미지는 그 비율에서 끊고(object-top 이라 위가 남는다)
-   아래쪽을 흰색으로 흐리게 덮는다 — 잘린 게 아니라 "이어진다"로 읽히게 한다.
-   모달을 열면 원본 전체를 볼 수 있다. */
+   thumb_url 은 목록용으로 작게 만들어 둔 파일이다 — 어드민이 영역을
+   잡아 뒀으면 이미 그 영역만 잘려 있다(make-thumb.ts). 그래서 여기서
+   다시 자를 일이 없다. 모달을 열면 원본 전체를 볼 수 있다.
+
+   영역을 잡지 않은 작업은 원본 비율 그대로 줄여 둔 것이라, 1:1.8 보다
+   세로로 긴 경우 그 비율에서 끊고(object-top 이라 위가 남는다) 아래쪽을
+   흰색으로 흐리게 덮는다 — 잘린 게 아니라 "이어진다"로 읽히게 한다. */
 function Thumbnail({ work: w }: { work: PublicWork }) {
+  /* 영역을 잡아 둔 작업은 그 비율로 자리를 잡는다. 자동 규칙(work-ratio.ts)
+     보다 사람이 고른 구도가 우선이고, 의도해서 자른 것이므로
+     "이어진다"는 페이드도 덮지 않는다. */
+  const crop = cropOf(w)
+  if (crop && w.width && w.height) {
+    const ratio = (w.width * crop.w) / (w.height * crop.h)
+    return (
+      <div className="relative overflow-hidden rounded-lg" style={{ aspectRatio: `${ratio}` }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={w.thumb_url}
+          alt={w.title ?? ''}
+          loading="lazy"
+          className="size-full object-cover transition duration-500 group-hover:opacity-90"
+        />
+      </div>
+    )
+  }
+
   const { cls, clipped } = thumbOf(w)
 
   return (
     <div className="relative overflow-hidden rounded-lg">
       <Img
-        src={w.image_url}
+        src={w.thumb_url}
         alt={w.title ?? ''}
         ratio={cls}
         className="transition duration-500 group-hover:opacity-90"

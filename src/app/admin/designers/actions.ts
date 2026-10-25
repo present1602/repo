@@ -253,6 +253,36 @@ function readAiUsed(form: FormData): boolean | null {
   return form.get('aiUsed') != null
 }
 
+/* 썸네일 영역을 폼에서 읽는다(009_work_thumb_crop.sql).
+
+   넷을 따로 넣지 않고 한 덩어리로 다룬다 — 일부만 채워진 상태는
+   DB check 제약이 거부하므로, 하나라도 비거나 범위를 벗어나면
+   통째로 미지정으로 돌린다. */
+function readCrop(form: FormData) {
+  const n = (k: string) => {
+    const raw = form.get(k)
+    if (raw == null) return null
+    const v = Number(raw)
+    return Number.isFinite(v) ? v : null
+  }
+
+  const x = n('cropX')
+  const y = n('cropY')
+  const w = n('cropW')
+  const h = n('cropH')
+
+  const none = { crop_x: null, crop_y: null, crop_w: null, crop_h: null }
+  if (x == null || y == null || w == null || h == null) return none
+
+  /* 화면에서도 막지만 서버 액션은 누구나 부를 수 있다 —
+     범위를 벗어난 값은 제약에 걸려 등록 전체가 실패하므로 여기서 거른다. */
+  const sane =
+    x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= 1.0001 && y + h <= 1.0001
+  if (!sane) return none
+
+  return { crop_x: x, crop_y: y, crop_w: w, crop_h: h }
+}
+
 /* 어드민이 디자이너를 대신해 작업을 올린다.
 
    본인용(app/studio/actions.ts)은 세션에서 id 를 꺼내 범위를 묶지만,
@@ -287,6 +317,18 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
   const up = await putImage(file, `works/${designerId}`)
   if (!up.ok) return fail(up.error)
 
+  /* 썸네일 — 화면에서 만들어 함께 보낸다(make-thumb.ts).
+     못 만들었으면 원본을 가리킨다: 목록이 느려질 뿐이고, 여기서 막으면
+     올리는 일 자체가 멈춘다. 화면 코드가 분기를 갖지 않도록
+     thumb_url 은 항상 채워 둔다. */
+  const thumb = form.get('thumb')
+  let thumbUrl = up.url
+  if (thumb instanceof File && thumb.size > 0) {
+    const t = await putImage(thumb, `works/${designerId}/thumbs`)
+    if (t.ok) thumbUrl = t.url
+    else console.error('[works] 썸네일 저장 실패, 원본으로 대체:', t.error)
+  }
+
   /* 세로로 긴 이미지는 기본 2칸 — 올린 뒤 조절할 수 있다 */
   const rowSpan = width && height && height > width * 1.4 ? 2 : 1
 
@@ -295,10 +337,12 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
     .insert({
       designer_id: designerId,
       image_url: up.url,
+      thumb_url: thumbUrl,
       width,
       height,
       title: title || null,
       ai_used: aiUsed,
+      ...readCrop(form),
       row_span: rowSpan,
       sort_order: count ?? 0,
     })
@@ -355,6 +399,47 @@ export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
   return { ok: true }
 }
 
+/* 썸네일 영역을 다시 잡는다.
+
+   좌표(crop_*)만 고치는 게 아니라 썸네일 파일도 다시 만들어 올린다 —
+   목록은 thumb_url 을 그대로 쓰므로, 좌표만 바꾸면 화면에는 예전 그림이
+   그대로 남는다. 자르는 일은 화면에서 하고(make-thumb.ts) 여기서는
+   받은 파일을 저장만 한다.
+
+   예전 썸네일 파일은 지우지 않는다 — 되돌릴 일이 있을 수 있고,
+   Storage 비용보다 잘못 지웠을 때가 더 비싸다. */
+export async function adminUpdateWorkCrop(form: FormData): Promise<Result> {
+  const db = await guard()
+
+  const id = String(form.get('id') ?? '')
+  const designerId = String(form.get('designerId') ?? '')
+  if (!id || !designerId) return fail('작업을 찾을 수 없습니다.')
+
+  const patch: Record<string, unknown> = { ...readCrop(form) }
+
+  const thumb = form.get('thumb')
+  if (thumb instanceof File && thumb.size > 0) {
+    const up = await putImage(thumb, `works/${designerId}/thumbs`)
+    if (!up.ok) return fail(up.error)
+    patch.thumb_url = up.url
+  }
+
+  /* designer_id 조건을 함께 걸어 남의 작업을 고치지 못하게 한다 */
+  const { error } = await db
+    .from('designer_works')
+    .update(patch)
+    .eq('id', id)
+    .eq('designer_id', designerId)
+
+  if (error) {
+    console.error('[works] 썸네일 영역 수정 실패:', error.message)
+    return fail('썸네일을 바꾸지 못했습니다.')
+  }
+
+  refresh(designerId)
+  return { ok: true }
+}
+
 export async function adminSetWorkVisible(
   id: string,
   designerId: string,
@@ -366,6 +451,63 @@ export async function adminSetWorkVisible(
   if (error) {
     console.error('[works] 어드민 노출 변경 실패:', error.message)
     return fail('변경에 실패했습니다.')
+  }
+
+  refresh(designerId)
+  return { ok: true }
+}
+
+/* 포트폴리오 순서를 통째로 다시 매긴다.
+
+   화면에서 끌어 놓은 결과를 받아 0번부터 다시 번호를 붙인다 —
+   끼워 넣은 자리에 소수를 주는 방법도 있지만, 몇 번 옮기다 보면
+   자릿수가 늘어 결국 다시 매겨야 한다. 장수가 30개 상한이라
+   전부 다시 쓰는 편이 단순하고 빠르다.
+
+   받은 id 는 반드시 그 디자이너의 것이어야 한다 — 남의 작업 id 가
+   섞여 들어오면 그 작업의 순서가 엉뚱하게 바뀐다. */
+export async function adminReorderWorks(
+  designerId: string,
+  ids: string[],
+): Promise<Result> {
+  const db = await guard()
+
+  if (!designerId) return fail('디자이너를 찾을 수 없습니다.')
+  if (ids.length === 0) return { ok: true }
+
+  /* 지금 이 디자이너가 가진 작업을 먼저 읽어 받은 목록과 맞춰 본다.
+     서버 액션은 누구나 부를 수 있으므로 화면이 보낸 id 를 믿지 않는다. */
+  const { data: owned, error: readErr } = await db
+    .from('designer_works')
+    .select('id')
+    .eq('designer_id', designerId)
+
+  if (readErr) {
+    console.error('[works] 순서 변경용 조회 실패:', readErr.message)
+    return fail('순서를 바꾸지 못했습니다.')
+  }
+
+  const mine = new Set((owned ?? []).map((w) => w.id as string))
+  const clean = ids.filter((id) => mine.has(id))
+
+  /* 화면이 가진 목록과 DB 가 어긋나면(다른 탭에서 지웠다든지) 섣불리
+     쓰지 않는다 — 빠진 작업이 0번으로 몰려 순서가 뒤엉킨다. */
+  if (clean.length !== mine.size) {
+    return fail('목록이 바뀌었습니다. 새로고침 후 다시 시도해 주세요.')
+  }
+
+  /* 한 건씩 보낸다. upsert 로 묶으면 not-null 인 다른 컬럼까지
+     함께 넘겨야 하고, 빠뜨리면 그 값이 지워진다. */
+  const results = await Promise.all(
+    clean.map((id, i) =>
+      db.from('designer_works').update({ sort_order: i }).eq('id', id).eq('designer_id', designerId),
+    ),
+  )
+
+  const failedOne = results.find((r) => r.error)
+  if (failedOne?.error) {
+    console.error('[works] 순서 변경 실패:', failedOne.error.message)
+    return fail('순서를 바꾸지 못했습니다.')
   }
 
   refresh(designerId)
@@ -397,6 +539,8 @@ export async function setWorkFeatured(id: string, featured: boolean): Promise<Re
   }
 
   revalidatePath('/admin/featured')
+  /* 고르는 화면도 함께 — 고른 뒤 표시가 그대로면 반영됐는지 알 수 없다 */
+  revalidatePath('/admin/featured/add')
   /* 메인이 바로 바뀌어야 한다 — 어드민이 고른 뒤 홈을 열어 확인한다 */
   revalidatePath('/')
   return { ok: true }

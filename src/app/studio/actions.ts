@@ -13,6 +13,8 @@ import {
   MAX_BIO,
 } from '@/lib/portfolio-limits'
 import { isDesignPrice, isPremiumPrice } from '@/lib/plans'
+import { listVisibleSpecialties } from '@/lib/specialties'
+import { MAX_TAGS } from '@/lib/specialty-shape'
 
 export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string }
 
@@ -112,10 +114,19 @@ export async function updateProfile(input: ProfileInput): Promise<Result> {
     return fail(`소개글은 ${MAX_BIO}자 이내로 입력해 주세요.`)
   }
 
+  const allowed = await listVisibleSpecialties()
+  if (allowed.length > 0 && parseTags(input.tags).length > MAX_TAGS) {
+    return fail(`전문 분야는 ${MAX_TAGS}개까지 고를 수 있습니다.`)
+  }
+
   const patch: Record<string, unknown> = {
     one_liner: input.oneLiner.trim() || null,
     bio: bio || null,
-    tags: parseTags(input.tags),
+    /* 어드민이 켜 둔 분야만 남긴다(011_specialties.sql). 서버 액션은
+       누구나 부를 수 있으므로 화면이 보낸 값을 그대로 믿지 않는다 —
+       아무 글자나 들어오면 탐색 필터가 다시 지저분해진다.
+       목록이 비어 있으면(마이그레이션 전) 거르지 않고 지금까지처럼 둔다. */
+    tags: allowed.length > 0 ? parseTags(input.tags).filter((t) => allowed.includes(t)) : parseTags(input.tags),
   }
 
   if (!locked) {
@@ -231,6 +242,31 @@ function readAiUsed(form: FormData): boolean | null {
   return form.get('aiUsed') != null
 }
 
+/* 썸네일 영역을 폼에서 읽는다(009_work_thumb_crop.sql).
+   어드민 쪽(admin/designers/actions.ts)과 같은 규칙이다 — 넷을 한 덩어리로
+   다루고, 하나라도 비거나 범위를 벗어나면 통째로 미지정으로 돌린다. */
+function readCrop(form: FormData) {
+  const n = (k: string) => {
+    const raw = form.get(k)
+    if (raw == null) return null
+    const v = Number(raw)
+    return Number.isFinite(v) ? v : null
+  }
+
+  const x = n('cropX')
+  const y = n('cropY')
+  const w = n('cropW')
+  const h = n('cropH')
+
+  const none = { crop_x: null, crop_y: null, crop_w: null, crop_h: null }
+  if (x == null || y == null || w == null || h == null) return none
+
+  const sane = x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= 1.0001 && y + h <= 1.0001
+  if (!sane) return none
+
+  return { crop_x: x, crop_y: y, crop_w: w, crop_h: h }
+}
+
 export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   const { db, id } = await guard()
 
@@ -298,7 +334,9 @@ export type WorkInput = {
   description: string
   /* 선택 입력 — 빈 문자열이면 지운다 */
   client: string
-  rowSpan: number
+  /* masonry 세로 칸 수. 화면에서 더는 조절하지 않으므로 보통 넘어오지
+     않는다 — 그때는 지금 값을 그대로 둔다. 컬럼은 공개 화면이 계속 쓴다. */
+  rowSpan?: number
   /* 편집 화면은 체크박스로 받으므로 true/false 만 온다 —
      한 번 편집하면 null(미응답)로 되돌릴 수 없다. 의도된 동작이다. */
   aiUsed: boolean
@@ -312,24 +350,119 @@ export async function updateWork(input: WorkInput): Promise<Result> {
     return fail(`설명은 ${MAX_DESCRIPTION}자 이내로 입력해 주세요.`)
   }
 
-  const rowSpan = Math.min(MAX_ROW_SPAN, Math.max(MIN_ROW_SPAN, Math.round(input.rowSpan)))
+  const patch: Record<string, unknown> = {
+    title: input.title.trim() || null,
+    description: description || null,
+    client: input.client.trim() || null,
+    ai_used: input.aiUsed,
+  }
+
+  /* 보내 왔을 때만 손댄다 — 넘어오지 않은 값을 기본값으로 덮으면
+     화면에 없는 설정이 조용히 초기화된다. */
+  if (input.rowSpan != null) {
+    patch.row_span = Math.min(MAX_ROW_SPAN, Math.max(MIN_ROW_SPAN, Math.round(input.rowSpan)))
+  }
 
   /* designer_id 조건을 함께 걸어 남의 작업을 고치지 못하게 한다 */
   const { error } = await db
     .from('designer_works')
-    .update({
-      title: input.title.trim() || null,
-      description: description || null,
-      client: input.client.trim() || null,
-      ai_used: input.aiUsed,
-      row_span: rowSpan,
-    })
+    .update(patch)
     .eq('id', input.id)
     .eq('designer_id', id)
 
   if (error) {
     console.error('[works] 수정 실패:', error.message)
     return fail('수정에 실패했습니다.')
+  }
+
+  refresh(id)
+  return { ok: true }
+}
+
+/* 썸네일 영역을 다시 잡는다.
+
+   어드민용(adminUpdateWorkCrop)과 하는 일은 같고 범위만 세션 id 로 묶는다.
+   좌표(crop_*)만 고치는 게 아니라 썸네일 파일도 다시 만들어 올린다 —
+   목록은 thumb_url 을 그대로 쓰므로, 좌표만 바꾸면 예전 그림이 남는다.
+   자르는 일은 화면에서 하고(make-thumb.ts) 여기서는 저장만 한다. */
+export async function updateWorkCrop(form: FormData): Promise<Result> {
+  const { db, id } = await guard()
+
+  const workId = String(form.get('id') ?? '')
+  if (!workId) return fail('작업을 찾을 수 없습니다.')
+
+  const patch: Record<string, unknown> = { ...readCrop(form) }
+
+  const thumb = form.get('thumb')
+  if (thumb instanceof File && thumb.size > 0) {
+    const up = await putImage(thumb, `works/${id}/thumbs`)
+    if (!up.ok) return fail(up.error)
+    patch.thumb_url = up.url
+  }
+
+  const { error } = await db
+    .from('designer_works')
+    .update(patch)
+    .eq('id', workId)
+    .eq('designer_id', id)
+
+  if (error) {
+    console.error('[works] 썸네일 영역 수정 실패:', error.message)
+    return fail('썸네일을 바꾸지 못했습니다.')
+  }
+
+  refresh(id)
+  return { ok: true }
+}
+
+/* 포트폴리오 순서를 통째로 다시 매긴다.
+
+   어드민용(adminReorderWorks)과 하는 일은 같지만 범위를 묶는 방법이 다르다 —
+   여기서는 세션에서 꺼낸 id 로만 고친다. 본인 작업만 건드릴 수 있다.
+
+   화면에서 끌어 놓은 결과를 받아 0번부터 다시 번호를 붙인다. 끼워 넣은
+   자리에 소수를 주는 방법도 있지만, 몇 번 옮기다 보면 자릿수가 늘어
+   결국 다시 매겨야 한다. 30개 상한이라 전부 다시 쓰는 편이 단순하다. */
+export async function reorderWorks(ids: string[]): Promise<Result> {
+  const { db, id } = await guard()
+
+  if (ids.length === 0) return { ok: true }
+
+  /* 서버 액션은 누구나 부를 수 있다 — 화면이 보낸 id 를 믿지 않고
+     내 것인지 다시 확인한다. */
+  const { data: owned, error: readErr } = await db
+    .from('designer_works')
+    .select('id')
+    .eq('designer_id', id)
+
+  if (readErr) {
+    console.error('[works] 순서 변경용 조회 실패:', readErr.message)
+    return fail('순서를 바꾸지 못했습니다.')
+  }
+
+  const mine = new Set((owned ?? []).map((w) => w.id as string))
+  const clean = ids.filter((workId) => mine.has(workId))
+
+  /* 화면이 가진 목록과 DB 가 어긋나면(다른 탭에서 지웠다든지) 섣불리
+     쓰지 않는다 — 빠진 작업이 0번으로 몰려 순서가 뒤엉킨다. */
+  if (clean.length !== mine.size) {
+    return fail('목록이 바뀌었습니다. 새로고침 후 다시 시도해 주세요.')
+  }
+
+  const results = await Promise.all(
+    clean.map((workId, i) =>
+      db
+        .from('designer_works')
+        .update({ sort_order: i })
+        .eq('id', workId)
+        .eq('designer_id', id),
+    ),
+  )
+
+  const failedOne = results.find((r) => r.error)
+  if (failedOne?.error) {
+    console.error('[works] 순서 변경 실패:', failedOne.error.message)
+    return fail('순서를 바꾸지 못했습니다.')
   }
 
   refresh(id)
