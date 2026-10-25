@@ -27,7 +27,7 @@ export default async function AdminLoginPage(props: PageProps<'/admin/login'>) {
   return (
     <main className="grid flex-1 place-items-center px-5 py-16">
       <div className="w-full max-w-sm text-center">
-        <div className="mx-auto grid size-9 place-items-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
+        <div className="mx-auto grid size-9 place-items-center rounded-lg bg-violet-600 text-sm font-bold text-white">
           F
         </div>
         <h1 className="mt-5 text-xl font-bold tracking-tight">관리자</h1>

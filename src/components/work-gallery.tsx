@@ -38,7 +38,7 @@ export function WorkGallery({ works }: { works: PublicWork[] }) {
             {(w.client || w.ai_used) && (
               <p className="flex flex-wrap items-center gap-x-2 text-xs text-neutral-500">
                 {w.client}
-                {w.ai_used && <span className="text-indigo-600">AI 활용</span>}
+                {w.ai_used && <span className="text-violet-600">AI 활용</span>}
               </p>
             )}
           </button>

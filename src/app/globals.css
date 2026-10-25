@@ -10,12 +10,64 @@
     font-family: var(--font-sans), system-ui, sans-serif;
   }
 
-  /* 같은 화면 안 앵커(#works 등)로 부드럽게 내려간다.
-     "동작 줄이기"를 켠 사용자에게는 적용하지 않는다 — 긴 화면이
-     갑자기 흐르듯 움직이면 어지러움을 유발할 수 있다. */
-  @media (prefers-reduced-motion: no-preference) {
-    html {
-      scroll-behavior: smooth;
-    }
+}
+
+/* 같은 화면 안 앵커(#works, #p1 …)로 부드럽게 내려간다.
+
+   html 에 바로 걸지 않는다 — 그러면 페이지를 옮길 때 맨 위로 올리는
+   동작까지 흐르듯 움직여, 푸터에서 링크를 누르면 새 화면이 아래에서
+   스르륵 올라오는 것처럼 보인다.
+
+   앵커를 쓰는 화면에서만 .smooth-anchor 를 붙여 켠다.
+   "동작 줄이기"를 켠 사용자에게는 적용하지 않는다 — 긴 화면이
+   갑자기 흐르듯 움직이면 어지러움을 유발할 수 있다. */
+@media (prefers-reduced-motion: no-preference) {
+  html.smooth-anchor {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ─────────── 제안서 쪽 넘김 ───────────
+
+   한 번에 펼침면 하나씩 멈춘다. 중간에 걸친 채로 서면 위아래가 잘려
+   어느 쪽을 읽는 중인지 흐려진다(ref/agency 의 globals.css 와 같은 방침).
+
+   조건을 좁게 잡는다 —
+     min-width  : 좁은 화면은 펼침면이 위아래로 쌓여 한 화면에 안 들어간다
+     min-height : 낮은 화면에서 묶으면 내용이 잘린 채 멈춘다
+     pointer:fine : 터치 기기의 관성 스크롤과 충돌한다
+     reduced-motion : 갑자기 끌려가는 움직임은 어지러움을 유발한다 */
+/* 스냅과 무관하게, 넓은 화면에서 한 장이 차지할 최소 높이.
+   스냅이 꺼진 환경(터치·동작 줄이기)에서도 펼침면이 납작해지지 않는다. */
+@media (min-width: 768px) {
+  .proposal-spread {
+    min-height: 44rem;
+  }
+}
+
+@media (min-width: 768px) and (min-height: 640px) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .proposal-snap {
+    scroll-snap-type: y mandatory;
+    /* 제안서 바(3.5rem)에 가리지 않게. 사이트 바는 이 화면에서 뜨지
+       않는다(site-navbar.tsx). */
+    scroll-padding-top: 3.5rem;
+  }
+
+  /* 스냅으로 멈췄을 때 아래가 잘리지 않으려면 한 장이 한 화면 안에
+     들어와야 한다 — 바(3.5rem)와 위아래 여백(md:py-14 = 3.5rem씩)을
+     뺀 만큼으로 높이를 잡는다. 44rem 고정보다 작을 수 있으므로
+     max-height 로도 묶는다. */
+  .proposal-spread {
+    min-height: calc(100vh - 10.5rem);
+    max-height: calc(100vh - 10.5rem);
+    scroll-snap-align: start;
+    /* 한 번의 휠 동작으로 두 장을 건너뛰지 않게 한 칸씩 멈춘다 */
+    scroll-snap-stop: always;
+  }
+
+  /* 높이를 묶었으므로 내용이 넘치면 잘린다 — 그 쪽만 따로 흐르게 한다.
+     낮은 화면에서 글이 많은 쪽을 읽지 못하는 일을 막는 안전장치다. */
+  .proposal-spread > * {
+    overflow-y: auto;
   }
 }

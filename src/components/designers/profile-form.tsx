@@ -113,7 +113,7 @@ export function ProfileForm({
             rows={6}
             maxLength={MAX_BIO}
             placeholder={'어떤 작업을 해왔는지, 어떻게 일하는지 적어주세요.\n줄바꿈은 그대로 보입니다.'}
-            className="w-full resize-y rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none ring-indigo-500 focus:ring-2"
+            className="w-full resize-y rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none ring-violet-500 focus:ring-2"
           />
           <span className="mt-1 flex justify-between text-xs text-neutral-400">
             <span>프로필 상세 화면에 문단으로 들어갑니다.</span>
@@ -147,7 +147,7 @@ export function ProfileForm({
                     key={name}
                     className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm transition ${
                       on
-                        ? 'border-indigo-600 bg-indigo-50 font-medium text-indigo-700'
+                        ? 'border-violet-600 bg-violet-50 font-medium text-violet-700'
                         : blocked
                           ? 'border-neutral-200 text-neutral-300'
                           : 'cursor-pointer border-neutral-300 hover:bg-neutral-50'
@@ -162,7 +162,7 @@ export function ProfileForm({
                           (on ? picked.filter((t) => t !== name) : [...picked, name]).join(', '),
                         )
                       }
-                      className="accent-indigo-600"
+                      className="accent-violet-600"
                     />
                     {name}
                   </label>
@@ -184,7 +184,7 @@ export function ProfileForm({
           <button
             type="submit"
             disabled={pending || !dirty}
-            className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+            className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? '저장 중…' : '저장'}
           </button>
@@ -340,4 +340,4 @@ function AvatarPicker({
 }
 
 const input =
-  'h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-indigo-500 focus:ring-2'
+  'h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2'

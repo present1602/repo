@@ -242,7 +242,7 @@ function EditList({
                   </span>
                 )}
                 {w.ai_used && (
-                  <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[11px] text-indigo-700">
+                  <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[11px] text-violet-700">
                     AI
                   </span>
                 )}
@@ -346,7 +346,7 @@ function AddButton({
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={disabled || pending}
-        className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+        className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
       >
         작업 추가
       </button>
@@ -425,7 +425,7 @@ function AiPromptDialog({
             type="button"
             onClick={onConfirm}
             disabled={pending || value === null}
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? '올리는 중…' : '올리기'}
           </button>
@@ -449,7 +449,7 @@ function AiChoice({
   return (
     <label
       className={`flex cursor-pointer gap-2.5 rounded-lg border p-3 transition ${
-        checked ? 'border-indigo-600 bg-indigo-50' : 'border-neutral-300 hover:bg-neutral-50'
+        checked ? 'border-violet-600 bg-violet-50' : 'border-neutral-300 hover:bg-neutral-50'
       }`}
     >
       <input
@@ -457,7 +457,7 @@ function AiChoice({
         name="ai-used"
         checked={checked}
         onChange={onSelect}
-        className="mt-0.5 accent-indigo-600"
+        className="mt-0.5 accent-violet-600"
       />
       <span className="min-w-0">
         <span className="block text-sm font-medium">{label}</span>
@@ -494,7 +494,7 @@ function WorkCard({
           </span>
         )}
         {w.ai_used && (
-          <span className="rounded bg-indigo-600/90 px-1.5 py-0.5 text-[11px] text-white">AI</span>
+          <span className="rounded bg-violet-600/90 px-1.5 py-0.5 text-[11px] text-white">AI</span>
         )}
       </div>
 
@@ -640,7 +640,7 @@ function WorkEditDialog({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="제목 없음"
-              className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-indigo-500 focus:ring-2"
+              className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
             />
           </label>
 
@@ -657,7 +657,7 @@ function WorkEditDialog({
               rows={5}
               maxLength={MAX_DESCRIPTION}
               placeholder="설명 없음"
-              className="w-full resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm leading-relaxed outline-none ring-indigo-500 focus:ring-2"
+              className="w-full resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm leading-relaxed outline-none ring-violet-500 focus:ring-2"
             />
           </label>
 
@@ -670,7 +670,7 @@ function WorkEditDialog({
               value={client}
               onChange={(e) => setClient(e.target.value)}
               placeholder="없음"
-              className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-indigo-500 focus:ring-2"
+              className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
             />
           </label>
 
@@ -681,7 +681,7 @@ function WorkEditDialog({
                 type="checkbox"
                 checked={aiUsed}
                 onChange={(e) => setAiUsed(e.target.checked)}
-                className="accent-indigo-600"
+                className="accent-violet-600"
               />
               AI 사용
             </label>
@@ -725,7 +725,7 @@ function WorkEditDialog({
                       key={r.key}
                       className={`flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-1 text-[11px] transition ${
                         ratio === r.key
-                          ? 'border-indigo-600 bg-indigo-50 font-medium text-indigo-700'
+                          ? 'border-violet-600 bg-violet-50 font-medium text-violet-700'
                           : 'border-neutral-300 hover:bg-neutral-50'
                       }`}
                     >
@@ -739,7 +739,7 @@ function WorkEditDialog({
                           setRatio(next)
                           if (next && crop) setCrop(reshapeCrop(crop, ratioValue(next), imgRatio))
                         }}
-                        className="accent-indigo-600"
+                        className="accent-violet-600"
                       />
                       {r.key}
                     </label>
@@ -780,7 +780,7 @@ function WorkEditDialog({
                     })
                   }}
                   disabled={savingCrop || !crop}
-                  className="w-full rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+                  className="w-full rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
                 >
                   {savingCrop ? '만드는 중…' : '썸네일 저장'}
                 </button>
@@ -811,7 +811,7 @@ function WorkEditDialog({
               )
             }
             disabled={pending || !dirty}
-            className="mt-4 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+            className="mt-4 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? '저장 중…' : '저장'}
           </button>

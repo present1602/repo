@@ -98,7 +98,7 @@ export function DesignerCreateForm() {
       <button
         type="submit"
         disabled={pending}
-        className="mt-5 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-50"
+        className="mt-5 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-50"
       >
         {pending ? '등록 중…' : '등록하고 메일 발송'}
       </button>

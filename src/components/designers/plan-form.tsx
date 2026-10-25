@@ -88,7 +88,7 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
         <button
           type="submit"
           disabled={pending || !dirty}
-          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
         >
           {pending ? '저장 중…' : '저장'}
         </button>

@@ -42,7 +42,7 @@ export function DesignerDetail({
               href={`/designers/${d.id}`}
               target="_blank"
               rel="noopener"
-              className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 transition hover:text-indigo-800"
+              className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-violet-600 transition hover:text-violet-800"
             >
               공개 페이지 보기 ↗
             </Link>
@@ -61,7 +61,7 @@ export function DesignerDetail({
             <button
               type="button"
               onClick={() => setPreviewOpen(true)}
-              className="mt-1.5 block text-sm font-medium text-indigo-600 transition hover:text-indigo-800"
+              className="mt-1.5 block text-sm font-medium text-violet-600 transition hover:text-violet-800"
             >
               목록 페이지 미리보기
             </button>
@@ -212,7 +212,7 @@ function PlanSummary({ designer: d }: { designer: AdminDesigner }) {
         <h2 className="text-sm font-semibold">가격 플랜</h2>
         <Link
           href="/admin/settings"
-          className="text-xs font-medium text-indigo-600 transition hover:text-indigo-800"
+          className="text-xs font-medium text-violet-600 transition hover:text-violet-800"
         >
           문구 수정 →
         </Link>
@@ -310,7 +310,7 @@ function ProfileForm({
             onChange={(e) => setBio(e.target.value)}
             rows={5}
             maxLength={MAX_BIO}
-            className="w-full resize-y rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none ring-indigo-500 focus:ring-2"
+            className="w-full resize-y rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none ring-violet-500 focus:ring-2"
           />
         </Field>
         <Field label="전문 분야" hint="선택 · 쉼표로 구분">
@@ -322,7 +322,7 @@ function ProfileForm({
         <button
           type="submit"
           disabled={pending || !dirty}
-          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
         >
           {pending ? '저장 중…' : '저장'}
         </button>

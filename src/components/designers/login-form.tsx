@@ -57,7 +57,7 @@ export function DesignerLoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-neutral-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-50"
+        className="w-full rounded-lg bg-neutral-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-50"
       >
         {pending ? '로그인 중…' : '로그인'}
       </button>
@@ -66,4 +66,4 @@ export function DesignerLoginForm() {
 }
 
 const input =
-  'h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-indigo-500 focus:ring-2'
+  'h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2'

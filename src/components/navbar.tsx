@@ -41,7 +41,7 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => setInquiry(true)}
-              className="rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              className="rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
             >
               의뢰하기
             </button>

@@ -34,7 +34,7 @@ export default async function AdminFeaturedPage() {
 
         <Link
           href="/admin/featured/add"
-          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600"
+          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600"
         >
           작업 추가
         </Link>

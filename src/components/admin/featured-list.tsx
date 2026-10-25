@@ -33,7 +33,7 @@ export function FeaturedList({ works }: { works: FeaturedCandidate[] }) {
         <br />
         <Link
           href="/admin/featured/add"
-          className="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-800"
+          className="mt-3 inline-block text-xs font-medium text-violet-600 hover:text-violet-800"
         >
           작업 고르러 가기 →
         </Link>
@@ -97,7 +97,7 @@ function WorkCard({ work: w, onNotice }: { work: FeaturedCandidate; onNotice: (n
         onClick={remove}
         disabled={pending}
         title="눌러서 메인에서 빼기"
-        className="group relative block w-full overflow-hidden rounded-lg text-left ring-2 ring-indigo-600 transition disabled:opacity-50"
+        className="group relative block w-full overflow-hidden rounded-lg text-left ring-2 ring-violet-600 transition disabled:opacity-50"
       >
         <Thumbnail work={w} />
 

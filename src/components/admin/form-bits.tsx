@@ -1,7 +1,7 @@
 /* 어드민 폼이 공유하는 조각 — 등록·수정 화면이 같은 모양을 쓴다 */
 
 export const input =
-  'h-9 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-indigo-500 focus:ring-2'
+  'h-9 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2'
 
 export const ghostButton =
   'rounded-md border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-50'

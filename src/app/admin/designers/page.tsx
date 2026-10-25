@@ -31,7 +31,7 @@ export default async function DesignersAdminPage() {
         </div>
         <Link
           href="/admin/designers/new"
-          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600"
+          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600"
         >
           디자이너 추가
         </Link>

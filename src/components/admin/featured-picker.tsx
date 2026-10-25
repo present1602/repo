@@ -55,7 +55,7 @@ export function FeaturedPicker({ works }: { works: FeaturedCandidate[] }) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="디자이너 이름 · 작업 제목"
             aria-label="디자이너 이름 또는 작업 제목으로 검색"
-            className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-indigo-500 focus:ring-2"
+            className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
           />
           {hint && <p className="mt-1 text-xs text-neutral-400">{hint}</p>}
         </div>
@@ -219,7 +219,7 @@ function RatioCard({
       onClick={toggle}
       disabled={pending}
       className={`group relative h-36 min-w-24 shrink-0 overflow-hidden rounded-lg text-left ring-2 transition disabled:opacity-50 md:h-44 ${
-        w.featured ? 'ring-indigo-600' : 'ring-transparent hover:ring-neutral-300'
+        w.featured ? 'ring-violet-600' : 'ring-transparent hover:ring-neutral-300'
       }`}
       style={{ aspectRatio: `${ratio}` }}
     >
@@ -281,7 +281,7 @@ function RecentCard({
         onClick={toggle}
         disabled={pending}
         className={`group block w-full overflow-hidden rounded-xl bg-white text-left ring-2 transition disabled:opacity-50 ${
-          w.featured ? 'ring-indigo-600' : 'ring-neutral-200 hover:ring-neutral-400'
+          w.featured ? 'ring-violet-600' : 'ring-neutral-200 hover:ring-neutral-400'
         }`}
       >
         <span className="relative block">
@@ -347,7 +347,7 @@ function Overlay({ work: w, pending }: { work: FeaturedCandidate; pending: boole
       )}
 
       {w.featured ? (
-        <span className="absolute right-2 top-2 rounded bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white">
+        <span className="absolute right-2 top-2 rounded bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white">
           {pending ? '…' : '선택됨'}
         </span>
       ) : (

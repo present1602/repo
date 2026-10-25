@@ -117,12 +117,12 @@ export function SpecialtyManager({ specialties }: { specialties: Specialty[] }) 
           onChange={(e) => setDraft(e.target.value)}
           placeholder="예: UX/UI, 브랜딩"
           maxLength={40}
-          className="h-9 min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-indigo-500 focus:ring-2"
+          className="h-9 min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
         />
         <button
           type="submit"
           disabled={pending || !draft.trim()}
-          className="shrink-0 rounded-lg bg-neutral-900 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+          className="shrink-0 rounded-lg bg-neutral-900 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
         >
           추가
         </button>
@@ -266,7 +266,7 @@ function RenameRow({
         onChange={(e) => setName(e.target.value)}
         maxLength={40}
         autoFocus
-        className="h-8 min-w-0 flex-1 rounded border border-neutral-300 px-2 text-sm outline-none ring-indigo-500 focus:ring-2"
+        className="h-8 min-w-0 flex-1 rounded border border-neutral-300 px-2 text-sm outline-none ring-violet-500 focus:ring-2"
       />
       {(s.used ?? 0) > 0 && (
         <span className="shrink-0 text-[11px] text-amber-700">{s.used}명에게 함께 반영</span>

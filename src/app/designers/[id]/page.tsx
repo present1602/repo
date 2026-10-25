@@ -7,7 +7,7 @@ import { getPlanCopy } from '@/lib/site-settings'
 import { formatPrice } from '@/lib/plans'
 import { Img } from '@/components/img'
 import { WorkGallery } from '@/components/work-gallery'
-import { InquiryButtons } from '@/components/inquiry/inquiry-buttons'
+import { InquiryButton } from '@/components/inquiry/inquiry-button'
 
 /* 공개 여부가 수시로 바뀌므로 캐시하지 않는다 — 비공개로 돌리면 곧 404 가 된다.
    "use cache" 를 쓰지 않으면 cacheComponents 아래에서 요청마다 새로 읽는다.
@@ -44,13 +44,10 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
 
   const name = displayNameOf(d)
 
-  /* 폼을 띄우려면 상태가 필요하다 — 이 페이지는 서버 컴포넌트이므로
-     버튼만 클라이언트 쪽으로 떼어 둔다 */
-  const actions = <InquiryButtons designerName={name} />
 
   return (
     <div className="flex-1 bg-white">
-      <div className="mx-auto max-w-7xl px-5 pb-28 md:px-12 md:pb-16">
+      <div className="mx-auto max-w-7xl px-5 pb-16 md:px-12">
         <nav className="py-5 text-sm text-neutral-500">
           <Link href="/explore" className="transition hover:text-neutral-900">
             ← 탐색으로
@@ -100,7 +97,9 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
               {d.tags.length > 0 && <Info k="전문 분야" v={d.tags.join(', ')} />}
             </dl>
 
-            <div className="mt-10 hidden md:block">{actions}</div>
+            <div className="mt-10">
+              <InquiryButton designerId={d.id} designerName={name} />
+            </div>
           </div>
         </section>
 
@@ -135,9 +134,6 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-300 bg-white/95 p-4 backdrop-blur md:hidden">
-        {actions}
-      </div>
     </div>
   )
 }
@@ -146,7 +142,7 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
 function DetailSkeleton() {
   return (
     <div className="flex-1 bg-white">
-      <div className="mx-auto max-w-7xl px-5 pb-28 md:px-12 md:pb-16">
+      <div className="mx-auto max-w-7xl px-5 pb-16 md:px-12">
         <div className="py-5">
           <div className="h-4 w-20 animate-pulse rounded bg-neutral-200" />
         </div>

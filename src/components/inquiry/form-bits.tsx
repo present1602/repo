@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 /* 문의 폼의 공통 부품.
 
    모양은 ref/soom-design 의 폼을 따르되 색과 글꼴은 이 프로젝트 결에
-   맞춘다 — 저쪽은 stone + serif, 여기는 neutral + indigo + sans 다.
+   맞춘다 — 저쪽은 stone + serif, 여기는 neutral + violet + sans 다.
    참고 코드를 그대로 옮기면 이 화면만 다른 사이트처럼 보인다. */
 
 /* 밑줄만 있는 입력칸 — 테두리를 두르면 칸이 많아 보여 답답하다 */
@@ -125,6 +125,19 @@ export function FileField({ max }: { max: number }) {
   const [err, setErr] = useState('')
   const ref = useRef<HTMLInputElement>(null)
 
+  /* 화면 목록과 input 의 내용을 함께 맞춘다.
+
+     input 이 폼과 함께 그대로 전송되므로, 목록에서 뺀 파일이 input 에
+     남아 있으면 안 된다. DataTransfer 로 input 의 files 를 다시 채워
+     둘을 한 값으로 묶는다. */
+  const sync = (next: File[]) => {
+    setFiles(next)
+    if (!ref.current) return
+    const dt = new DataTransfer()
+    for (const f of next) dt.items.add(f)
+    ref.current.files = dt.files
+  }
+
   const add = (list: FileList | null) => {
     if (!list) return
     const picked = Array.from(list)
@@ -141,10 +154,7 @@ export function FileField({ max }: { max: number }) {
           ? `최대 ${max}개까지 첨부할 수 있습니다.`
           : '',
     )
-    setFiles([...files, ...ok].slice(0, max))
-
-    /* 같은 파일을 다시 고를 수 있게 비운다 */
-    if (ref.current) ref.current.value = ''
+    sync([...files, ...ok].slice(0, max))
   }
 
   const full = files.length >= max
@@ -175,7 +185,7 @@ export function FileField({ max }: { max: number }) {
                 <button
                   type="button"
                   aria-label={`${f.name} 삭제`}
-                  onClick={() => setFiles(files.filter((_, k) => k !== i))}
+                  onClick={() => sync(files.filter((_, k) => k !== i))}
                   className="shrink-0 text-neutral-400 transition hover:text-neutral-900"
                 >
                   ×
@@ -193,9 +203,13 @@ export function FileField({ max }: { max: number }) {
           }`}
         >
           {full ? '첨부 한도 도달' : '파일 선택'}
+          {/* 고른 파일은 아래 hidden input 이 아니라 이 input 이 그대로
+              폼과 함께 간다 — 목록에서 뺀 파일까지 따라가지 않도록
+              빼기를 누르면 DataTransfer 로 input 자체를 다시 채운다. */}
           <input
             ref={ref}
             type="file"
+            name="attachment"
             multiple={max > 1}
             disabled={full}
             className="hidden"
@@ -213,11 +227,57 @@ export function FileField({ max }: { max: number }) {
   )
 }
 
+/* 라디오 한 줄 — 고른 것만 테두리가 진해진다.
+
+   label 로 감싸 글자를 눌러도 골라지게 한다. 작은 동그라미만
+   눌러야 하면 좁은 화면에서 자꾸 빗나간다. */
+export function RadioCard({
+  name,
+  value,
+  hint,
+  defaultChecked,
+}: {
+  name: string
+  value: string
+  hint?: string
+  defaultChecked?: boolean
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 p-3 transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50">
+      <input
+        required
+        type="radio"
+        name={name}
+        value={value}
+        defaultChecked={defaultChecked}
+        className="mt-0.5 shrink-0 accent-violet-600"
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{value}</span>
+        {hint && (
+          <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">{hint}</span>
+        )}
+      </span>
+    </label>
+  )
+}
+
+/* 바꿀 수 없는 값을 보여주는 줄 — 라벨 왼쪽, 값 오른쪽.
+   입력칸처럼 보이되 눌러도 고칠 수 없다는 게 한눈에 보여야 한다. */
+export function ReadonlyRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg bg-neutral-100 px-3 py-2.5">
+      <span className="shrink-0 text-xs font-medium text-neutral-500">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-sm font-medium">{value}</span>
+    </div>
+  )
+}
+
 /* 개인정보 동의 — 없으면 보낼 수 없다 */
 export function Consent() {
   return (
     <label className="mt-8 flex cursor-pointer items-start gap-3 text-sm">
-      <input required type="checkbox" className="mt-0.5 size-4 shrink-0 accent-indigo-600" />
+      <input required type="checkbox" className="mt-0.5 size-4 shrink-0 accent-violet-600" />
       <span>
         <span className="text-red-600">*</span> 개인정보 수집 및 이용에 동의합니다.{' '}
         <span className="text-neutral-500 underline underline-offset-2">처리방침 보기</span>
@@ -238,14 +298,14 @@ export function Done({
 }) {
   return (
     <div className="px-6 py-16 text-center md:px-10 md:py-20">
-      <div className="mx-auto grid size-16 place-items-center rounded-full bg-indigo-50 text-2xl text-indigo-600">
+      <div className="mx-auto grid size-16 place-items-center rounded-full bg-violet-50 text-2xl text-violet-600">
         ✓
       </div>
       <h3 className="mt-7 text-2xl font-bold tracking-tight md:text-3xl">{title}</h3>
       <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-neutral-600">{body}</p>
       <button
         onClick={onClose}
-        className="mt-9 rounded-lg bg-neutral-900 px-10 py-3 text-sm font-semibold text-white transition hover:bg-indigo-600"
+        className="mt-9 rounded-lg bg-neutral-900 px-10 py-3 text-sm font-semibold text-white transition hover:bg-violet-600"
       >
         확인
       </button>

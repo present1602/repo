@@ -207,7 +207,7 @@ export function AdminPortfolio({
                       </span>
                     )}
                     {w.ai_used && (
-                      <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[11px] text-indigo-700">
+                      <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[11px] text-violet-700">
                         AI 사용
                       </span>
                     )}
@@ -391,7 +391,7 @@ function AddWorkButton({
         onClick={() => fileRef.current?.click()}
         disabled={disabled || pending}
         title={disabled ? `최대 ${MAX_WORKS}개까지 올릴 수 있습니다` : undefined}
-        className="rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+        className="rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
       >
         {pending ? '올리는 중…' : '작업 추가'}
       </button>
@@ -576,7 +576,7 @@ function UploadDialog({
             /* 크기를 못 읽었어도 올릴 수 있다 — 서버가 null 로 받아
                기존 규칙대로 자리를 잡는다. 읽는 중일 때만 잠깐 막는다. */
             disabled={pending || (size == null && !measureFailed)}
-            className="mt-4 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+            className="mt-4 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? '올리는 중…' : '업로드'}
           </button>
@@ -597,7 +597,7 @@ function UploadDialog({
               checked={aiUsed}
               onChange={(e) => setAiUsed(e.target.checked)}
               disabled={pending}
-              className="mt-0.5 accent-indigo-600"
+              className="mt-0.5 accent-violet-600"
             />
             <span className="min-w-0">
               <span className="block text-sm font-medium">AI 활용</span>
@@ -615,7 +615,7 @@ function UploadDialog({
                 checked={cropOn}
                 onChange={(e) => toggleCrop(e.target.checked)}
                 disabled={pending || size == null}
-                className="mt-0.5 accent-indigo-600"
+                className="mt-0.5 accent-violet-600"
               />
               <span className="min-w-0">
                 <span className="block text-sm font-medium">썸네일 영역 지정</span>
@@ -643,7 +643,7 @@ function UploadDialog({
                       key={r.key}
                       className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition ${
                         ratio === r.key
-                          ? 'border-indigo-600 bg-indigo-50 font-medium text-indigo-700'
+                          ? 'border-violet-600 bg-violet-50 font-medium text-violet-700'
                           : 'border-neutral-300 hover:bg-neutral-50'
                       }`}
                     >
@@ -652,7 +652,7 @@ function UploadDialog({
                         checked={ratio === r.key}
                         onChange={() => pickRatio(r.key)}
                         disabled={pending}
-                        className="accent-indigo-600"
+                        className="accent-violet-600"
                       />
                       {r.key}
                     </label>
@@ -802,7 +802,7 @@ function WorkDialog({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="제목 없음"
-              className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-indigo-500 focus:ring-2"
+              className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
             />
           </label>
 
@@ -819,7 +819,7 @@ function WorkDialog({
               rows={7}
               maxLength={MAX_DESCRIPTION}
               placeholder="설명 없음"
-              className="w-full resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm leading-relaxed outline-none ring-indigo-500 focus:ring-2"
+              className="w-full resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm leading-relaxed outline-none ring-violet-500 focus:ring-2"
             />
           </label>
 
@@ -832,7 +832,7 @@ function WorkDialog({
               value={client}
               onChange={(e) => setClient(e.target.value)}
               placeholder="없음"
-              className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-indigo-500 focus:ring-2"
+              className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
             />
           </label>
 
@@ -843,7 +843,7 @@ function WorkDialog({
                 type="checkbox"
                 checked={aiUsed}
                 onChange={(e) => setAiUsed(e.target.checked)}
-                className="accent-indigo-600"
+                className="accent-violet-600"
               />
               AI 사용
             </label>
@@ -892,7 +892,7 @@ function WorkDialog({
                       key={r.key}
                       className={`flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-1 text-[11px] transition ${
                         ratio === r.key
-                          ? 'border-indigo-600 bg-indigo-50 font-medium text-indigo-700'
+                          ? 'border-violet-600 bg-violet-50 font-medium text-violet-700'
                           : 'border-neutral-300 hover:bg-neutral-50'
                       }`}
                     >
@@ -908,7 +908,7 @@ function WorkDialog({
                             setCrop(reshapeCrop(crop, ratioValue(next), imgRatio))
                           }
                         }}
-                        className="accent-indigo-600"
+                        className="accent-violet-600"
                       />
                       {r.key}
                     </label>
@@ -949,7 +949,7 @@ function WorkDialog({
                     })
                   }}
                   disabled={savingCrop || !crop}
-                  className="w-full rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+                  className="w-full rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
                 >
                   {savingCrop ? '만드는 중…' : '썸네일 저장'}
                 </button>
@@ -981,7 +981,7 @@ function WorkDialog({
               )
             }
             disabled={pending || !dirty}
-            className="mt-3 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+            className="mt-3 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? '저장 중…' : '저장'}
           </button>

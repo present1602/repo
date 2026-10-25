@@ -1,4 +1,5 @@
 import { getAdminUser } from '@/lib/admin-auth'
+import { countUnreadInquiries } from '@/lib/inquiries-db'
 import { AdminSidebar } from '@/components/admin/sidebar'
 import { SignOutButton } from '@/components/admin/sign-out-button'
 
@@ -13,9 +14,12 @@ export default async function AdminLayout({ children }: LayoutProps<'/admin'>) {
      루트 레이아웃이 깐 회색 배경을 흰색으로 덮는다. */
   if (!user) return <div className="flex flex-1 flex-col bg-white">{children}</div>
 
+  /* 미확인 문의 건수를 사이드바 배지로 — 다른 화면에 있어도 눈에 띈다 */
+  const unreadInquiries = await countUnreadInquiries()
+
   return (
     <div className="flex flex-1 bg-white">
-      <AdminSidebar email={user.email ?? ''} />
+      <AdminSidebar email={user.email ?? ''} unreadInquiries={unreadInquiries} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex h-12 shrink-0 items-center justify-end border-b border-neutral-200 px-5">
           <SignOutButton />

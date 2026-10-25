@@ -45,7 +45,7 @@ export function DesignerList({
                 <button
                   onClick={() => setTag(t)}
                   className={`flex w-full justify-between rounded-md px-2 py-1.5 ${
-                    tag === t ? 'bg-indigo-50 font-semibold text-indigo-700' : 'text-neutral-600 hover:bg-neutral-100'
+                    tag === t ? 'bg-violet-50 font-semibold text-violet-700' : 'text-neutral-600 hover:bg-neutral-100'
                   }`}
                 >
                   {t ?? '전체'} <span className="text-xs text-neutral-400">{n}</span>
@@ -88,7 +88,7 @@ export function DesignerList({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="디자이너 이름, 키워드 검색"
-            className="h-9 w-full min-w-0 rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-indigo-500 focus:ring-2 sm:w-64"
+            className="h-9 w-full min-w-0 rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2 sm:w-64"
           />
         </div>
 
@@ -165,7 +165,7 @@ export function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) 
         )}
         <Link
           href={href}
-          className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-600"
+          className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-violet-600"
         >
           프로필 보기
         </Link>
@@ -200,7 +200,7 @@ export function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) 
           {more > 0 && (
             <Link
               href={href}
-              className="grid h-full w-24 shrink-0 place-items-center rounded-lg border border-dashed border-neutral-300 text-center text-xs text-neutral-500 hover:border-indigo-400 hover:text-indigo-600"
+              className="grid h-full w-24 shrink-0 place-items-center rounded-lg border border-dashed border-neutral-300 text-center text-xs text-neutral-500 hover:border-violet-400 hover:text-violet-600"
             >
               +{more}개
               <br />

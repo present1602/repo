@@ -78,7 +78,7 @@ export function PlanCopyForm({ copy }: { copy: PlanCopy }) {
         <button
           type="submit"
           disabled={pending || !dirty}
-          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40"
+          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
         >
           {pending ? '저장 중…' : '저장'}
         </button>
@@ -120,7 +120,7 @@ function PlanFields({
           value={name}
           onChange={(e) => onName(e.target.value)}
           required
-          className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-indigo-500 focus:ring-2"
+          className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
         />
       </label>
 
@@ -136,7 +136,7 @@ function PlanFields({
           onChange={(e) => onDesc(e.target.value)}
           rows={3}
           maxLength={MAX_PLAN_DESC}
-          className="w-full resize-y rounded-lg border border-neutral-300 px-3 py-2 text-sm leading-relaxed outline-none ring-indigo-500 focus:ring-2"
+          className="w-full resize-y rounded-lg border border-neutral-300 px-3 py-2 text-sm leading-relaxed outline-none ring-violet-500 focus:ring-2"
         />
       </label>
 

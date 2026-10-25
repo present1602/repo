@@ -19,7 +19,7 @@ export function WorkModal({
   const w = works[index]
   const [open, setOpen] = useState(false)
 
-  // 작업물을 넘기면 펼쳐둔 설명 시트는 접는다
+  // 작업물을 넘기면 펼쳐둔 설명은 접는다
   const next = () => {
     setOpen(false)
     setIndex((index + 1) % works.length)
@@ -44,7 +44,7 @@ export function WorkModal({
   })
 
   /* 제목·클라이언트·설명은 모두 선택 입력이다.
-     하나도 없으면 설명 시트를 띄우지 않는다 — 빈 흰 칸이 이미지를 가린다.
+     하나도 없으면 설명 칸을 띄우지 않는다 — 빈 흰 칸이 이미지를 가린다.
 
      AI 사용 표기는 true 일 때만 붙인다 — null(묻기 전에 올라간 작업)과
      false 를 구분해 보여주지 않는다. */
@@ -61,20 +61,32 @@ export function WorkModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative flex h-full w-full flex-col overflow-hidden bg-white md:h-[92vh] md:max-w-xl md:rounded-2xl"
+        className="relative flex h-full w-full flex-col overflow-hidden bg-white md:h-[92vh] md:max-w-4xl md:rounded-2xl"
       >
-        <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-5 py-3">
           <span className="text-xs tracking-widest text-neutral-500">
             {String(index + 1).padStart(2, '0')} / {String(works.length).padStart(2, '0')}
           </span>
-          <button onClick={onClose} aria-label="닫기" className="text-2xl leading-none text-neutral-500 hover:text-neutral-900">
+          <button
+            onClick={onClose}
+            aria-label="닫기"
+            className="text-2xl leading-none text-neutral-500 transition hover:text-neutral-900"
+          >
             ×
           </button>
         </div>
 
-        {/* 설명 시트가 없으면 아래 여백도 둘 필요가 없다 */}
-        <div className={`flex-1 overflow-y-auto ${hasSheet ? 'pb-32' : ''}`}>
-          <Img key={w.id} src={w.image_url} alt={w.title ?? ''} ratio={aspectOf(w)} className="w-full" />
+        {/* 이미지 — 남는 높이를 차지하고, 설명 칸은 그 아래 흐름에 선다.
+            예전처럼 설명을 띄워(absolute) 두면 제목만 있을 때 아래 여백이
+            사라져 글자가 바닥에 붙는다. */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <Img
+            key={w.id}
+            src={w.image_url}
+            alt={w.title ?? ''}
+            ratio={aspectOf(w)}
+            className="w-full"
+          />
         </div>
 
         {/* 한 장뿐이면 넘길 곳이 없다 */}
@@ -98,43 +110,101 @@ export function WorkModal({
         )}
 
         {hasSheet && (
-          <>
-            {open && <div className="absolute inset-0 bg-neutral-950/30" onClick={() => setOpen(false)} />}
-            <div
-              className={`absolute inset-x-0 bottom-0 flex flex-col border-t border-neutral-900 bg-white transition-[max-height] duration-500 ease-out ${
-                open ? 'max-h-[75%]' : 'max-h-40'
-              }`}
-            >
-              <div className="px-5 pt-5 md:px-8">
-                {meta && <p className="text-[11px] tracking-widest text-neutral-500">{meta}</p>}
-                {w.title && <h3 className="mt-1 text-2xl font-semibold tracking-tight">{w.title}</h3>}
-              </div>
+          <div className="shrink-0 border-t border-neutral-200 px-5 py-5 md:px-8">
+            {meta && <p className="text-[11px] tracking-widest text-neutral-500">{meta}</p>}
+            {w.title && (
+              <h3 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">{w.title}</h3>
+            )}
 
-              {/* 설명이 없으면 펼칠 것이 없으므로 버튼도 만들지 않는다 */}
-              {w.description &&
-                (open ? (
-                  <>
-                    <div className="overflow-y-auto whitespace-pre-line px-5 py-4 text-[15px] leading-relaxed text-neutral-700 md:px-8">
-                      {w.description}
-                    </div>
-                    <button
-                      onClick={() => setOpen(false)}
-                      className="mx-5 mb-5 border-t border-neutral-300 pt-3 text-left text-sm font-medium md:mx-8"
-                    >
-                      접기 ↓
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={() => setOpen(true)} className="px-5 pb-5 pt-2 text-left md:px-8">
-                    <p className="line-clamp-2 whitespace-pre-line text-[15px] leading-relaxed text-neutral-600">
-                      {w.description}
-                    </p>
-                  </button>
-                ))}
-            </div>
-          </>
+            {w.description && (
+              /* relative — 아래 Toggle 의 숨은 사본이 이 칸을 기준으로 선다.
+                 없으면 모달 전체를 기준으로 삼아 엉뚱한 자리에 깔린다. */
+              <div className="relative mt-2.5">
+                <p
+                  className={`whitespace-pre-line text-[15px] leading-relaxed text-neutral-600 ${
+                    /* 접힌 상태에서는 두 줄까지만 — 넘치면 끝에 말줄임이 붙는다.
+                       펼치면 길어질 수 있어 이 칸 자체가 스크롤을 갖는다. */
+                    open ? 'max-h-[30vh] overflow-y-auto' : 'line-clamp-2'
+                  }`}
+                >
+                  {w.description}
+                </p>
+
+                {/* 펼치기·접기 — 글자 대신 화살표 하나로 둔다.
+                    두 줄 안에 들어가는 짧은 설명에는 버튼을 만들지 않는다. */}
+                <Toggle open={open} onToggle={() => setOpen((v) => !v)} text={w.description} />
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
+  )
+}
+
+/* 설명이 두 줄을 넘는지 재서, 넘칠 때만 펼침 버튼을 보여준다.
+
+   글자 수로 어림잡으면 줄바꿈이 섞인 글에서 틀린다 — 실제로 그려진
+   높이를 재는 편이 정확하다. */
+function Toggle({
+  open,
+  onToggle,
+  text,
+}: {
+  open: boolean
+  onToggle: () => void
+  text: string
+}) {
+  const [overflows, setOverflows] = useState(false)
+  const [el, setEl] = useState<HTMLParagraphElement | null>(null)
+
+  useEffect(() => {
+    if (!el) return
+
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1)
+    measure()
+
+    /* 모달 폭이 바뀌면 줄 수도 바뀐다 */
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [el, text])
+
+  return (
+    <>
+      {/* 높이를 재기 위한 숨은 사본 — 보이는 글은 위에서 그린다.
+          펼친 상태에서도 "접힌 높이"를 알아야 버튼을 계속 띄울 수 있다.
+
+          inset-x-0 으로 보이는 글과 같은 너비를 갖게 한다 — 너비가 다르면
+          줄 수가 달라져 "넘치는지" 판단이 틀린다. */}
+      <p
+        ref={setEl}
+        aria-hidden
+        className="pointer-events-none invisible absolute inset-x-0 top-0 line-clamp-2 whitespace-pre-line text-[15px] leading-relaxed"
+      >
+        {text}
+      </p>
+
+      {overflows && (
+        <button
+          onClick={onToggle}
+          aria-label={open ? '설명 접기' : '설명 더 보기'}
+          aria-expanded={open}
+          className="mt-1.5 grid size-7 place-items-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`size-4 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
+          >
+            <path d="M4 6l4 4 4-4" />
+          </svg>
+        </button>
+      )}
+    </>
   )
 }
