@@ -6,13 +6,20 @@ import { useRouter } from 'next/navigation'
 import type { AdminDesigner, PublicDesignerCard } from '@/lib/designer-shape'
 import { DesignerCard } from '@/components/designer-list'
 import { MAX_BIO, CARD_THUMBS } from '@/lib/portfolio-limits'
-import { formatPrice } from '@/lib/plans'
+import {
+  formatPrice,
+  formatPriceRange,
+  DEFAULT_PRICE_MAX,
+  MIN_PRICE_MAX,
+  MAX_PRICE_MAX,
+} from '@/lib/plans'
 import { displayName } from '@/lib/display-name'
 import {
   updateDesigner,
   setDesignerVisible,
   resetPassword,
   deleteDesigner,
+  setDesignerPriceMax,
 } from '@/app/admin/designers/actions'
 import { Field, input, ghostButton } from './form-bits'
 
@@ -106,7 +113,7 @@ export function DesignerDetail({
 
       <ProfileForm designer={d} onNotice={setNotice} />
 
-      <PlanSummary designer={d} />
+      <PlanSummary designer={d} onNotice={setNotice} />
 
       <AccountSection designer={d} onNotice={setNotice} />
 
@@ -205,7 +212,35 @@ function ListPreviewDialog({
 
 /* 금액은 디자이너 본인이 고른다 — 어드민은 확인만 한다.
    문구를 바꾸려면 설정 화면으로 간다. */
-function PlanSummary({ designer: d }: { designer: AdminDesigner }) {
+function PlanSummary({
+  designer: d,
+  onNotice,
+}: {
+  designer: AdminDesigner
+  onNotice: (n: Notice) => void
+}) {
+  /* 상한은 어드민이 직접 적는다 — 금액을 올려 줄 만한 디자이너를
+     가려내는 일은 사람이 판단한다(016_price_range.sql). */
+  const [priceMax, setPriceMax] = useState(String(d.price_max))
+  const [pending, start] = useTransition()
+  const router = useRouter()
+
+  const dirty = priceMax !== String(d.price_max)
+
+  const save = (e: React.FormEvent) => {
+    e.preventDefault()
+    onNotice(null)
+    start(async () => {
+      const r = await setDesignerPriceMax(d.id, Number(priceMax))
+      if (!r.ok) {
+        onNotice({ kind: 'error', text: r.error })
+        return
+      }
+      router.refresh()
+      onNotice({ kind: 'ok', text: '상한을 바꿨습니다.' })
+    })
+  }
+
   return (
     <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -221,7 +256,7 @@ function PlanSummary({ designer: d }: { designer: AdminDesigner }) {
       <dl className="mt-3 space-y-2 text-sm">
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-neutral-500">디자인</dt>
-          <dd className="font-medium">{formatPrice(d.design_price)}</dd>
+          <dd className="font-medium">{formatPriceRange(d.design_price, d.price_max)}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-neutral-500">프리미엄</dt>
@@ -238,7 +273,41 @@ function PlanSummary({ designer: d }: { designer: AdminDesigner }) {
         </div>
       </dl>
 
-      <p className="mt-3 text-xs text-neutral-400">금액은 디자이너가 직접 설정합니다.</p>
+      {/* 상한 — 여기만 어드민이 정한다. 시작가는 디자이너가 고른다. */}
+      <form onSubmit={save} className="mt-4 border-t border-neutral-200 pt-4">
+        <label className="block">
+          <span className="mb-1.5 flex items-baseline justify-between text-xs font-medium text-neutral-600">
+            시안 가격 상한
+            <span className="font-normal text-neutral-400">어드민만 수정</span>
+          </span>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={priceMax}
+              onChange={(e) => setPriceMax(e.target.value)}
+              min={MIN_PRICE_MAX}
+              max={MAX_PRICE_MAX}
+              step={1000}
+              className="h-9 min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+            />
+            <button
+              type="submit"
+              disabled={pending || !dirty}
+              className="shrink-0 rounded-lg bg-neutral-900 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
+            >
+              {pending ? '저장 중…' : '저장'}
+            </button>
+          </div>
+        </label>
+
+        <p className="mt-2 text-xs leading-relaxed text-neutral-400">
+          올려 두면 디자이너가 더 높은 시작가를 고를 수 있습니다. 기본{' '}
+          {formatPrice(DEFAULT_PRICE_MAX)}.
+        </p>
+      </form>
+
+      <p className="mt-3 text-xs text-neutral-400">시작가와 프리미엄은 디자이너가 설정합니다.</p>
     </section>
   )
 }

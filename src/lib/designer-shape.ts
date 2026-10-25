@@ -29,9 +29,12 @@ export type DesignerRow = {
   /* 디자이너 본인이 정하는 공개 여부 — false면 탐색 화면에서만 숨는다.
      visible 과 섞지 않는다(004_designer_activity.sql 주석 참고). */
   profile_public: boolean
-  /* 가격 플랜 — 정해진 보기 중에서 고른다(plans.ts).
+  /* 가격 플랜 — 공개 화면에는 design_price ~ price_max 범위로 나간다.
+     시작가는 디자이너가 보기 중에서 고르고(plans.ts),
+     상한은 어드민이 직접 적는다(016_price_range.sql).
      디자인 플랜은 필수라 끄는 스위치가 없고, 프리미엄만 켜고 끌 수 있다. */
   design_price: number
+  price_max: number
   premium_price: number
   premium_enabled: boolean
 }
@@ -76,8 +79,10 @@ export type PublicDesigner = {
   one_liner: string | null
   bio: string | null
   tags: string[]
-  /* 가격 — 문구(이름·설명)는 전역 설정에서 따로 받는다 */
+  /* 가격 — 시작가 ~ 상한 범위로 보여준다.
+     문구(이름·설명)는 전역 설정에서 따로 받는다. */
   design_price: number
+  price_max: number
   premium_price: number
   premium_enabled: boolean
 }

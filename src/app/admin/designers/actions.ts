@@ -9,6 +9,7 @@ import { sendTempPassword } from '@/lib/designer-mail'
 import { displayName } from '@/lib/display-name'
 import { putImage } from '@/lib/upload'
 import { MAX_DESCRIPTION, MAX_BIO, MAX_WORKS } from '@/lib/portfolio-limits'
+import { formatPrice, isPriceMax, MIN_PRICE_MAX, MAX_PRICE_MAX } from '@/lib/plans'
 
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
    페이지에서 막았더라도 여기서 권한을 다시 확인해야 한다. */
@@ -177,6 +178,51 @@ export async function setDesignerVisible(id: string, visible: boolean): Promise<
   }
 
   refresh(id)
+  return { ok: true }
+}
+
+/* 시안 가격 상한 — 어드민만 정한다(016_price_range.sql).
+
+   올려 두면 디자이너가 그만큼 높은 시작가를 고를 수 있다. 금액을 올려 줄
+   만한 디자이너를 가려내는 일은 사람이 판단하므로 자유 입력으로 둔다 —
+   대신 터무니없는 값은 막는다.
+
+   상한을 내릴 때 지금 시작가가 그보다 높으면 범위가 뒤집힌다. DB check
+   제약(designers_price_order)이 막아 주지만, 거부되면 뭉뚱그린 메시지만
+   남으므로 여기서 먼저 알려준다. */
+export async function setDesignerPriceMax(id: string, priceMax: number): Promise<Result> {
+  const db = await guard()
+
+  if (!isPriceMax(priceMax)) {
+    return fail(
+      `상한은 ${formatPrice(MIN_PRICE_MAX)} 이상 ${formatPrice(MAX_PRICE_MAX)} 이하로 적어 주세요.`,
+    )
+  }
+
+  const { data: d, error: readErr } = await db
+    .from('designers')
+    .select('design_price')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (readErr || !d) return fail('디자이너를 찾을 수 없습니다.')
+
+  const designPrice = d.design_price as number
+  if (designPrice > priceMax) {
+    return fail(
+      `지금 시작가(${formatPrice(designPrice)})보다 낮게 내릴 수 없습니다. 디자이너가 시작가를 먼저 낮춰야 합니다.`,
+    )
+  }
+
+  const { error } = await db.from('designers').update({ price_max: priceMax }).eq('id', id)
+  if (error) {
+    console.error('[designers] 가격 상한 변경 실패:', error.message)
+    return fail('변경에 실패했습니다.')
+  }
+
+  refresh(id)
+  /* 디자이너의 시작가 선택지가 바뀐다 */
+  revalidatePath('/studio')
   return { ok: true }
 }
 

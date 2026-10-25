@@ -4,9 +4,10 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import {
-  DESIGN_PRICES,
   PREMIUM_PRICES,
+  designPriceOptions,
   formatPrice,
+  formatPriceRange,
   type PlanCopy,
 } from '@/lib/plans'
 import { updatePlans } from '@/app/studio/actions'
@@ -22,6 +23,10 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, start] = useTransition()
   const router = useRouter()
+
+  /* 상한보다 높은 시작가는 고를 수 없다 — 범위가 뒤집힌다.
+     어드민이 상한을 99,000 이상으로 올려 두면 99,000원도 보기에 들어온다. */
+  const startOptions = designPriceOptions(d.price_max)
 
   const dirty =
     designPrice !== d.design_price ||
@@ -62,14 +67,55 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
         </p>
       </div>
 
-      {/* 디자인 플랜 — 필수라 끄는 스위치가 없다 */}
-      <PlanSection
-        name={copy.design_plan_name}
-        desc={copy.design_plan_desc}
-        prices={DESIGN_PRICES}
-        value={designPrice}
-        onChange={setDesignPrice}
-      />
+      {/* 디자인 플랜 — 필수라 끄는 스위치가 없다.
+
+          공개 화면에는 "시작가 ~ 상한" 범위로 나간다. 시작가만 고르고
+          상한은 어드민이 정한다(016_price_range.sql). */}
+      <section>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold">{copy.design_plan_name}</h3>
+          <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-500">
+            항상 노출
+          </span>
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-neutral-500">{copy.design_plan_desc}</p>
+
+        <div className="mt-3.5 flex flex-wrap items-end gap-3">
+          <label className="min-w-0">
+            <span className="mb-1.5 block text-xs font-medium text-neutral-600">시작가</span>
+            <select
+              value={designPrice}
+              onChange={(e) => setDesignPrice(Number(e.target.value))}
+              className="h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+            >
+              {startOptions.map((p) => (
+                <option key={p} value={p}>
+                  {formatPrice(p)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <span className="pb-2.5 text-neutral-400">~</span>
+
+          <div className="min-w-0">
+            <span className="mb-1.5 block text-xs font-medium text-neutral-600">
+              상한 <span className="font-normal text-neutral-400">(관리자 설정)</span>
+            </span>
+            {/* 고칠 수 없는 값이라 입력칸처럼 보이되 눌리지 않게 둔다 */}
+            <p className="flex h-10 items-center rounded-lg bg-neutral-100 px-3 text-sm font-medium text-neutral-500">
+              {formatPrice(d.price_max)}
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-2.5 text-xs leading-relaxed text-neutral-400">
+          공개 프로필에는 <b className="font-medium text-neutral-600">
+            {formatPriceRange(designPrice, d.price_max)}
+          </b>{' '}
+          으로 보입니다. 상한을 올리려면 관리자에게 문의해 주세요.
+        </p>
+      </section>
 
       <hr className="border-neutral-200" />
 

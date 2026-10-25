@@ -12,7 +12,7 @@ import {
   MAX_ROW_SPAN,
   MAX_BIO,
 } from '@/lib/portfolio-limits'
-import { isDesignPrice, isPremiumPrice } from '@/lib/plans'
+import { isDesignPrice, isPremiumPrice, formatPrice } from '@/lib/plans'
 import { listVisibleSpecialties } from '@/lib/specialties'
 import { MAX_TAGS } from '@/lib/specialty-shape'
 
@@ -187,6 +187,24 @@ export async function updatePlans(input: PlanInput): Promise<Result> {
   }
   if (!isPremiumPrice(input.premiumPrice)) {
     return fail('선택할 수 없는 금액입니다.')
+  }
+
+  /* 시작가는 상한을 넘을 수 없다 — 넘으면 공개 화면에
+     "99,000 ~ 49,000원" 같은 뒤집힌 범위가 나간다.
+     상한은 어드민만 정하므로 여기서 다시 읽어 확인한다. */
+  const { data: me } = await db
+    .from('designers')
+    .select('price_max')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!me) return fail('계정을 찾을 수 없습니다.')
+
+  const priceMax = me.price_max as number
+  if (input.designPrice > priceMax) {
+    return fail(
+      `시작가는 상한(${formatPrice(priceMax)})보다 높을 수 없습니다. 상한을 올리려면 관리자에게 문의해 주세요.`,
+    )
   }
 
   const { error } = await db

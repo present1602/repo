@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { ProposalNav } from '@/components/proposal/proposal-nav'
 import { ProposalRail } from '@/components/proposal/proposal-rail'
 import { HtmlClass } from '@/components/html-class'
+import { Half, Label, Rule, Spread, pad } from '@/components/proposal/spread-bits'
 
 export const metadata: Metadata = {
   title: '디자이너 제안서 · SOOM',
@@ -20,7 +21,6 @@ export const metadata: Metadata = {
    대신한다(ProposalArt). */
 
 const TOTAL = 5
-const pad = (n: number) => String(n).padStart(2, '0')
 const BRAND = 'SOOM · Designer Proposal'
 
 export default function ProposalV1Page() {
@@ -50,10 +50,14 @@ export default function ProposalV1Page() {
               Edition.
             </h1>
             <Rule />
-            <p className="max-w-sm leading-relaxed text-neutral-600">
+            {/* 줄바꿈 자리를 직접 정한다 — 흐르는 대로 두면 '계 / 약.' 처럼
+                마지막 낱말만 넘어가 끝이 허전해진다 */}
+            <p className="max-w-md leading-relaxed text-neutral-600">
               디자이너를 위한 SOOM의 첫 번째 공식 제안서.
               <br />
-              AI로 빠르게 만드는 웹·앱 메인 시안, 그리고 그 다음의 더 큰 계약.
+              AI로 빠르게 만드는 웹·앱 메인 시안,
+              <br />
+              그리고 그 다음의 더 큰 계약.
             </p>
             <div className="mt-10 flex items-end justify-between md:mt-auto md:pt-16">
               <div>
@@ -334,72 +338,6 @@ export default function ProposalV1Page() {
             </div>
           </Half>
         </Spread>
-      </div>
-    </div>
-  )
-}
-
-/* ─────────── 부품 ─────────── */
-
-function Label({ children, light }: { children: React.ReactNode; light?: boolean }) {
-  return (
-    <p
-      className={`text-[11px] font-medium uppercase tracking-[0.35em] ${
-        light ? 'text-violet-300' : 'text-violet-600'
-      }`}
-    >
-      {children}
-    </p>
-  )
-}
-
-function Rule() {
-  return <div className="my-6 h-0.5 w-16 bg-violet-600 md:my-8" />
-}
-
-/* 펼침면 한 장 — 넓은 화면에서는 좌우 두 쪽, 좁은 화면에서는 위아래로 쌓인다 */
-function Spread({ id, children }: { id: number; children: React.ReactNode }) {
-  return (
-    <section
-      id={`p${id}`}
-      /* 폭을 묶지 않는다 — 넓은 화면에서 펼침면이 화면을 가득 쓴다.
-         proposal-spread — 스냅 지점이자 한 화면에 맞는 높이(globals.css) */
-      className="proposal-spread grid w-full scroll-mt-20 overflow-hidden rounded-lg shadow-xl shadow-neutral-300/60 md:grid-cols-2 md:divide-x md:divide-neutral-300"
-    >
-      {children}
-    </section>
-  )
-}
-
-/* 펼침면의 한 쪽.
-
-   위아래의 작은 글자는 잡지의 난외주를 흉내 낸 것이다 — 좁은 화면에서는
-   자리만 차지하므로 감춘다. */
-function Half({
-  children,
-  tone = 'cream',
-  top,
-  foot,
-}: {
-  children: React.ReactNode
-  tone?: 'cream' | 'white'
-  top: [string, string]
-  foot: [string, string]
-}) {
-  const bg = tone === 'cream' ? 'bg-[#faf6f0]' : 'bg-white'
-
-  return (
-    <div className={`relative flex flex-col p-7 md:p-12 ${bg}`}>
-      <div className="hidden justify-between text-[10px] uppercase tracking-[0.3em] text-neutral-500 md:flex">
-        <span>{top[0]}</span>
-        <span>{top[1]}</span>
-      </div>
-
-      <div className="flex flex-1 flex-col justify-center md:py-12">{children}</div>
-
-      <div className="hidden justify-between text-[10px] uppercase tracking-[0.3em] text-neutral-500 md:flex">
-        <span>{foot[0]}</span>
-        <span>{foot[1]}</span>
       </div>
     </div>
   )

@@ -23,7 +23,7 @@ import type {
 /* 공개 화면에 내보낼 컬럼만 적는다 — select('*') 로 두면
    컬럼이 늘 때 temp_password 같은 값이 조용히 함께 나간다. */
 const DESIGNER_COLS =
-  'id, name, avatar_url, one_liner, bio, tags, design_price, premium_price, premium_enabled'
+  'id, name, avatar_url, one_liner, bio, tags, design_price, price_max, premium_price, premium_enabled'
 const CROP_COLS = 'crop_x, crop_y, crop_w, crop_h'
 const WORK_COLS =
   `id, designer_id, image_url, thumb_url, width, height, title, description, row_span, client, ai_used, ${CROP_COLS}, sort_order`

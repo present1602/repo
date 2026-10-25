@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { getPublicDesigner } from '@/lib/public-designers'
 import { displayNameOf } from '@/lib/display-name'
 import { getPlanCopy } from '@/lib/site-settings'
-import { formatPrice } from '@/lib/plans'
+import { formatPrice, formatPriceRange } from '@/lib/plans'
 import { Img } from '@/components/img'
 import { WorkGallery } from '@/components/work-gallery'
 import { InquiryButton } from '@/components/inquiry/inquiry-button'
@@ -122,6 +122,7 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
               name={copy.design_plan_name}
               desc={copy.design_plan_desc}
               price={d.design_price}
+              priceTo={d.price_max}
             />
             {d.premium_enabled && (
               <PlanCard
@@ -175,11 +176,25 @@ function DetailSkeleton() {
 }
 
 /* 공개 화면의 플랜 한 장 — 이름·설명은 전역 설정, 금액은 디자이너가 정한다 */
-function PlanCard({ name, desc, price }: { name: string; desc: string; price: number }) {
+/* priceTo 가 있으면 "시작가 ~ 상한" 범위로 적는다(016_price_range.sql).
+   같은 금액이면 한쪽만 나온다 — formatPriceRange 가 처리한다. */
+function PlanCard({
+  name,
+  desc,
+  price,
+  priceTo,
+}: {
+  name: string
+  desc: string
+  price: number
+  priceTo?: number
+}) {
   return (
     <div className="rounded-xl bg-neutral-50 p-6 ring-1 ring-neutral-200">
       <p className="font-semibold">{name}</p>
-      <p className="mt-2 text-2xl font-bold tracking-tight">{formatPrice(price)}</p>
+      <p className="mt-2 text-2xl font-bold tracking-tight">
+        {priceTo == null ? formatPrice(price) : formatPriceRange(price, priceTo)}
+      </p>
       <p className="mt-3 text-sm leading-relaxed text-neutral-600">{desc}</p>
     </div>
   )
