@@ -4,12 +4,12 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import {
-  PREMIUM_PRICES,
   designPriceOptions,
   formatPrice,
   formatPriceRange,
   type PlanCopy,
 } from '@/lib/plans'
+import { SCOPES, SCOPE_LABELS, SCOPE_HINTS } from '@/lib/scopes'
 import { updatePlans } from '@/app/studio/actions'
 
 /* 디자이너가 플랜 금액을 고르는 화면.
@@ -18,8 +18,14 @@ import { updatePlans } from '@/app/studio/actions'
    이름·설명은 전역 설정이라 여기서 바꿀 수 없고, 보여주기만 한다. */
 export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy: PlanCopy }) {
   const [designPrice, setDesignPrice] = useState(d.design_price)
-  const [premiumPrice, setPremiumPrice] = useState(d.premium_price)
-  const [premiumEnabled, setPremiumEnabled] = useState(d.premium_enabled)
+  /* 프리미엄은 화면에서 감췄다 — 값은 그대로 보내 서버가 덮어쓰지 않게 한다.
+     되살릴 때 setter 를 다시 만들면 된다(아래 주석 처리한 구획). */
+  const [premiumPrice] = useState(d.premium_price)
+  const [premiumEnabled] = useState(d.premium_enabled)
+  /* 받을 의뢰 유형 — 메인 시안은 늘 켜져 있어 상태를 두지 않는다 */
+  const [fullDesign, setFullDesign] = useState(d.scope_full_design)
+  /* 어드민이 정하는 값이라 상태로 들지 않는다 — 서버가 준 것을 그대로 보여준다 */
+  const withDev = d.scope_with_dev
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, start] = useTransition()
   const router = useRouter()
@@ -31,13 +37,19 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
   const dirty =
     designPrice !== d.design_price ||
     premiumPrice !== d.premium_price ||
-    premiumEnabled !== d.premium_enabled
+    premiumEnabled !== d.premium_enabled ||
+    fullDesign !== d.scope_full_design
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     setMsg(null)
     start(async () => {
-      const r = await updatePlans({ designPrice, premiumPrice, premiumEnabled })
+      const r = await updatePlans({
+        designPrice,
+        premiumPrice,
+        premiumEnabled,
+        scopeFullDesign: fullDesign,
+      })
       if (!r.ok) {
         setMsg({ ok: false, text: r.error })
         return
@@ -119,16 +131,106 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
 
       <hr className="border-neutral-200" />
 
-      {/* 프리미엄 — 본인이 끌 수 있다 */}
-      <PlanSection
-        name={copy.premium_plan_name}
-        desc={copy.premium_plan_desc}
-        prices={PREMIUM_PRICES}
-        value={premiumPrice}
-        onChange={setPremiumPrice}
-        enabled={premiumEnabled}
-        onToggle={setPremiumEnabled}
-      />
+      {/* 받을 의뢰 유형 — 탐색 화면이 이 체크로 디자이너를 거른다.
+          메인 시안은 모두가 받으므로 끌 수 없다(017_designer_scopes.sql). */}
+      <section>
+        <h3 className="text-sm font-semibold">받을 의뢰 유형</h3>
+        <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+          체크한 유형의 의뢰만 연결됩니다. 맡기 어려운 유형은 꺼 두세요.
+        </p>
+
+        <div className="mt-3.5 space-y-2">
+          {SCOPES.map((s) => {
+            /* 세 유형의 주인이 다르다 —
+                 sample      늘 켜짐. 플랫폼이 서 있는 자리라 끄지 못한다.
+                 full_design 본인이 켜고 끈다.
+                 with_dev    어드민이 열어 준다. 본인은 보기만 한다. */
+            const locked = s !== 'full_design'
+            const on = s === 'sample' ? true : s === 'full_design' ? fullDesign : withDev
+
+            return (
+              <label
+                key={s}
+                /* 메인 시안을 눌러 끄려 하면 왜 안 되는지 알린다 —
+                   아무 반응이 없으면 고장으로 읽힌다. 브라우저 alert 대신
+                   이 폼이 이미 쓰는 알림 자리(msg)로 보낸다. */
+                onClick={
+                  s === 'sample'
+                    ? () => setMsg({ ok: false, text: '해당 옵션 체크는 필수입니다.' })
+                    : undefined
+                }
+                className={[
+                  'flex items-start gap-2.5 rounded-lg border p-3 transition',
+                  on
+                    ? 'border-violet-600 bg-violet-50'
+                    : locked
+                      ? 'border-neutral-200 bg-neutral-50'
+                      : 'border-neutral-300 hover:bg-neutral-50',
+                  /* 눌러서 무언가 일어나는 것만 손가락 커서를 준다 —
+                     with_dev 는 어드민 몫이라 눌러도 아무 일이 없다 */
+                  s === 'with_dev' ? '' : 'cursor-pointer',
+                ].join(' ')}
+              >
+                {/* 켜진 채 잠긴 유형은 체크박스를 쓰지 않는다 —
+                    disabled 가 걸리면 브라우저가 흐리게 칠해 accent 색이
+                    먹지 않고, 꺼진 것처럼 보인다. 같은 자리에 같은 크기로
+                    보라색 체크를 그려 "켜져 있다"가 분명해지게 한다. */}
+                {locked && on ? (
+                  <span
+                    /* 보기만 하는 값이라 입력이 아니다 — 읽는 기기에는
+                       '선택됨'으로 알리고, 조작할 수 없음을 함께 전한다 */
+                    role="img"
+                    aria-label="선택됨 (변경 불가)"
+                    className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-[3px] bg-violet-600 text-[10px] font-bold text-white"
+                  >
+                    ✓
+                  </span>
+                ) : (
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={locked}
+                    onChange={(e) => setFullDesign(e.target.checked)}
+                    className="mt-0.5 shrink-0 accent-violet-600"
+                  />
+                )}
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`text-sm font-medium ${
+                        locked && !on ? 'text-neutral-500' : ''
+                      }`}
+                    >
+                      {SCOPE_LABELS[s]}
+                    </span>
+                    {s === 'sample' && (
+                      <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        기본
+                      </span>
+                    )}
+                    {s === 'with_dev' && (
+                      <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">
+                        관리자 승인
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
+                    {SCOPE_HINTS[s]}
+                  </span>
+                  {/* 왜 못 바꾸는지 적어 둔다 — 비활성 체크박스만 두면
+                      고장으로 읽힌다 */}
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* 프리미엄 플랜은 화면에서 감췄다 — 금액 체계가 '시작가 ~ 상한'
+          범위로 바뀌어 두 번째 플랜을 둘 자리가 마땅치 않다.
+          DB 컬럼(premium_price·premium_enabled)과 공개 화면 표시는 그대로
+          두었으므로 값은 보존된다. 다시 쓸 때는 git 이력에서 PlanSection 과
+          이 구획을 꺼내 오면 된다. */}
 
       <div className="flex items-center gap-2">
         <button
@@ -143,98 +245,5 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
         )}
       </div>
     </form>
-  )
-}
-
-/* 플랜 한 구획. onToggle 이 있으면 켜고 끌 수 있는 플랜이다.
-   구획 사이는 테두리 대신 divider 로 가른다. */
-function PlanSection({
-  name,
-  desc,
-  prices,
-  value,
-  onChange,
-  enabled,
-  onToggle,
-}: {
-  name: string
-  desc: string
-  prices: readonly number[]
-  value: number
-  onChange: (n: number) => void
-  enabled?: boolean
-  onToggle?: (b: boolean) => void
-}) {
-  const optional = onToggle !== undefined
-  /* 끈 플랜은 금액을 고를 이유가 없다 — 흐리게 하고 입력을 막는다 */
-  const off = optional && !enabled
-
-  return (
-    <section>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold">{name}</h3>
-            {optional ? (
-              <span
-                className={`rounded px-1.5 py-0.5 text-[11px] ${
-                  enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
-                }`}
-              >
-                {enabled ? '노출' : '숨김'}
-              </span>
-            ) : (
-              <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-500">
-                항상 노출
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-xs leading-relaxed text-neutral-500">{desc}</p>
-        </div>
-
-        {optional && (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabled}
-            aria-label={`${name} 노출`}
-            onClick={() => onToggle(!enabled)}
-            className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-              enabled ? 'bg-emerald-500' : 'bg-neutral-300'
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${
-                enabled ? 'left-[22px]' : 'left-0.5'
-              }`}
-            />
-          </button>
-        )}
-      </div>
-
-      <div className={`mt-3.5 ${off ? 'pointer-events-none opacity-40' : ''}`}>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {prices.map((p) => {
-            const on = p === value
-            return (
-              <button
-                key={p}
-                type="button"
-                aria-pressed={on}
-                disabled={off}
-                onClick={() => onChange(p)}
-                className={`rounded-lg border px-2 py-2.5 text-sm font-medium transition ${
-                  on
-                    ? 'border-neutral-900 bg-neutral-900 text-white'
-                    : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
-                }`}
-              >
-                {formatPrice(p)}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    </section>
   )
 }

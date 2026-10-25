@@ -174,6 +174,12 @@ export type PlanInput = {
   designPrice: number
   premiumPrice: number
   premiumEnabled: boolean
+  /* 받을 의뢰 유형(017_designer_scopes.sql).
+
+     본인이 정할 수 있는 것은 '디자인 전체' 하나뿐이다 —
+     메인 시안은 모두가 받고, '디자인 + 개발'은 어드민이 열어 준다.
+     받지 않는 값을 여기 두면 화면이 보내는 대로 덮어쓰게 된다. */
+  scopeFullDesign: boolean
 }
 
 /* 금액은 정해진 보기 중에서만 고를 수 있다.
@@ -213,6 +219,8 @@ export async function updatePlans(input: PlanInput): Promise<Result> {
       design_price: input.designPrice,
       premium_price: input.premiumPrice,
       premium_enabled: input.premiumEnabled,
+      /* scope_with_dev 는 건드리지 않는다 — 어드민이 정하는 값이다 */
+      scope_full_design: input.scopeFullDesign,
     })
     .eq('id', id)
 

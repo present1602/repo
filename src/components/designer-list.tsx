@@ -6,6 +6,8 @@ import type { PublicDesignerCard, PublicWork } from '@/lib/designer-shape'
 import { displayNameOf } from '@/lib/display-name'
 import { Img } from './img'
 import { WorkModal } from './work-modal'
+import { ScopePrompt } from './scope-prompt'
+import { SCOPE_LABELS, acceptsScope, type Scope } from '@/lib/scopes'
 
 export function DesignerList({
   designers,
@@ -21,9 +23,15 @@ export function DesignerList({
      아래 그리드에서 md 이상일 때만 2열이 된다. */
   const [cols, setCols] = useState<1 | 2>(1)
 
+  /* 들어오자마자 어떤 의뢰인지 묻고, 그 유형을 받는 디자이너만 남긴다.
+     null 이면 거르지 않는다 — 고르지 않고 닫은 경우다. */
+  const [scope, setScope] = useState<Scope | null>(null)
+  const [asked, setAsked] = useState(false)
+
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return designers.filter((d) => {
+      if (scope && !acceptsScope(d, scope)) return false
       if (tag && !d.tags.includes(tag)) return false
       if (!needle) return true
       /* 이름·한 줄 소개·분야까지 함께 본다. 이름이 비어 있는 계정도 있으므로
@@ -31,7 +39,7 @@ export function DesignerList({
       const hay = [displayNameOf(d), d.one_liner ?? '', ...d.tags].join(' ').toLowerCase()
       return hay.includes(needle)
     })
-  }, [designers, tag, q])
+  }, [designers, tag, q, scope])
 
   return (
     <div className="flex min-h-full bg-neutral-100 text-neutral-900">
@@ -84,6 +92,22 @@ export function DesignerList({
             </div>
           </div>
 
+          {/* 고른 유형을 늘 보이게 — 왜 목록이 짧은지 모르면 디자이너가
+              없는 줄 알고 되돌아간다 */}
+          {scope && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-violet-50 px-3.5 py-2.5 text-sm text-violet-800">
+              <span className="min-w-0">
+                <b className="font-semibold">{SCOPE_LABELS[scope]}</b>를 받는 디자이너만 보는 중
+              </span>
+              <button
+                onClick={() => setScope(null)}
+                className="ml-auto shrink-0 rounded-md border border-violet-200 bg-white px-2.5 py-1 text-xs font-medium transition hover:bg-violet-100"
+              >
+                전체 보기
+              </button>
+            </div>
+          )}
+
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -125,6 +149,17 @@ export function DesignerList({
           </p>
         )}
       </main>
+
+      {/* 목록 위에 덮는다 — 뒤가 비쳐야 무엇을 고르는 자리인지 읽힌다 */}
+      {!asked && (
+        <ScopePrompt
+          onPick={(s) => {
+            setScope(s)
+            setAsked(true)
+          }}
+          onSkip={() => setAsked(true)}
+        />
+      )}
     </div>
   )
 }
@@ -149,11 +184,24 @@ export function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) 
   return (
     <article className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-neutral-200/70">
       <div className="flex flex-wrap items-center gap-3 p-4 md:flex-nowrap md:p-5">
-        <Avatar designer={d} />
-        <div className="min-w-0 flex-1">
-          <h2 className="font-semibold">{name}</h2>
-          {d.one_liner && <p className="truncate text-sm text-neutral-600">{d.one_liner}</p>}
-        </div>
+        {/* 프로필 사진과 이름도 상세로 가는 길이다 — 아래 '프로필 보기'
+            버튼과 같은 곳으로 간다. 분야 태그와 버튼은 이 링크 밖에 둔다:
+            링크 안에 링크를 넣으면 HTML 상 허용되지 않는다. */}
+        <h2 className="min-w-0 flex-1">
+          <Link href={href} className="group/name flex min-w-0 items-center gap-3">
+            <Avatar designer={d} />
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold transition group-hover/name:text-violet-600">
+                {name}
+              </span>
+              {d.one_liner && (
+                <span className="block truncate text-sm font-normal text-neutral-600">
+                  {d.one_liner}
+                </span>
+              )}
+            </span>
+          </Link>
+        </h2>
         {d.tags.length > 0 && (
           <div className="order-last flex w-full flex-wrap gap-1.5 md:order-none md:w-auto">
             {d.tags.map((t) => (

@@ -37,6 +37,10 @@ export type DesignerRow = {
   price_max: number
   premium_price: number
   premium_enabled: boolean
+  /* 받을 의뢰 유형(017_designer_scopes.sql).
+     메인 시안은 모두가 받으므로 스위치를 두지 않는다. */
+  scope_full_design: boolean
+  scope_with_dev: boolean
 }
 
 /* 화면으로 내려보내는 모양 — 비밀번호 해시를 뺀 나머지 전부 */
@@ -85,6 +89,9 @@ export type PublicDesigner = {
   price_max: number
   premium_price: number
   premium_enabled: boolean
+  /* 탐색 화면이 이 둘로 거른다(scopes.ts) */
+  scope_full_design: boolean
+  scope_with_dev: boolean
 }
 
 /* 상세 화면 — 프로필과 작업을 함께 받는다 */

@@ -226,6 +226,27 @@ export async function setDesignerPriceMax(id: string, priceMax: number): Promise
   return { ok: true }
 }
 
+/* '디자인 + 개발' 의뢰를 받게 할지 — 어드민만 정한다(017_designer_scopes.sql).
+
+   오프라인 미팅·상주 근무 요청이 따를 수 있어 아무나 받을 수 없다.
+   디자이너는 자기 상태를 볼 수만 있고, 받고 싶으면 관리자에게 문의한다. */
+export async function setDesignerWithDev(id: string, on: boolean): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db.from('designers').update({ scope_with_dev: on }).eq('id', id)
+  if (error) {
+    console.error('[designers] 디자인+개발 설정 실패:', error.message)
+    return fail('변경에 실패했습니다.')
+  }
+
+  refresh(id)
+  /* 디자이너 본인 화면의 표시도 바뀐다 */
+  revalidatePath('/studio')
+  /* 탐색의 유형 필터 결과가 달라진다 */
+  revalidatePath('/explore')
+  return { ok: true }
+}
+
 /* 임시 비밀번호 재발급 — 기존 비밀번호는 즉시 무효가 된다 */
 export async function resetPassword(
   id: string,

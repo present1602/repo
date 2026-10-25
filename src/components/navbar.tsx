@@ -1,15 +1,14 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { InquiryModal } from '@/components/inquiry/inquiry-modal'
 
-/* 메뉴는 앞으로 더 붙는다 — 배열에 항목만 추가하면 된다.
-   탐색은 우상단 버튼으로 따로 두므로 여기 넣지 않는다 — 한 화면에
-   같은 곳으로 가는 링크가 둘이면 어느 쪽을 눌러야 할지 묻게 된다. */
-const menu = [{ href: '/', label: '홈' }]
+/* 사이트 공통 바.
 
+   좌측 메뉴는 두지 않는다 — 홈으로 가는 길은 SOOM 로고가 맡고,
+   그 밖에 모든 화면에서 갈 곳은 탐색과 의뢰뿐이라 우측에 모았다.
+   메뉴가 다시 필요해지면 로고와 우측 묶음 사이에 nav 를 넣으면 된다. */
 export function Navbar() {
   const [inquiry, setInquiry] = useState(false)
 
@@ -20,13 +19,6 @@ export function Navbar() {
           <Link href="/" className="text-lg font-black tracking-tight">
             SOOM
           </Link>
-
-          {/* 현재 경로는 런타임에만 알 수 있어 프리렌더를 막는다.
-              강조 표시만 Suspense 뒤로 넘기고, 링크 자체는 셸에 함께 나간다 —
-              그래야 메뉴가 늦게 떠서 깜빡이지 않는다. */}
-          <Suspense fallback={<MenuLinks />}>
-            <MenuWithCurrent />
-          </Suspense>
 
           <div className="ml-auto flex items-center gap-5">
             <Link
@@ -54,38 +46,5 @@ export function Navbar() {
           position 이 static 이 아닌 조상은 fixed 의 기준이 된다. */}
       {inquiry && <InquiryModal onClose={() => setInquiry(false)} />}
     </>
-  )
-}
-
-function MenuWithCurrent() {
-  const pathname = usePathname()
-  return <MenuLinks pathname={pathname} />
-}
-
-/* pathname 을 모르면 아무것도 강조하지 않는다 — 링크 위치와 글자는 같다 */
-function MenuLinks({ pathname }: { pathname?: string }) {
-  return (
-    <nav className="flex gap-5 text-sm">
-      {menu.map((m) => {
-        /* 홈('/')은 접두사로 비교하면 모든 경로에 걸린다 — 정확히 같을 때만 */
-        const on = !pathname
-          ? false
-          : m.href === '/'
-            ? pathname === '/'
-            : pathname === m.href || pathname.startsWith(`${m.href}/`)
-
-        return (
-          <Link
-            key={m.href}
-            href={m.href}
-            className={`transition ${
-              on ? 'font-semibold text-neutral-900' : 'text-neutral-500 hover:text-neutral-900'
-            }`}
-          >
-            {m.label}
-          </Link>
-        )
-      })}
-    </nav>
   )
 }

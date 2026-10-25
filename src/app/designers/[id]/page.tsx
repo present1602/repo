@@ -92,10 +92,13 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
               </div>
             )}
 
-            <dl className="mt-10 grid grid-cols-2 gap-x-8 gap-y-6 border-t border-neutral-200 pt-6 text-sm md:grid-cols-4">
-              <Info k="작업" v={`${d.works.length}건`} />
-              {d.tags.length > 0 && <Info k="전문 분야" v={d.tags.join(', ')} />}
-            </dl>
+            {/* 작업 건수는 뺐다 — 올린 장수는 실력을 말해 주지 않는다.
+                나중에 수행한 프로젝트 건수로 대체한다. */}
+            {d.tags.length > 0 && (
+              <dl className="mt-10 grid grid-cols-2 gap-x-8 gap-y-6 border-t border-neutral-200 pt-6 text-sm md:grid-cols-4">
+                <Info k="전문 분야" v={d.tags.join(', ')} />
+              </dl>
+            )}
 
             <div className="mt-10">
               <InquiryButton designerId={d.id} designerName={name} />

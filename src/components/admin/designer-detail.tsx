@@ -20,6 +20,7 @@ import {
   resetPassword,
   deleteDesigner,
   setDesignerPriceMax,
+  setDesignerWithDev,
 } from '@/app/admin/designers/actions'
 import { Field, input, ghostButton } from './form-bits'
 
@@ -223,6 +224,8 @@ function PlanSummary({
      가려내는 일은 사람이 판단한다(016_price_range.sql). */
   const [priceMax, setPriceMax] = useState(String(d.price_max))
   const [pending, start] = useTransition()
+  /* 의뢰 유형은 저장 버튼 없이 바로 반영된다 — 가격과 따로 둔다 */
+  const [pendingScope, startScope] = useTransition()
   const router = useRouter()
 
   const dirty = priceMax !== String(d.price_max)
@@ -307,7 +310,51 @@ function PlanSummary({
         </p>
       </form>
 
-      <p className="mt-3 text-xs text-neutral-400">시작가와 프리미엄은 디자이너가 설정합니다.</p>
+      <p className="mt-3 text-xs text-neutral-400">시작가는 디자이너가 설정합니다.</p>
+
+      {/* 받을 의뢰 유형 중 '디자인 + 개발'만 어드민이 연다 —
+          오프라인 미팅·상주 근무 요청이 따를 수 있어 아무나 받을 수 없다.
+          나머지 둘은 디자이너 몫이라 여기서 다루지 않는다. */}
+      <div className="mt-5 border-t border-neutral-200 pt-4">
+        <p className="text-xs font-medium text-neutral-600">의뢰 유형</p>
+
+        <label className="mt-2.5 flex cursor-pointer items-start gap-2.5">
+          <input
+            type="checkbox"
+            checked={d.scope_with_dev}
+            disabled={pendingScope}
+            onChange={(e) =>
+              startScope(async () => {
+                onNotice(null)
+                const r = await setDesignerWithDev(d.id, e.target.checked)
+                if (!r.ok) {
+                  onNotice({ kind: 'error', text: r.error })
+                  return
+                }
+                router.refresh()
+                onNotice({
+                  kind: 'ok',
+                  text: e.target.checked
+                    ? '디자인 + 개발 의뢰를 받도록 열었습니다.'
+                    : '디자인 + 개발 의뢰를 닫았습니다.',
+                })
+              })
+            }
+            className="mt-0.5 shrink-0 accent-violet-600"
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">디자인 + 개발 의뢰</span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
+              켜면 이 디자이너가 개발까지 포함한 의뢰를 받습니다. 디자이너 본인은 바꿀 수
+              없습니다.
+            </span>
+          </span>
+        </label>
+
+        <p className="mt-2.5 text-xs text-neutral-400">
+          메인 시안은 모두가 받고, 디자인 전체 의뢰는 디자이너가 직접 켭니다.
+        </p>
+      </div>
     </section>
   )
 }

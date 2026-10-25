@@ -21,7 +21,7 @@ alter table public.inquiries
   add column if not exists inquiry_type text;
 
 comment on column public.inquiries.inquiry_type is
-  '의뢰 유형: 디자인 + 개발 / 디자인 / 샘플 시안 먼저 의뢰. 014 이전 문의는 null.';
+  '의뢰 유형: 디자인 + 개발 / 디자인 / 메인화면 시안 먼저 의뢰. 014 이전 문의는 null.';
 
 -- 화면에 없는 값이 들어오지 않게 묶는다. API 에서도 거르지만,
 -- 서버 액션과 달리 여기는 최종 방어선이다.
@@ -31,7 +31,7 @@ begin
     add constraint inquiries_type_allowed
     check (
       inquiry_type is null
-      or inquiry_type in ('디자인 + 개발', '디자인', '샘플 시안 먼저 의뢰')
+      or inquiry_type in ('디자인 + 개발', '디자인', '메인화면 시안 먼저 의뢰')
     );
 exception
   when duplicate_object then null;  -- 이미 있으면 그대로 둔다

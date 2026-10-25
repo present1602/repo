@@ -22,8 +22,16 @@ import type {
 
 /* 공개 화면에 내보낼 컬럼만 적는다 — select('*') 로 두면
    컬럼이 늘 때 temp_password 같은 값이 조용히 함께 나간다. */
-const DESIGNER_COLS =
+/* 017 마이그레이션 전에도 화면이 뜨게 하는 대비책.
+
+   scope_* 가 없는 DB 에서는 이 질의가 통째로 실패해 디자이너 목록이
+   빈다 — 컬럼 둘 때문에 탐색·홈이 모두 비는 건 과하다. 빼고 물은 뒤,
+   아래 withScopes 가 기본값(둘 다 거짓)으로 메운다.
+   017 을 적용하고 나면 이 분기는 지워도 된다. */
+const SCOPE_COLS = ', scope_full_design, scope_with_dev'
+const DESIGNER_BASE =
   'id, name, avatar_url, one_liner, bio, tags, design_price, price_max, premium_price, premium_enabled'
+const DESIGNER_COLS = DESIGNER_BASE + SCOPE_COLS
 const CROP_COLS = 'crop_x, crop_y, crop_w, crop_h'
 const WORK_COLS =
   `id, designer_id, image_url, thumb_url, width, height, title, description, row_span, client, ai_used, ${CROP_COLS}, sort_order`
@@ -85,6 +93,42 @@ function byOrder(a: WorkWithOwner, b: WorkWithOwner) {
   return a.sort_order - b.sort_order
 }
 
+/* scope_* 가 없어서 실패했으면 그 둘만 빼고 한 번 더 묻는다.
+
+   selectWorks 와 같은 방침이다 — 질의마다 필터 체인이 달라 결과를
+   공통으로 감쌀 수 없으므로, 컬럼 목록을 받아 질의를 만드는 함수를
+   넘겨받는다. 빠진 값은 기본값(둘 다 거짓)으로 메운다:
+   017 전에는 아무도 큰 건을 받지 않는 것으로 보는 편이 안전하다. */
+async function selectDesigners<T extends object>(
+  build: (cols: string) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+) {
+  const first = await build(DESIGNER_COLS)
+  const msg = first.error?.message
+  if (!msg || !msg.includes('scope_')) return first
+
+  const r = await build(DESIGNER_BASE)
+  if (r.error || !r.data) return r
+
+  return {
+    ...r,
+    data: r.data.map((d) => ({ scope_full_design: false, scope_with_dev: false, ...d })),
+  }
+}
+
+/* 한 명만 받는 질의(maybeSingle)용 — 위와 같은 일을 한다 */
+async function selectDesigner<T extends object>(
+  build: (cols: string) => PromiseLike<{ data: T | null; error: { message: string } | null }>,
+) {
+  const first = await build(DESIGNER_COLS)
+  const msg = first.error?.message
+  if (!msg || !msg.includes('scope_')) return first
+
+  const r = await build(DESIGNER_BASE)
+  if (r.error || !r.data) return r
+
+  return { ...r, data: { scope_full_design: false, scope_with_dev: false, ...r.data } }
+}
+
 /* 탐색 목록 — 공개 디자이너 + 카드용 썸네일.
 
    디자이너마다 작업을 따로 조회하면 N+1 이 된다.
@@ -95,13 +139,16 @@ export async function listPublicDesigners(): Promise<PublicDesignerCard[]> {
      지역 변수로 고정해 호출마다 non-null 단정을 붙이지 않는다. */
   const db = supabaseAdmin
 
-  const { data: rows, error } = await supabaseAdmin
-    .from('designers')
-    .select(DESIGNER_COLS)
-    .eq('visible', true)
-    .eq('profile_public', true)
-    .order('created_at', { ascending: false })
-    .limit(200)
+  const { data: rows, error } = await selectDesigners<PublicDesignerCard>((cols) =>
+    db
+      .from('designers')
+      .select(cols)
+      .eq('visible', true)
+      .eq('profile_public', true)
+      .order('created_at', { ascending: false })
+      .limit(200)
+      .overrideTypes<PublicDesignerCard[]>(),
+  )
 
   if (error) {
     console.error('[public] 디자이너 목록 조회 실패:', error.message)
@@ -161,11 +208,9 @@ export async function getDesignerCardPreview(id: string): Promise<PublicDesigner
 
   if (!isUuid(id)) return null
 
-  const { data, error } = await db
-    .from('designers')
-    .select(DESIGNER_COLS)
-    .eq('id', id)
-    .maybeSingle()
+  const { data, error } = await selectDesigner<PublicDesignerCard>((cols) =>
+    db.from('designers').select(cols).eq('id', id).maybeSingle().overrideTypes<PublicDesignerCard>(),
+  )
 
   if (error) {
     console.error('[admin] 카드 미리보기 조회 실패:', error.message)
@@ -208,13 +253,16 @@ export async function getPublicDesigner(id: string): Promise<PublicDesignerDetai
      잘못된 URL 은 에러가 아니라 404 로 다뤄야 한다. */
   if (!isUuid(id)) return null
 
-  const { data, error } = await supabaseAdmin
-    .from('designers')
-    .select(DESIGNER_COLS)
-    .eq('id', id)
-    .eq('visible', true)
-    .eq('profile_public', true)
-    .maybeSingle()
+  const { data, error } = await selectDesigner<PublicDesignerDetail>((cols) =>
+    db
+      .from('designers')
+      .select(cols)
+      .eq('id', id)
+      .eq('visible', true)
+      .eq('profile_public', true)
+      .maybeSingle()
+      .overrideTypes<PublicDesignerDetail>(),
+  )
 
   if (error) {
     console.error('[public] 디자이너 조회 실패:', error.message)

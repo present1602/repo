@@ -8,7 +8,7 @@
    코드값으로 두면 화면·메일·어드민에서 매번 한글로 옮겨야 하고,
    그 표가 여러 곳에 흩어져 어긋난다. */
 
-export const INQUIRY_TYPES = ['디자인 + 개발', '디자인', '샘플 시안 먼저 의뢰'] as const
+export const INQUIRY_TYPES = ['디자인 + 개발', '디자인', '메인화면 시안 먼저 의뢰'] as const
 
 export type InquiryType = (typeof INQUIRY_TYPES)[number]
 
@@ -16,7 +16,7 @@ export type InquiryType = (typeof INQUIRY_TYPES)[number]
 export const INQUIRY_TYPE_HINTS: Record<InquiryType, string> = {
   '디자인 + 개발': '화면 디자인부터 실제 구현까지 함께 맡깁니다.',
   디자인: '디자인 결과물만 받습니다.',
-  '샘플 시안 먼저 의뢰': '본 계약 전에 메인 시안을 먼저 받아 봅니다.',
+  '메인화면 시안 먼저 의뢰': '본 계약 전에 메인 시안을 먼저 받아 봅니다.',
 }
 
 export function isInquiryType(v: string): v is InquiryType {
