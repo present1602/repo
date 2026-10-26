@@ -24,13 +24,22 @@ export function DesignerList({
   const [scope, setScope] = useState<Scope | null>(null)
   const [asked, setAsked] = useState(false)
 
+  /* 의뢰유형까지 거른 목록 — 사이드바의 분야별 숫자도 이것으로 센다.
+     전체에서 세면 아래 목록과 숫자가 어긋난다(유형을 고르면 2명인데 '전체 51'). */
+  const shown = useMemo(
+    () =>
+      designers.filter((d) => {
+        /* 받을 유형을 모두 끈 디자이너는 거르지 않을 때도 뺀다 — 탐색에는
+           나오지 않고 프로필 링크로만 열리게 하려고 끈 것이다(plan-form.tsx) */
+        if (!SCOPES.some((s) => acceptsScope(d, s))) return false
+        return !scope || acceptsScope(d, scope)
+      }),
+    [designers, scope],
+  )
+
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    return designers.filter((d) => {
-      /* 받을 유형을 모두 끈 디자이너는 거르지 않을 때도 뺀다 — 탐색에는
-         나오지 않고 프로필 링크로만 열리게 하려고 끈 것이다(plan-form.tsx) */
-      if (!SCOPES.some((s) => acceptsScope(d, s))) return false
-      if (scope && !acceptsScope(d, scope)) return false
+    return shown.filter((d) => {
       if (tag && !d.tags.includes(tag)) return false
       if (!needle) return true
       /* 이름·한 줄 소개·분야까지 함께 본다. 이름이 비어 있는 계정도 있으므로
@@ -38,7 +47,7 @@ export function DesignerList({
       const hay = [displayNameOf(d), d.one_liner ?? '', ...d.tags].join(' ').toLowerCase()
       return hay.includes(needle)
     })
-  }, [designers, tag, q, scope])
+  }, [shown, tag, q])
 
   return (
     <div className="flex min-h-full bg-neutral-100 text-neutral-900">
@@ -46,7 +55,7 @@ export function DesignerList({
         <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">전문 분야</p>
         <ul className="mt-3 space-y-0.5 text-sm">
           {[null, ...allTags].map((t) => {
-            const n = t ? designers.filter((d) => d.tags.includes(t)).length : designers.length
+            const n = t ? shown.filter((d) => d.tags.includes(t)).length : shown.length
             return (
               <li key={t ?? 'all'}>
                 <button

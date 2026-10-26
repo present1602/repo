@@ -43,3 +43,6 @@ next-env.d.ts
 
 # 참고용으로 클론해둔 별도 저장소 — 이 저장소에 포함하지 않는다
 /ref/
+
+# Claude Code 개인 설정
+.claude/settings.local.json

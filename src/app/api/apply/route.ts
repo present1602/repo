@@ -9,12 +9,18 @@ import {
   APPLICATION_FILE_KINDS,
   APPLICATION_FILE_LABELS,
   MAX_APPLICATION_FILE_BYTES,
+  MAX_INTRO,
   fileExt,
+  isHttpUrl,
   type ApplicationFile,
   type ApplicationFileKind,
 } from '@/lib/application-shape'
 
-/* 디자이너 지원서 접수(021_designer_applications.sql).
+/* 디자이너 지원서 접수(021_designer_applications.sql, 022_application_text_url.sql).
+
+   이력서는 파일 대신 짧은 자기소개(intro)로, 포트폴리오는 파일 대신
+   주소(portfolioUrl)로 낼 수 있다 — 디자이너 신청 화면(designers/apply).
+   제안서 v1-3 폼은 파일 두 개를 그대로 보낸다.
 
    파일은 이 라우트를 거치지 않는다 — 포트폴리오 PDF 는 수십 MB 인데
    서버리스 함수는 요청 본문이 몇 MB 에서 잘린다. 대신 두 번 부른다:
@@ -53,13 +59,27 @@ function readInput(body: Record<string, unknown>) {
   /* DB check 제약과 같은 값 — 거부되면 뭉뚱그린 오류만 남는다 */
   if (name.length > 100 || email.length > 200) return { error: '입력이 너무 깁니다.' }
 
-  const files = {} as Record<ApplicationFileKind, FileMeta>
+  /* 파일 대신 받을 수 있는 것(022_application_text_url.sql) —
+     이력서 ↔ 짧은 자기소개, 포트폴리오 파일 ↔ 주소. 파일이 오면 파일을 쓴다. */
+  const intro = String(body.intro ?? '').trim()
+  const portfolioUrl = String(body.portfolioUrl ?? '').trim()
+  const alt: Record<ApplicationFileKind, string> = { resume: intro, portfolio: portfolioUrl }
+
+  const files: Partial<Record<ApplicationFileKind, FileMeta>> = {}
   for (const kind of APPLICATION_FILE_KINDS) {
     const f = raw[kind]
     const label = APPLICATION_FILE_LABELS[kind]
     const fname = String(f?.name ?? '').trim()
     const size = Number(f?.size ?? 0)
-    if (!fname || !size) return { error: `${label} 파일을 첨부해 주세요.` }
+    if (!fname || !size) {
+      if (alt[kind]) continue
+      return {
+        error:
+          kind === 'resume'
+            ? '이력서 파일을 첨부하거나 짧은 자기소개를 적어 주세요.'
+            : '포트폴리오 파일을 첨부하거나 주소를 적어 주세요.',
+      }
+    }
     if (size > MAX_APPLICATION_FILE_BYTES) return { error: `${label} 파일은 30MB를 넘을 수 없습니다.` }
     if (!APPLICATION_FILE_EXT.includes(fileExt(fname))) {
       return { error: `${label}: 허용되지 않는 형식입니다 (${fname})` }
@@ -67,7 +87,17 @@ function readInput(body: Record<string, unknown>) {
     files[kind] = { name: fname.slice(0, 200), size }
   }
 
-  return { name, email, submitKey, files }
+  /* 파일을 낸 쪽의 글·주소는 버린다 — 화면에서 라디오를 바꾸며 남은 값이다 */
+  const introUsed = files.resume ? null : intro
+  const urlUsed = files.portfolio ? null : portfolioUrl
+  if (introUsed && introUsed.length > MAX_INTRO) {
+    return { error: `자기소개는 ${MAX_INTRO}자 이내로 적어 주세요.` }
+  }
+  if (urlUsed && (urlUsed.length > 500 || !isHttpUrl(urlUsed))) {
+    return { error: '포트폴리오 주소를 확인해 주세요. (http:// 또는 https://로 시작)' }
+  }
+
+  return { name, email, submitKey, files, intro: introUsed, portfolioUrl: urlUsed }
 }
 
 export async function POST(req: Request) {
@@ -81,7 +111,9 @@ export async function POST(req: Request) {
 
     const input = readInput(body)
     if ('error' in input) return bad(input.error!)
-    const { name, email, submitKey, files } = input
+    const { name, email, submitKey, files, intro, portfolioUrl } = input
+    /* 파일로 낸 종류만 — 글·주소로 낸 쪽은 올릴 것도 확인할 것도 없다 */
+    const fileKinds = APPLICATION_FILE_KINDS.filter((k) => files[k])
 
     if (!supabaseConfigured || !supabaseAdmin) {
       console.error('[apply] Supabase 미설정 — 지원자:', { name, email })
@@ -100,14 +132,16 @@ export async function POST(req: Request) {
 
     /* ── 1단계: 업로드 주소 ── */
     if (body.step === 'prepare') {
-      const uploads = {} as Record<ApplicationFileKind, { path: string; token: string }>
-      for (const kind of APPLICATION_FILE_KINDS) {
-        const path = pathOf(submitKey, kind, files[kind].name)
+      const uploads: Partial<Record<ApplicationFileKind, { path: string; token: string }>> = {}
+      for (const kind of fileKinds) {
+        const path = pathOf(submitKey, kind, files[kind]!.name)
         /* upsert — 업로드 도중 실패해 다시 누르면 같은 경로에 덮어쓴다 */
         const { data, error } = await bucket.createSignedUploadUrl(path, { upsert: true })
         if (error || !data) {
           console.error('[apply] 업로드 주소 생성 실패:', error?.message)
-          if (error && /bucket/i.test(error.message)) {
+          /* 버킷이 없으면 Storage 는 'bucket' 대신 "The related resource does
+             not exist" 로 답한다 — 021 을 돌리지 않은 경우 */
+          if (error && /bucket|related resource does not exist/i.test(error.message)) {
             return bad('지원서 저장소가 준비되지 않았습니다. 관리자에게 알려 주세요.', 503)
           }
           return bad('업로드를 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500)
@@ -122,28 +156,34 @@ export async function POST(req: Request) {
     /* ── 2단계: 확인 후 저장 ──
        브라우저가 "올렸다"고 해도 믿지 않는다. 폴더를 직접 들여다봐
        파일이 있는지, 크기가 제한 안인지 확인한다. */
-    const { data: listed, error: listErr } = await bucket.list(submitKey)
-    if (listErr) {
-      console.error('[apply] 업로드 확인 실패:', listErr.message)
-      return bad('업로드를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500)
-    }
-
-    const saved = {} as Record<ApplicationFileKind, ApplicationFile>
-    for (const kind of APPLICATION_FILE_KINDS) {
-      const path = pathOf(submitKey, kind, files[kind].name)
-      const obj = listed?.find((o) => `${submitKey}/${o.name}` === path)
-      const size = Number(obj?.metadata?.size ?? 0)
-      if (!obj || !size) {
-        return bad(`${APPLICATION_FILE_LABELS[kind]} 파일이 올라가지 않았습니다. 다시 시도해 주세요.`)
+    const saved: Partial<Record<ApplicationFileKind, ApplicationFile>> = {}
+    if (fileKinds.length > 0) {
+      const { data: listed, error: listErr } = await bucket.list(submitKey)
+      if (listErr) {
+        console.error('[apply] 업로드 확인 실패:', listErr.message)
+        return bad('업로드를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500)
       }
-      saved[kind] = { name: files[kind].name, path, size }
+
+      for (const kind of fileKinds) {
+        const path = pathOf(submitKey, kind, files[kind]!.name)
+        const obj = listed?.find((o) => `${submitKey}/${o.name}` === path)
+        const size = Number(obj?.metadata?.size ?? 0)
+        if (!obj || !size) {
+          return bad(`${APPLICATION_FILE_LABELS[kind]} 파일이 올라가지 않았습니다. 다시 시도해 주세요.`)
+        }
+        saved[kind] = { name: files[kind]!.name, path, size }
+      }
     }
 
     const { error: dbErr } = await db.from('designer_applications').insert({
       name,
       email,
-      resume: saved.resume,
-      portfolio: saved.portfolio,
+      resume: saved.resume ?? null,
+      portfolio: saved.portfolio ?? null,
+      /* 022 전 DB 에는 이 두 칸이 없다 — 파일 두 개로 내는 v1-3 폼이
+         그동안에도 동작하도록 값이 있을 때만 싣는다 */
+      ...(intro ? { intro } : {}),
+      ...(portfolioUrl ? { portfolio_url: portfolioUrl } : {}),
       submit_key: submitKey,
     })
 

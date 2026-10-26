@@ -152,6 +152,8 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
   const [boxSize, setBoxSize] = useState<{ w: number; h: number } | null>(null)
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null)
   const [step, setStep] = useState(0)
+  const [flash, setFlash] = useState(false)
+  const flashTimer = useRef<number | undefined>(undefined)
   /* 배율을 바꾸기 직전에 보던 자리(칸 가운데가 그림의 어디였는지, 0~1).
      바꾼 뒤 같은 자리를 가운데로 되돌려, 키울 때 왼쪽 위로 튀지 않게 한다. */
   const focus = useRef<{ x: number; y: number } | null>(null)
@@ -190,7 +192,14 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
       y: (box.scrollTop + box.clientHeight / 2) / box.scrollHeight,
     }
     setStep(next)
+
+    /* 배율은 늘 띄워 두지 않고, 바꿀 때만 잠깐 보였다가 사라진다 */
+    setFlash(true)
+    window.clearTimeout(flashTimer.current)
+    flashTimer.current = window.setTimeout(() => setFlash(false), 900)
   }
+
+  useEffect(() => () => window.clearTimeout(flashTimer.current), [])
 
   /* 화살표 키는 작업 넘기기가 쓴다 — 확대는 +/− 키로 */
   useEffect(() => {
@@ -225,28 +234,30 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
         </div>
       </div>
 
-      <div className="absolute bottom-3 right-3 flex items-center overflow-hidden rounded-full bg-white/90 text-neutral-700 shadow-md">
+      {/* 테두리·바탕 없이 버튼 둘만 띄운다. 흰 그림 위에서도 보이도록
+          반투명한 어두운 원으로 두고, 배율 숫자는 바꿀 때만 왼쪽에 잠깐 뜬다. */}
+      <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+        <span
+          aria-live="polite"
+          className={`pointer-events-none mr-1 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs tabular-nums text-white transition-opacity duration-300 ${
+            flash ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          {Math.round(zoom * 100)}%
+        </span>
         <button
           onClick={() => go(step - 1)}
           disabled={step === 0}
           aria-label="축소"
-          className="grid size-10 place-items-center text-lg transition hover:bg-neutral-100 disabled:opacity-30 disabled:hover:bg-transparent"
+          className="grid size-9 place-items-center rounded-full bg-neutral-900/50 text-lg leading-none text-white backdrop-blur-sm transition hover:bg-neutral-900/75 disabled:opacity-30"
         >
           −
-        </button>
-        {/* 지금 배율 — 눌러서 처음 크기로 */}
-        <button
-          onClick={() => go(0)}
-          aria-label="원래 크기로"
-          className="min-w-12 px-1 text-xs tabular-nums transition hover:text-neutral-900"
-        >
-          {Math.round(zoom * 100)}%
         </button>
         <button
           onClick={() => go(step + 1)}
           disabled={step === ZOOMS.length - 1}
           aria-label="확대"
-          className="grid size-10 place-items-center text-lg transition hover:bg-neutral-100 disabled:opacity-30 disabled:hover:bg-transparent"
+          className="grid size-9 place-items-center rounded-full bg-neutral-900/50 text-lg leading-none text-white backdrop-blur-sm transition hover:bg-neutral-900/75 disabled:opacity-30"
         >
           +
         </button>

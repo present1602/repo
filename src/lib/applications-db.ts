@@ -34,21 +34,28 @@ export async function listApplications(): Promise<ApplicationWithLinks[]> {
   const rows = (data ?? []) as ApplicationRow[]
   if (rows.length === 0) return []
 
-  /* 파일마다 따로 부르지 않고 한 번에 서명한다 */
-  const paths = rows.flatMap((r) => APPLICATION_FILE_KINDS.map((k) => r[k].path))
-  const { data: signed, error: signErr } = await db.storage
-    .from(APPLICATION_FILES_BUCKET)
-    .createSignedUrls(paths, LINK_TTL)
-
-  if (signErr) console.error('[apply] 내려받기 링크 생성 실패:', signErr.message)
-
-  const byPath = new Map((signed ?? []).map((s) => [s.path, s.signedUrl]))
+  /* 파일마다 따로 부르지 않고 한 번에 서명한다.
+     글·주소로 낸 쪽(022)은 파일이 없어 건너뛴다. */
+  const paths = rows.flatMap((r) =>
+    APPLICATION_FILE_KINDS.flatMap((k) => (r[k] ? [r[k].path] : [])),
+  )
+  const byPath = new Map<string, string>()
+  if (paths.length > 0) {
+    const { data: signed, error: signErr } = await db.storage
+      .from(APPLICATION_FILES_BUCKET)
+      .createSignedUrls(paths, LINK_TTL)
+    if (signErr) console.error('[apply] 내려받기 링크 생성 실패:', signErr.message)
+    for (const s of signed ?? []) if (s.path && s.signedUrl) byPath.set(s.path, s.signedUrl)
+  }
 
   return rows.map((r) => ({
     ...r,
+    /* 022 전 DB 에는 두 칸이 없다 — 화면이 undefined 를 따로 다루지 않게 메운다 */
+    intro: r.intro ?? null,
+    portfolio_url: r.portfolio_url ?? null,
     links: {
-      resume: byPath.get(r.resume.path) ?? null,
-      portfolio: byPath.get(r.portfolio.path) ?? null,
+      resume: r.resume ? (byPath.get(r.resume.path) ?? null) : null,
+      portfolio: r.portfolio ? (byPath.get(r.portfolio.path) ?? null) : null,
     },
   }))
 }

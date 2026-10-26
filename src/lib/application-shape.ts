@@ -37,20 +37,38 @@ export type ApplicationFile = { name: string; path: string; size: number }
 
 export type ApplicationStatus = 'unread' | 'read'
 
+/* 이력서 대신 받는 짧은 자기소개의 최대 길이 — DB 제약(022)과 같은 값 */
+export const MAX_INTRO = 500
+
 export type ApplicationRow = {
   id: string
   created_at: string
   name: string
   email: string
-  resume: ApplicationFile
-  portfolio: ApplicationFile
+  /* 둘 중 하나는 늘 있다(022_application_text_url.sql) —
+     파일 또는 글(intro), 파일 또는 주소(portfolio_url) */
+  resume: ApplicationFile | null
+  portfolio: ApplicationFile | null
+  intro: string | null
+  portfolio_url: string | null
   submit_key: string
   status: ApplicationStatus
   status_at: string | null
 }
 
+/* http(s) 주소만 받는다 — javascript: 같은 주소가 어드민 화면의 링크로
+   그대로 실리면 누르는 순간 스크립트가 돈다 */
+export function isHttpUrl(v: string) {
+  try {
+    const u = new URL(v)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 /* 어드민 화면으로 내려보내는 모양 — 비공개 버킷이라 내려받기 링크를
-   서버에서 서명해 붙인다 */
+   서버에서 서명해 붙인다. 파일 대신 글·주소로 낸 쪽은 null 이다. */
 export type ApplicationWithLinks = ApplicationRow & {
   links: Record<ApplicationFileKind, string | null>
 }
