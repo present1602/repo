@@ -7,7 +7,7 @@ import { displayNameOf } from '@/lib/display-name'
 import { Img } from './img'
 import { WorkModal } from './work-modal'
 import { ScopePrompt } from './scope-prompt'
-import { SCOPE_LABELS, acceptsScope, type Scope } from '@/lib/scopes'
+import { SCOPES, SCOPE_LABELS, acceptsScope, type Scope } from '@/lib/scopes'
 
 export function DesignerList({
   designers,
@@ -31,6 +31,9 @@ export function DesignerList({
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return designers.filter((d) => {
+      /* 받을 유형을 모두 끈 디자이너는 거르지 않을 때도 뺀다 — 탐색에는
+         나오지 않고 프로필 링크로만 열리게 하려고 끈 것이다(plan-form.tsx) */
+      if (!SCOPES.some((s) => acceptsScope(d, s))) return false
       if (scope && !acceptsScope(d, scope)) return false
       if (tag && !d.tags.includes(tag)) return false
       if (!needle) return true

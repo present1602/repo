@@ -35,10 +35,11 @@ export function WorkGallery({ works }: { works: PublicWork[] }) {
             )}
             {/* AI 사용 표기는 true 일 때만 붙인다 — null(묻기 전에 올라간
                 작업)과 false 를 구분해 보여주지 않는다. */}
-            {(w.client || w.ai_used) && (
+            {(w.client || w.ai_used || w.soom_work) && (
               <p className="flex flex-wrap items-center gap-x-2 text-xs text-neutral-500">
                 {w.client}
                 {w.ai_used && <span className="text-violet-600">AI 활용</span>}
+                {w.soom_work && <span className="font-medium text-neutral-900">SOOM 의뢰</span>}
               </p>
             )}
           </button>

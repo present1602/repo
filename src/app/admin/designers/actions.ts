@@ -366,6 +366,8 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
   const width = Number(form.get('width')) || null
   const height = Number(form.get('height')) || null
   const aiUsed = readAiUsed(form)
+  /* 해당할 때만 켜는 표시라 '묻지 않음'이 없다 — 키가 있으면 켠 것 */
+  const soomWork = form.get('soomWork') != null
 
   if (!(file instanceof File) || file.size === 0) return fail('이미지를 선택해 주세요.')
 
@@ -409,6 +411,9 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
       height,
       title: title || null,
       ai_used: aiUsed,
+      /* 020 전 DB 에서는 컬럼이 없어 insert 가 통째로 실패한다 —
+         켠 경우에만 싣는다. 끈 값은 DB 기본값(false)과 같다. */
+      ...(soomWork ? { soom_work: true } : {}),
       ...readCrop(form),
       row_span: rowSpan,
       sort_order: count ?? 0,
@@ -436,6 +441,8 @@ export type AdminWorkInput = {
   /* 상세 화면은 체크박스로 받으므로 true/false 만 온다 —
      한 번 저장하면 null(미응답)로 되돌릴 수 없다. 의도된 동작이다. */
   aiUsed: boolean
+  /* SOOM 에서 수행한 의뢰인지(020_work_soom_project.sql) */
+  soomWork: boolean
 }
 
 export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
@@ -454,6 +461,7 @@ export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
       description: description || null,
       client: input.client.trim() || null,
       ai_used: input.aiUsed,
+      soom_work: input.soomWork,
     })
     .eq('id', input.id)
 

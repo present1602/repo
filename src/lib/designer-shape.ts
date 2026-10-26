@@ -37,8 +37,9 @@ export type DesignerRow = {
   price_max: number
   premium_price: number
   premium_enabled: boolean
-  /* 받을 의뢰 유형(017_designer_scopes.sql).
-     메인 시안은 모두가 받으므로 스위치를 두지 않는다. */
+  /* 받을 의뢰 유형(017_designer_scopes.sql, 019_scope_sample_optional.sql).
+     메인 시안·디자인 전체는 본인이, 디자인 + 개발은 어드민이 켜고 끈다. */
+  scope_sample: boolean
   scope_full_design: boolean
   scope_with_dev: boolean
 }
@@ -68,6 +69,8 @@ export type PublicWork = {
   /* AI 사용 여부 — true 일 때만 화면에 표기한다.
      null(묻기 전에 올라간 작업)과 false 를 구분해 보여주지 않는다. */
   ai_used: boolean | null
+  /* SOOM 에서 수행한 의뢰인지 — true 일 때만 화면에 표기한다 */
+  soom_work: boolean
   /* 어드민이 잡아 둔 썸네일 영역 — 원본에 대한 0~1 비율.
      넷 다 null 이면 work-ratio.ts 규칙으로 자리를 잡는다. */
   crop_x: number | null
@@ -89,7 +92,8 @@ export type PublicDesigner = {
   price_max: number
   premium_price: number
   premium_enabled: boolean
-  /* 탐색 화면이 이 둘로 거른다(scopes.ts) */
+  /* 탐색 화면이 이 셋으로 거른다(scopes.ts) */
+  scope_sample: boolean
   scope_full_design: boolean
   scope_with_dev: boolean
 }

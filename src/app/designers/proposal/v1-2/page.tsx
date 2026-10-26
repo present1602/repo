@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
+import { AdminPdfBar } from '@/components/proposal/admin-pdf-bar'
 import { ProposalNav } from '@/components/proposal/proposal-nav'
 import { ProposalRail } from '@/components/proposal/proposal-rail'
 import { HtmlClass } from '@/components/html-class'
@@ -20,22 +22,31 @@ export const metadata: Metadata = {
      04 의뢰 유형   받을 유형을 직접 체크
      05 부업       소액만 체크하면 부업, 더 받으면 본업
      06 자격
-     07 지원
+     07 11월 이벤트  첫 거래 축하 선물 + 소개 페이지 직접 공유
+     08 지원
 
    원본의 picsum 자리 채우기 사진은 넣지 않는다 — 내용이 없는 그림이
    모바일에서 화면을 통째로 먹는다. 분위기가 필요한 자리는 색으로 대신한다. */
 
-const TOTAL = 7
+const TOTAL = 8
 const BRAND = 'SOOM · Designer Proposal'
 
 export default function ProposalV11Page() {
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-900">
-      <ProposalNav total={TOTAL} />
-      <ProposalRail total={TOTAL} />
+      <Suspense fallback={null}>
+        <AdminPdfBar />
+      </Suspense>
+      {/* PDF 에는 쪽 번호 바·레일이 찍히지 않는다. contents 로 감싸야
+          바의 sticky 가 감싼 상자에 갇히지 않는다. */}
+      <div className="contents print:hidden">
+        <ProposalNav total={TOTAL} />
+        <ProposalRail total={TOTAL} />
+      </div>
       <HtmlClass names={['proposal-snap', 'smooth-anchor']} />
 
-      <div className="mx-auto max-w-[110rem] space-y-8 px-3 py-8 md:space-y-20 md:px-10 md:py-14 lg:px-16 xl:pl-16 xl:pr-28 2xl:pl-24 2xl:pr-32">
+      {/* proposal-pages — PDF 로 찍을 때 여백을 걷어내는 기준(pdf-export.tsx) */}
+      <div className="proposal-pages mx-auto max-w-[110rem] space-y-8 px-3 py-8 md:space-y-20 md:px-10 md:py-14 lg:px-16 xl:pl-16 xl:pr-28 2xl:pl-24 2xl:pr-32">
         {/* ─────────── 01 COVER ─────────── */}
         <Spread id={1}>
           <Half tone="cream" top={['Est. 2026', 'Vol. 01']} foot={['', '']}>
@@ -51,7 +62,7 @@ export default function ProposalV11Page() {
             {/* 줄바꿈 자리를 직접 정한다 — 흐르는 대로 두면 '계 / 약.' 처럼
                 마지막 낱말만 넘어가 끝이 허전해진다 */}
             <p className="max-w-md leading-relaxed text-neutral-600">
-              디자이너를 위한 SOOM의 첫번째 제안서.
+              디자이너를 위한 SOOM의 초대 제안서.
               <br />
             </p>
             <div className="mt-10 flex items-end justify-between md:mt-auto md:pt-16">
@@ -81,8 +92,10 @@ export default function ProposalV11Page() {
                 표지에서 가장 먼저 읽혀야 하므로 크게 세운다. */}
             <div className="relative ml-auto mt-14 max-w-[16rem] text-right text-white md:mt-0 md:max-w-[20rem] md:flex-1 md:self-center">
               <span className="ml-auto block h-0.5 w-12 bg-violet-400" />
-              {/* 큰 글씨 세 줄이 PC에서는 너무 붙어 보인다 — 넓은 화면만 줄간격을 올린다 */}
-              <p className="mt-6 text-3xl font-semibold leading-tight md:text-5xl md:leading-[1.4]">
+              {/* 큰 글씨 세 줄이 PC에서는 너무 붙어 보인다 — 넓은 화면만 줄간격을 올린다.
+                  줄은 <br /> 로만 나눈다 — '디자이너들의'가 상자 폭에 거의 꽉 차서,
+                  그림으로 뜰 때 글자 폭이 조금만 넓게 잡혀도 '의'가 넘어간다 */}
+              <p className="mt-6 whitespace-nowrap text-3xl font-semibold leading-tight md:text-5xl md:leading-[1.4]">
                 책임감 있는
                 <br />
                 디자이너들의
@@ -153,7 +166,7 @@ export default function ProposalV11Page() {
                 <p className="mt-1 text-sm text-neutral-600">
                   플랫폼 수수료
                   <br />
-                  <span className="text-neutral-400">카드수수료만 제외하고 지급</span>
+                  <span className="text-neutral-400">소액 의뢰 건은 수수료 0%</span>
                 </p>
               </div>
               <div>
@@ -173,8 +186,8 @@ export default function ProposalV11Page() {
             <Label>Four benefits</Label>
             <div className="mt-6 grid grid-cols-2 gap-3">
               {[
-                ['AI 활용', 'FIMA AI 활용을 권장해요.'],
                 ['부업 수익', '퇴근 후 부업으로 더 벌 수 있어요.'],
+                ['디자이너 친화적 수익모델', '소액 외주 건과 개발협력 건에 대해서는 수수료 0%'],
                 ['포트폴리오', '돈을 벌면서 자연스럽게 결과물 쌓여요.'],
                 ['더 큰 계약', '소액 외주가 더 큰 계약으로 이어질 수 있어요.'],
               ].map(([t, s], i) => (
@@ -251,12 +264,15 @@ export default function ProposalV11Page() {
               </ul>
 
               {/* 제안서의 핵심 문장 — 좌측에서 넘겨받아 여기서 크게 말한다 */}
-              <p className="mt-8 text-3xl font-semibold leading-snug tracking-tight md:text-3xl md:leading-[1.45]">
+              <p className="mt-8 text-2xl md:text-3xl font-semibold leading-snug tracking-tight md:text-3xl md:leading-[1.45]">
                 디자이너는 그 중 <br/>
                 <span className="text-violet-600">받고자 하는 의뢰유형만
                 <br />
                 직접 선택</span> 합니다.
               </p>
+
+             
+
             </div>
           </Half>
         </Spread>
@@ -266,11 +282,12 @@ export default function ProposalV11Page() {
           <Half tone="cream" top={['Feature · 03', 'Side job']} foot={[BRAND, 'L']}>
             <Label>For side job</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-snug tracking-tight md:text-5xl">
-              부업이라면,
+              본업이 바빠 <br/>
+              <span className="text-violet-600">
+                시간이 별로 없다면
               <br />
-              <span className="text-violet-600">소액 의뢰만</span>
-              <br />
-              체크하세요.
+              소액 의뢰만
+              체크</span>하세요.
             </h2>
             <Rule />
             <p className="max-w-sm text-base leading-relaxed text-neutral-600 md:text-lg">
@@ -285,7 +302,13 @@ export default function ProposalV11Page() {
               <br/>설정에서 언제든 바꿀 수
               있습니다.
             </p>
-              
+
+            <p className="mt-4 text-md md:text-xl leading-relaxed">
+              <span className="text-violet-600 font-semibold">
+                혹시 소액외주는 싫다면 — </span>
+              <br/>
+              본계약 건 의뢰만 체크할 수도 있어요.            
+            </p>
 
             <p className="mt-10 text-sm font-medium tracking-[0.2em] text-violet-600 md:mt-10">
               받을 유형 고르기
@@ -446,7 +469,11 @@ export default function ProposalV11Page() {
               </div>
               <div className="flex items-center gap-3 py-3">
                 <span className="h-px flex-1 bg-neutral-200" />
-                <span className="text-xs tracking-widest text-neutral-400">혹은</span>
+                {/* 그림으로 뜰 때 글자 폭이 화면보다 조금 넓게 잡혀 '혹 / 은'으로
+                    끊긴다 — 줄을 못 바꾸게 묶고, 양옆 선이 대신 줄어들게 한다 */}
+                <span className="shrink-0 whitespace-nowrap text-xs tracking-widest text-neutral-400">
+                  OR
+                </span>
                 <span className="h-px flex-1 bg-neutral-200" />
               </div>
               <div className="border border-dashed border-neutral-300 px-5 py-4">
@@ -458,8 +485,67 @@ export default function ProposalV11Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 07 CONTACT ─────────── */}
+        {/* ─────────── 07 LAUNCH EVENT ─────────── */}
         <Spread id={7}>
+          <Half tone="cream" top={['Feature · 06', 'Launch event']} foot={[BRAND, 'L']}>
+            <Label>November Event</Label>
+            <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
+              첫 거래 <span className="text-violet-600">축하선물</span>
+            </h2>
+            <Rule />
+            <p className="max-w-sm text-base leading-relaxed text-neutral-600 md:text-lg">
+              11월 한 달 동안 의뢰를 <b className="font-semibold text-neutral-900">한 건이라도</b>{' '}
+              수행하면, 첫 거래 축하 선물을 드립니다.
+            </p>
+          </Half>
+
+          <Half tone="white" top={['Gift', '2026']} foot={[BRAND, `07 / ${pad(TOTAL)}`]}>
+            {/* 선물 카드 — 이 쪽의 주인공. 금액을 가장 크게 둔다 */}
+            <div className="relative overflow-hidden bg-violet-950 p-6 text-white md:p-8">
+              <div
+                aria-hidden
+                className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgb(139_92_246/0.5),transparent_55%)]"
+              />
+              <div className="relative flex items-center justify-between">
+                <span className="text-[10px] tracking-[0.3em] text-violet-200">FIRST DEAL GIFT</span>
+                <span className="rounded-full bg-violet-500 px-3 py-1 text-[10px] font-semibold tracking-[0.15em]">
+                  선착순 7명
+                </span>
+              </div>
+              <p className="relative mt-6 text-sm text-white/80">네이버페이 상품권</p>
+              <p className="relative mt-1 whitespace-nowrap text-4xl font-light tracking-tight md:text-6xl">
+                ₩50,000
+              </p>
+            </div>
+
+            <dl className="mt-5 divide-y divide-neutral-200 border-y border-neutral-200 text-sm">
+              {[
+                ['기간', '11월 1일 ~ 11월 30일'],
+                ['조건', '의뢰 1건 이상 수행'],
+                ['대상', '선착순 7명 한정'],
+              ].map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between gap-4 py-3">
+                  <dt className="text-xs tracking-[0.2em] text-neutral-500">{k}</dt>
+                  <dd className="font-medium">{v}</dd>
+                </div>
+              ))}
+            </dl>
+
+            {/* 의뢰를 기다리지만 않아도 된다는 것 — 선물 조건을 채우는 방법으로 잇는다 */}
+            <div className="mt-5 flex items-start gap-3 bg-violet-50 px-5 py-4">
+              <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-violet-600 text-[11px] text-white">
+                ↗
+              </span>
+              <p className="text-sm leading-relaxed text-neutral-700">
+                <b className="font-semibold text-neutral-900">내 소개 페이지를 직접 공유</b>해서
+                의뢰를 유도할 수도 있어요.
+              </p>
+            </div>
+          </Half>
+        </Spread>
+
+        {/* ─────────── 08 CONTACT ─────────── */}
+        <Spread id={8}>
           <div className="relative flex min-h-[18rem] flex-col justify-between overflow-hidden bg-violet-950 p-7 text-white md:min-h-[32rem] md:p-12">
             <div
               aria-hidden
@@ -474,7 +560,7 @@ export default function ProposalV11Page() {
             <div className="relative py-10 md:py-0">
               <Label light>Now boarding</Label>
               <h2 className="mt-4 text-3xl font-semibold leading-tight md:text-5xl">
-                SOOM 첫
+                SOOM의
                 <br />
                 디자이너 그룹에
                 <br />

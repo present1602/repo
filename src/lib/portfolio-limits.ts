@@ -81,6 +81,9 @@ export type WorkRow = {
   /* AI 사용 여부 — 본인이 올릴 때 체크한다(008_work_ai_used.sql).
      null 은 "묻기 전에 올라간 작업"이고 false 와 뜻이 다르다. */
   ai_used: boolean | null
+  /* SOOM 에서 수행한 의뢰인지 — 본인·어드민이 체크한다(020_work_soom_project.sql).
+     020 전 DB 에서는 select('*') 에 없어 undefined 로 온다 — 꺼짐으로 읽힌다. */
+  soom_work: boolean
   /* 썸네일 영역 — 원본에 대한 0~1 비율(009_work_thumb_crop.sql).
      넷 다 null 이면 영역을 잡지 않은 것이다. */
   crop_x: number | null

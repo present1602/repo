@@ -5,6 +5,35 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* 제안서를 PC용 PDF로 찍는 동안(html[data-pdf=pc], pdf-export.tsx)에는
+   화면 폭과 상관없이 넓은 화면 짜임을 켠다.
+
+   크롬은 인쇄할 때 미디어 쿼리를 @page 크기가 아니라 인쇄 창의 기본
+   용지 폭(700px 남짓)으로 잰다 — 그대로 두면 1440px 종이에 모바일
+   짜임이 찍힌다. 기본 브레이크포인트와 같은 값에 조건 하나만 더한다.
+   작은 것부터 선언해야 lg 가 md 를 덮는 순서가 지켜진다.
+   2xl 은 종이(1440px)보다 넓은 값이라 켜지 않는다 — 순서를 지키려고
+   다시 선언만 한다. */
+@custom-variant sm {
+  @media (width >= 40rem) { @slot; }
+  &:where(html[data-pdf='pc'] *) { @slot; }
+}
+@custom-variant md {
+  @media (width >= 48rem) { @slot; }
+  &:where(html[data-pdf='pc'] *) { @slot; }
+}
+@custom-variant lg {
+  @media (width >= 64rem) { @slot; }
+  &:where(html[data-pdf='pc'] *) { @slot; }
+}
+@custom-variant xl {
+  @media (width >= 80rem) { @slot; }
+  &:where(html[data-pdf='pc'] *) { @slot; }
+}
+@custom-variant 2xl {
+  @media (width >= 96rem) { @slot; }
+}
+
 @layer base {
   body {
     font-family: var(--font-sans), system-ui, sans-serif;

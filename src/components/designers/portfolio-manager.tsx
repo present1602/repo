@@ -246,6 +246,11 @@ function EditList({
                     AI
                   </span>
                 )}
+                {w.soom_work && (
+                  <span className="rounded bg-neutral-900 px-1.5 py-0.5 text-[11px] text-white">
+                    SOOM
+                  </span>
+                )}
               </div>
               {w.description && (
                 <p className="mt-0.5 line-clamp-1 text-xs text-neutral-500">{w.description}</p>
@@ -284,6 +289,8 @@ function AddButton({
      기본값을 정해두면 아무 생각 없이 넘어가므로 고를 때까지 비워둔다. */
   const [picked, setPicked] = useState<File | null>(null)
   const [aiUsed, setAiUsed] = useState<boolean | null>(null)
+  /* SOOM 의뢰 여부 — 해당할 때만 켜는 표시라 꺼진 채로 시작한다 */
+  const [soomWork, setSoomWork] = useState(false)
 
   /* 올리기 전에 원본 크기를 읽어둔다 — 세로로 긴 이미지는 2칸으로 시작한다 */
   const measure = (file: File) =>
@@ -301,7 +308,7 @@ function AddButton({
       img.src = url
     })
 
-  const upload = (file: File, ai: boolean) => {
+  const upload = (file: File, ai: boolean, soom: boolean) => {
     onMessage(null)
     start(async () => {
       const { width, height } = await measure(file)
@@ -314,6 +321,7 @@ function AddButton({
          브라우저가 전송하지 않아 '아니오'와 '묻지 않음'이 구분되지 않는다. */
       form.set('aiAnswered', '1')
       if (ai) form.set('aiUsed', '1')
+      if (soom) form.set('soomWork', '1')
 
       const r = await addWork(form)
       if (!r.ok) {
@@ -322,6 +330,7 @@ function AddButton({
       }
       setPicked(null)
       setAiUsed(null)
+      setSoomWork(false)
       router.refresh()
     })
   }
@@ -338,6 +347,7 @@ function AddButton({
           if (f) {
             setPicked(f)
             setAiUsed(null)
+            setSoomWork(false)
           }
           e.target.value = ''
         }}
@@ -356,14 +366,17 @@ function AddButton({
           fileName={picked.name}
           value={aiUsed}
           onChange={setAiUsed}
+          soomWork={soomWork}
+          onSoomWork={setSoomWork}
           pending={pending}
           onCancel={() => {
             setPicked(null)
             setAiUsed(null)
+            setSoomWork(false)
           }}
           onConfirm={() => {
             if (aiUsed === null) return
-            upload(picked, aiUsed)
+            upload(picked, aiUsed, soomWork)
           }}
         />
       )}
@@ -380,6 +393,8 @@ function AiPromptDialog({
   fileName,
   value,
   onChange,
+  soomWork,
+  onSoomWork,
   pending,
   onCancel,
   onConfirm,
@@ -387,6 +402,8 @@ function AiPromptDialog({
   fileName: string
   value: boolean | null
   onChange: (v: boolean) => void
+  soomWork: boolean
+  onSoomWork: (v: boolean) => void
   pending: boolean
   onCancel: () => void
   onConfirm: () => void
@@ -411,6 +428,23 @@ function AiPromptDialog({
             hint="전 과정을 직접 작업했습니다."
           />
         </div>
+
+        {/* AI 질문과 달리 답을 강요하지 않는다 — 해당할 때만 켠다 */}
+        <label className="mt-4 flex cursor-pointer items-start gap-2.5 border-t border-neutral-200 pt-4">
+          <input
+            type="checkbox"
+            checked={soomWork}
+            onChange={(e) => onSoomWork(e.target.checked)}
+            disabled={pending}
+            className="mt-0.5 accent-violet-600"
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">SOOM에서 수행한 의뢰</span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
+              SOOM을 통해 받은 의뢰의 결과물이면 체크해 주세요.
+            </span>
+          </span>
+        </label>
 
         <div className="mt-5 flex justify-end gap-2">
           <button
@@ -496,6 +530,11 @@ function WorkCard({
         {w.ai_used && (
           <span className="rounded bg-violet-600/90 px-1.5 py-0.5 text-[11px] text-white">AI</span>
         )}
+        {w.soom_work && (
+          <span className="rounded bg-neutral-900/90 px-1.5 py-0.5 text-[11px] text-white">
+            SOOM
+          </span>
+        )}
       </div>
 
       <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/70 to-transparent p-2">
@@ -534,6 +573,8 @@ function WorkEditDialog({
   /* 묻기 전에 올라간 작업은 null 이다 — 체크박스로는 둘 중 하나만 고를 수
      있으므로 '아직 답하지 않음'으로 보고 꺼진 상태에서 시작한다. */
   const [aiUsed, setAiUsed] = useState(w.ai_used === true)
+  /* 020 전 DB 에서는 undefined 로 온다 — 꺼짐으로 본다 */
+  const [soomWork, setSoomWork] = useState(w.soom_work === true)
   const [pending, start] = useTransition()
   const router = useRouter()
 
@@ -553,7 +594,8 @@ function WorkEditDialog({
     title !== (w.title ?? '') ||
     description !== (w.description ?? '') ||
     client !== (w.client ?? '') ||
-    aiUsed !== w.ai_used
+    aiUsed !== w.ai_used ||
+    soomWork !== (w.soom_work === true)
 
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
   useEffect(() => {
@@ -688,6 +730,20 @@ function WorkEditDialog({
             <InfoTip text="AI를 활용해 제작된 경우 체크해주세요" />
           </div>
 
+          {/* SOOM 의뢰 여부 — 공개 화면에는 켠 것만 표기된다 */}
+          <div className="mt-2 flex items-center gap-1.5">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={soomWork}
+                onChange={(e) => setSoomWork(e.target.checked)}
+                className="accent-violet-600"
+              />
+              SOOM에서 수행한 의뢰
+            </label>
+            <InfoTip text="SOOM을 통해 받은 의뢰의 결과물이면 체크해주세요" />
+          </div>
+
           {/* 썸네일 — 목록에 실제로 깔리는 그림 */}
           <div className="mt-4 border-t border-neutral-200 pt-4">
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -806,7 +862,7 @@ function WorkEditDialog({
           <button
             onClick={() =>
               act(
-                () => updateWork({ id: w.id, title, description, client, aiUsed }),
+                () => updateWork({ id: w.id, title, description, client, aiUsed, soomWork }),
                 onClose,
               )
             }

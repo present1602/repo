@@ -195,11 +195,12 @@ export type PlanInput = {
   designPrice: number
   premiumPrice: number
   premiumEnabled: boolean
-  /* 받을 의뢰 유형(017_designer_scopes.sql).
+  /* 받을 의뢰 유형(017_designer_scopes.sql, 019_scope_sample_optional.sql).
 
-     본인이 정할 수 있는 것은 '디자인 전체' 하나뿐이다 —
-     메인 시안은 모두가 받고, '디자인 + 개발'은 어드민이 열어 준다.
+     본인이 정할 수 있는 것은 '메인 시안'과 '디자인 전체' 둘이다 —
+     '디자인 + 개발'은 어드민이 열어 준다.
      받지 않는 값을 여기 두면 화면이 보내는 대로 덮어쓰게 된다. */
+  scopeSample: boolean
   scopeFullDesign: boolean
 }
 
@@ -227,6 +228,9 @@ export async function updatePlans(input: PlanInput): Promise<Result> {
 
   if (!me) return fail('계정을 찾을 수 없습니다.')
 
+  /* 받을 유형을 모두 꺼도 된다 — 탐색 목록에서는 빠지지만(designer-list.tsx)
+     상세 링크는 그대로 열린다. 링크를 직접 건네 의뢰받는 디자이너가 쓴다. */
+
   const priceMax = me.price_max as number
   if (input.designPrice > priceMax) {
     return fail(
@@ -241,6 +245,7 @@ export async function updatePlans(input: PlanInput): Promise<Result> {
       premium_price: input.premiumPrice,
       premium_enabled: input.premiumEnabled,
       /* scope_with_dev 는 건드리지 않는다 — 어드민이 정하는 값이다 */
+      scope_sample: input.scopeSample,
       scope_full_design: input.scopeFullDesign,
     })
     .eq('id', id)
@@ -324,6 +329,8 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   const width = Number(form.get('width')) || null
   const height = Number(form.get('height')) || null
   const aiUsed = readAiUsed(form)
+  /* 해당할 때만 켜는 표시라 '묻지 않음'이 없다 — 키가 있으면 켠 것 */
+  const soomWork = form.get('soomWork') != null
 
   if (!(file instanceof File) || file.size === 0) return fail('이미지를 선택해 주세요.')
   if (description.length > MAX_DESCRIPTION) {
@@ -359,6 +366,9 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
       description: description || null,
       client: client || null,
       ai_used: aiUsed,
+      /* 020 전 DB 에서는 컬럼이 없어 insert 가 통째로 실패한다 —
+         켠 경우에만 싣는다. 끈 값은 DB 기본값(false)과 같다. */
+      ...(soomWork ? { soom_work: true } : {}),
       row_span: rowSpan,
       sort_order: count ?? 0,
     })
@@ -387,6 +397,8 @@ export type WorkInput = {
   /* 편집 화면은 체크박스로 받으므로 true/false 만 온다 —
      한 번 편집하면 null(미응답)로 되돌릴 수 없다. 의도된 동작이다. */
   aiUsed: boolean
+  /* SOOM 에서 수행한 의뢰인지(020_work_soom_project.sql) */
+  soomWork: boolean
 }
 
 export async function updateWork(input: WorkInput): Promise<Result> {
@@ -402,6 +414,7 @@ export async function updateWork(input: WorkInput): Promise<Result> {
     description: description || null,
     client: input.client.trim() || null,
     ai_used: input.aiUsed,
+    soom_work: input.soomWork,
   }
 
   /* 보내 왔을 때만 손댄다 — 넘어오지 않은 값을 기본값으로 덮으면

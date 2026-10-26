@@ -22,27 +22,40 @@ import type {
 
 /* 공개 화면에 내보낼 컬럼만 적는다 — select('*') 로 두면
    컬럼이 늘 때 temp_password 같은 값이 조용히 함께 나간다. */
-/* 017 마이그레이션 전에도 화면이 뜨게 하는 대비책.
+/* 017·019 마이그레이션 전에도 화면이 뜨게 하는 대비책.
 
    scope_* 가 없는 DB 에서는 이 질의가 통째로 실패해 디자이너 목록이
-   빈다 — 컬럼 둘 때문에 탐색·홈이 모두 비는 건 과하다. 빼고 물은 뒤,
-   아래 withScopes 가 기본값(둘 다 거짓)으로 메운다.
-   017 을 적용하고 나면 이 분기는 지워도 된다. */
-const SCOPE_COLS = ', scope_full_design, scope_with_dev'
+   빈다 — 컬럼 몇 개 때문에 탐색·홈이 모두 비는 건 과하다. 없는 것만
+   빼고 다시 물은 뒤, 아래 selectDesigners 가 기본값으로 메운다.
+   019 만 빠졌으면 scope_sample 만 뺀다 — 017 까지 한꺼번에 빼면
+   '디자인 전체'를 켜 둔 디자이너가 그동안 필터에서 사라진다.
+   017·019 를 적용하고 나면 이 분기는 지워도 된다. */
 const DESIGNER_BASE =
   'id, name, avatar_url, one_liner, bio, tags, design_price, price_max, premium_price, premium_enabled'
-const DESIGNER_COLS = DESIGNER_BASE + SCOPE_COLS
+const SCOPE_017 = ', scope_full_design, scope_with_dev'
+const DESIGNER_COLS = DESIGNER_BASE + SCOPE_017 + ', scope_sample'
+
+/* 빠진 컬럼의 기본값 — 마이그레이션의 default 와 같다.
+   메인 시안은 019 전까지 모두가 받았고, 큰 건은 켜야 받는다. */
+const SCOPE_DEFAULTS = { scope_sample: true, scope_full_design: false, scope_with_dev: false }
+
+/* 실패 메시지에 따라 다시 물을 컬럼 목록 — 원인이 scope_* 가 아니면 null */
+function scopeFallback(msg: string | undefined): string | null {
+  if (!msg || !msg.includes('scope_')) return null
+  return msg.includes('scope_sample') ? DESIGNER_BASE + SCOPE_017 : DESIGNER_BASE
+}
 const CROP_COLS = 'crop_x, crop_y, crop_w, crop_h'
 const WORK_COLS =
-  `id, designer_id, image_url, thumb_url, width, height, title, description, row_span, client, ai_used, ${CROP_COLS}, sort_order`
+  `id, designer_id, image_url, thumb_url, width, height, title, description, row_span, client, ai_used, soom_work, ${CROP_COLS}, sort_order`
 
 /* 008·009 마이그레이션 전에도 화면이 뜨게 하는 대비책.
 
    없는 컬럼을 물으면 질의가 통째로 실패한다 — 컬럼 하나 때문에 홈·탐색·
    상세가 전부 비는 건 과하다. 007 이 featured 에 쓴 방침과 같게, 그 컬럼이
    쓰이는 기능만 쉬고 화면은 평소대로 뜨게 한다.
-   008·009·010 을 적용하고 나면 이 재시도는 지워도 된다. */
-const OPTIONAL_COLS = ['ai_used', 'thumb_url', ...CROP_COLS.split(', ')]
+   020(soom_work)도 같다 — 빠지면 undefined 로 와 표기만 쉰다.
+   008·009·010·020 을 적용하고 나면 이 재시도는 지워도 된다. */
+const OPTIONAL_COLS = ['ai_used', 'soom_work', 'thumb_url', ...CROP_COLS.split(', ')]
 
 /* 아직 없는 컬럼 때문에 실패했으면 그것만 빼고 한 번 더 묻는다.
 
@@ -93,40 +106,40 @@ function byOrder(a: WorkWithOwner, b: WorkWithOwner) {
   return a.sort_order - b.sort_order
 }
 
-/* scope_* 가 없어서 실패했으면 그 둘만 빼고 한 번 더 묻는다.
+/* scope_* 가 없어서 실패했으면 없는 것을 빼고 다시 묻는다.
 
    selectWorks 와 같은 방침이다 — 질의마다 필터 체인이 달라 결과를
    공통으로 감쌀 수 없으므로, 컬럼 목록을 받아 질의를 만드는 함수를
-   넘겨받는다. 빠진 값은 기본값(둘 다 거짓)으로 메운다:
-   017 전에는 아무도 큰 건을 받지 않는 것으로 보는 편이 안전하다. */
+   넘겨받는다. 빠진 값은 SCOPE_DEFAULTS 로 메운다(받아 온 값이 이긴다).
+
+   한 번 줄여 물은 것이 또 scope_* 로 실패하면(017 도 없는 DB) 한 번 더
+   줄인다 — 019 만 빠진 경우와 둘 다 빠진 경우를 메시지로 미리 가를 수
+   없다. */
 async function selectDesigners<T extends object>(
   build: (cols: string) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ) {
-  const first = await build(DESIGNER_COLS)
-  const msg = first.error?.message
-  if (!msg || !msg.includes('scope_')) return first
-
-  const r = await build(DESIGNER_BASE)
+  let r = await build(DESIGNER_COLS)
+  for (let cols = scopeFallback(r.error?.message); cols; cols = scopeFallback(r.error?.message)) {
+    r = await build(cols)
+    if (cols === DESIGNER_BASE) break
+  }
   if (r.error || !r.data) return r
 
-  return {
-    ...r,
-    data: r.data.map((d) => ({ scope_full_design: false, scope_with_dev: false, ...d })),
-  }
+  return { ...r, data: r.data.map((d) => ({ ...SCOPE_DEFAULTS, ...d })) }
 }
 
 /* 한 명만 받는 질의(maybeSingle)용 — 위와 같은 일을 한다 */
 async function selectDesigner<T extends object>(
   build: (cols: string) => PromiseLike<{ data: T | null; error: { message: string } | null }>,
 ) {
-  const first = await build(DESIGNER_COLS)
-  const msg = first.error?.message
-  if (!msg || !msg.includes('scope_')) return first
-
-  const r = await build(DESIGNER_BASE)
+  let r = await build(DESIGNER_COLS)
+  for (let cols = scopeFallback(r.error?.message); cols; cols = scopeFallback(r.error?.message)) {
+    r = await build(cols)
+    if (cols === DESIGNER_BASE) break
+  }
   if (r.error || !r.data) return r
 
-  return { ...r, data: { scope_full_design: false, scope_with_dev: false, ...r.data } }
+  return { ...r, data: { ...SCOPE_DEFAULTS, ...r.data } }
 }
 
 /* 탐색 목록 — 공개 디자이너 + 카드용 썸네일.

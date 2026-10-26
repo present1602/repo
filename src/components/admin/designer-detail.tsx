@@ -352,7 +352,7 @@ function PlanSummary({
         </label>
 
         <p className="mt-2.5 text-xs text-neutral-400">
-          메인 시안은 모두가 받고, 디자인 전체 의뢰는 디자이너가 직접 켭니다.
+          메인 시안 의뢰와 디자인 전체 의뢰는 디자이너가 직접 켜고 끕니다.
         </p>
       </div>
     </section>

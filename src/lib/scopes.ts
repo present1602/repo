@@ -28,13 +28,13 @@ export const SCOPE_HINTS: Record<Scope, string> = {
 
 /* 이 디자이너가 그 유형을 받는지.
 
-   메인 시안은 모두가 받는다 — 플랫폼이 서 있는 자리라 끄는 스위치를
-   두지 않는다(017_designer_scopes.sql). */
+   메인 시안도 본인이 끌 수 있다(019_scope_sample_optional.sql) —
+   본계약 건만 받으려는 디자이너가 있다. */
 export function acceptsScope(
-  d: { scope_full_design: boolean; scope_with_dev: boolean },
+  d: { scope_sample: boolean; scope_full_design: boolean; scope_with_dev: boolean },
   scope: Scope,
 ): boolean {
-  if (scope === 'sample') return true
+  if (scope === 'sample') return d.scope_sample
   if (scope === 'full_design') return d.scope_full_design
   return d.scope_with_dev
 }

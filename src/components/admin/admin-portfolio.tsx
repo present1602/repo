@@ -216,6 +216,11 @@ export function AdminPortfolio({
                         AI 미응답
                       </span>
                     )}
+                    {w.soom_work && (
+                      <span className="rounded bg-neutral-900 px-1.5 py-0.5 text-[11px] text-white">
+                        SOOM 의뢰
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-neutral-600">
                     {w.description ?? <span className="text-neutral-400">설명 없음</span>}
@@ -310,6 +315,7 @@ function AddWorkButton({
          브라우저가 전송하지 않아 '아니오'와 '묻지 않음'이 구분되지 않는다. */
       form.set('aiAnswered', '1')
       if (opts.aiUsed) form.set('aiUsed', '1')
+      if (opts.soomWork) form.set('soomWork', '1')
       if (opts.crop) {
         form.set('cropX', String(opts.crop.x))
         form.set('cropY', String(opts.crop.y))
@@ -422,6 +428,7 @@ type UploadOpts = {
   width: number | null
   height: number | null
   aiUsed: boolean
+  soomWork: boolean
   crop: Crop | null
 }
 
@@ -454,6 +461,8 @@ function UploadDialog({
 
   /* 요청대로 기본 체크 상태로 시작한다 */
   const [aiUsed, setAiUsed] = useState(true)
+  /* SOOM 의뢰 여부 — 해당할 때만 켜는 표시라 꺼진 채로 시작한다 */
+  const [soomWork, setSoomWork] = useState(false)
 
   /* 썸네일 영역 — 켜기 전에는 null 이라 원본 전체가 쓰인다 */
   const [cropOn, setCropOn] = useState(false)
@@ -570,6 +579,7 @@ function UploadDialog({
                 width: size?.width ?? null,
                 height: size?.height ?? null,
                 aiUsed,
+                soomWork,
                 crop: cropOn ? crop : null,
               })
             }
@@ -603,6 +613,23 @@ function UploadDialog({
               <span className="block text-sm font-medium">AI 활용</span>
               <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
                 켜면 공개 화면에 AI 활용 표기가 붙습니다.
+              </span>
+            </span>
+          </label>
+
+          {/* SOOM 의뢰 — 기본 꺼짐 */}
+          <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 p-3">
+            <input
+              type="checkbox"
+              checked={soomWork}
+              onChange={(e) => setSoomWork(e.target.checked)}
+              disabled={pending}
+              className="mt-0.5 accent-violet-600"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">SOOM에서 수행한 의뢰</span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
+                켜면 공개 화면에 SOOM 의뢰 표기가 붙습니다.
               </span>
             </span>
           </label>
@@ -691,6 +718,8 @@ function WorkDialog({
   /* 묻기 전에 올라간 작업은 null 이다 — 체크박스로는 둘 중 하나만 고를 수
      있으므로 '아직 답하지 않음'으로 보고 꺼진 상태에서 시작한다. */
   const [aiUsed, setAiUsed] = useState(w.ai_used === true)
+  /* 020 전 DB 에서는 undefined 로 온다 — 꺼짐으로 본다 */
+  const [soomWork, setSoomWork] = useState(w.soom_work === true)
   const [pending, start] = useTransition()
   const router = useRouter()
 
@@ -712,7 +741,8 @@ function WorkDialog({
     title !== (w.title ?? '') ||
     description !== (w.description ?? '') ||
     client !== (w.client ?? '') ||
-    aiUsed !== w.ai_used
+    aiUsed !== w.ai_used ||
+    soomWork !== (w.soom_work === true)
 
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
   useEffect(() => {
@@ -850,6 +880,20 @@ function WorkDialog({
             <InfoTip text="AI를 활용해 제작된 경우 체크해주세요" />
           </div>
 
+          {/* SOOM 의뢰 여부 — 공개 화면에는 켠 것만 표기된다 */}
+          <div className="mt-2 flex items-center gap-1.5">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={soomWork}
+                onChange={(e) => setSoomWork(e.target.checked)}
+                className="accent-violet-600"
+              />
+              SOOM에서 수행한 의뢰
+            </label>
+            <InfoTip text="SOOM을 통해 받은 의뢰의 결과물이면 체크해주세요" />
+          </div>
+
           {/* 썸네일 — 목록에 실제로 깔리는 그림. 영역을 고치면 파일을 다시 만든다. */}
           <div className="mt-4 border-t border-neutral-200 pt-4">
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -976,7 +1020,15 @@ function WorkDialog({
             onClick={() =>
               act(
                 () =>
-                  adminUpdateWork({ id: w.id, designerId, title, description, client, aiUsed }),
+                  adminUpdateWork({
+                    id: w.id,
+                    designerId,
+                    title,
+                    description,
+                    client,
+                    aiUsed,
+                    soomWork,
+                  }),
                 () => onNotice({ kind: 'ok', text: '저장했습니다.' }),
               )
             }

@@ -22,7 +22,11 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
      되살릴 때 setter 를 다시 만들면 된다(아래 주석 처리한 구획). */
   const [premiumPrice] = useState(d.premium_price)
   const [premiumEnabled] = useState(d.premium_enabled)
-  /* 받을 의뢰 유형 — 메인 시안은 늘 켜져 있어 상태를 두지 않는다 */
+  /* 받을 의뢰 유형 — 메인 시안·디자인 전체는 본인이 켜고 끈다.
+     019 전 DB 에는 scope_sample 이 없어 undefined 로 온다 — 그때까지는
+     모두가 받던 값이므로 켜짐으로 본다. */
+  const initialSample = d.scope_sample ?? true
+  const [sample, setSample] = useState(initialSample)
   const [fullDesign, setFullDesign] = useState(d.scope_full_design)
   /* 어드민이 정하는 값이라 상태로 들지 않는다 — 서버가 준 것을 그대로 보여준다 */
   const withDev = d.scope_with_dev
@@ -38,6 +42,7 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
     designPrice !== d.design_price ||
     premiumPrice !== d.premium_price ||
     premiumEnabled !== d.premium_enabled ||
+    sample !== initialSample ||
     fullDesign !== d.scope_full_design
 
   const submit = (e: React.FormEvent) => {
@@ -48,6 +53,7 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
         designPrice,
         premiumPrice,
         premiumEnabled,
+        scopeSample: sample,
         scopeFullDesign: fullDesign,
       })
       if (!r.ok) {
@@ -132,33 +138,32 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
       <hr className="border-neutral-200" />
 
       {/* 받을 의뢰 유형 — 탐색 화면이 이 체크로 디자이너를 거른다.
-          메인 시안은 모두가 받으므로 끌 수 없다(017_designer_scopes.sql). */}
+          모두 꺼도 된다 — 탐색 목록에서만 빠지고 프로필 링크는 열린다. */}
       <section>
         <h3 className="text-sm font-semibold">받을 의뢰 유형</h3>
         <p className="mt-1 text-xs leading-relaxed text-neutral-500">
-          체크한 유형의 의뢰만 연결됩니다. 맡기 어려운 유형은 꺼 두세요.
+          체크한 유형의 의뢰만 연결됩니다. 맡기 어려운 유형은 꺼 두세요. 소액 의뢰 없이 본계약
+          건만 받으려면 메인 시안 의뢰를 끄면 됩니다.
         </p>
+        {!sample && !fullDesign && !withDev && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+            모든 유형을 끄면 탐색 목록에 노출되지 않습니다. 프로필 링크를 직접 받은 사람만 볼 수
+            있습니다.
+          </p>
+        )}
 
         <div className="mt-3.5 space-y-2">
           {SCOPES.map((s) => {
             /* 세 유형의 주인이 다르다 —
-                 sample      늘 켜짐. 플랫폼이 서 있는 자리라 끄지 못한다.
+                 sample      본인이 켜고 끈다. 기본 켜짐.
                  full_design 본인이 켜고 끈다.
                  with_dev    어드민이 열어 준다. 본인은 보기만 한다. */
-            const locked = s !== 'full_design'
-            const on = s === 'sample' ? true : s === 'full_design' ? fullDesign : withDev
+            const locked = s === 'with_dev'
+            const on = s === 'sample' ? sample : s === 'full_design' ? fullDesign : withDev
 
             return (
               <label
                 key={s}
-                /* 메인 시안을 눌러 끄려 하면 왜 안 되는지 알린다 —
-                   아무 반응이 없으면 고장으로 읽힌다. 브라우저 alert 대신
-                   이 폼이 이미 쓰는 알림 자리(msg)로 보낸다. */
-                onClick={
-                  s === 'sample'
-                    ? () => setMsg({ ok: false, text: '해당 옵션 체크는 필수입니다.' })
-                    : undefined
-                }
                 className={[
                   'flex items-start gap-2.5 rounded-lg border p-3 transition',
                   on
@@ -190,7 +195,9 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
                     type="checkbox"
                     checked={on}
                     disabled={locked}
-                    onChange={(e) => setFullDesign(e.target.checked)}
+                    onChange={(e) =>
+                      (s === 'sample' ? setSample : setFullDesign)(e.target.checked)
+                    }
                     className="mt-0.5 shrink-0 accent-violet-600"
                   />
                 )}

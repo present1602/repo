@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PublicWork } from '@/lib/designer-shape'
 
 export function WorkModal({
@@ -46,16 +46,10 @@ export function WorkModal({
 
      AI 사용 표기는 true 일 때만 붙인다 — null(묻기 전에 올라간 작업)과
      false 를 구분해 보여주지 않는다. */
-  const meta = [w.client, w.ai_used ? 'AI 활용' : null].filter(Boolean).join(' · ')
+  const meta = [w.client, w.ai_used ? 'AI 활용' : null, w.soom_work ? 'SOOM 의뢰' : null]
+    .filter(Boolean)
+    .join(' · ')
   const hasSheet = Boolean(w.title || meta || w.description)
-
-  /* 9:16 보다 세로로 긴가.
-
-     그보다 길면 높이에 맞춰 줄였을 때 글자를 알아볼 수 없을 만큼
-     작아진다 — 폭을 채우고 스크롤로 내려 보는 편이 낫다.
-     비율을 모르면(업로드 때 못 읽은 경우) 납작한 쪽으로 본다:
-     화면에 들어오는 편이 안전하다. */
-  const tall = Boolean(w.width && w.height && w.height / w.width > 16 / 9)
 
   return (
     <div
@@ -86,20 +80,8 @@ export function WorkModal({
             예전처럼 설명을 띄워(absolute) 두면 제목만 있을 때 아래 여백이
             사라져 글자가 바닥에 붙는다.
 
-            여기서는 원본을 그대로 본다 — 목록 썸네일과 달리 잘라서는 안 된다.
-            9:16 보다 세로로 긴 이미지는 폭에 맞춰 길게 펼치고 이 칸을 스크롤해
-            내려 본다. 그보다 납작하면 높이에 맞추고 좌우에 흰 여백이 남는다. */}
-        <div
-          className={`min-h-0 flex-1 overflow-y-auto bg-white ${tall ? '' : 'grid place-items-center'}`}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            key={w.id}
-            src={w.image_url}
-            alt={w.title ?? ''}
-            className={tall ? 'w-full' : 'max-h-full max-w-full object-contain'}
-          />
-        </div>
+            key 로 작업마다 새로 그린다 — 넘기면 확대 배율이 처음으로 돌아간다. */}
+        <ZoomImage key={w.id} src={w.image_url} alt={w.title ?? ''} />
 
         {/* 한 장뿐이면 넘길 곳이 없다 */}
         {works.length > 1 && (
@@ -149,6 +131,125 @@ export function WorkModal({
             )}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+/* 확대 단계 — 1 은 칸 안에 통째로 들어오는 크기 */
+const ZOOMS = [1, 1.5, 2, 3, 4]
+
+/* 원본 비율 그대로 칸 안에 맞춰 보여주고, 우측 하단 −/+ 로 키워 본다.
+
+   처음에는 잘리지도 늘어나지도 않게 칸에 맞춘다 — 세로로 긴 그림은
+   높이에 맞춰 좌우에 흰 여백이 남는다. 글자가 작아 안 보이면 키워서
+   스크롤로 내려 본다.
+
+   크기는 CSS 로 맡기지 않고 직접 잰다 — 칸에 맞춘 크기(fit)에 배율을
+   곱한 픽셀 값을 줘야 키웠을 때 칸을 넘쳐 스크롤이 생긴다. */
+function ZoomImage({ src, alt }: { src: string; alt: string }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [boxSize, setBoxSize] = useState<{ w: number; h: number } | null>(null)
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null)
+  const [step, setStep] = useState(0)
+  /* 배율을 바꾸기 직전에 보던 자리(칸 가운데가 그림의 어디였는지, 0~1).
+     바꾼 뒤 같은 자리를 가운데로 되돌려, 키울 때 왼쪽 위로 튀지 않게 한다. */
+  const focus = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const box = boxRef.current
+    if (!box) return
+    const measure = () => setBoxSize({ w: box.clientWidth, h: box.clientHeight })
+    measure()
+    /* 창 크기가 바뀌거나 설명을 펼쳐 칸이 줄면 맞춤 크기도 다시 잡는다 */
+    const ro = new ResizeObserver(measure)
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [])
+
+  const zoom = ZOOMS[step]
+  const fit =
+    boxSize && natural
+      ? Math.min(boxSize.w / natural.w, boxSize.h / natural.h)
+      : null
+
+  useLayoutEffect(() => {
+    const box = boxRef.current
+    const f = focus.current
+    if (!box || !f) return
+    focus.current = null
+    box.scrollLeft = f.x * box.scrollWidth - box.clientWidth / 2
+    box.scrollTop = f.y * box.scrollHeight - box.clientHeight / 2
+  }, [step])
+
+  const go = (next: number) => {
+    const box = boxRef.current
+    if (!box || next < 0 || next >= ZOOMS.length) return
+    focus.current = {
+      x: (box.scrollLeft + box.clientWidth / 2) / box.scrollWidth,
+      y: (box.scrollTop + box.clientHeight / 2) / box.scrollHeight,
+    }
+    setStep(next)
+  }
+
+  /* 화살표 키는 작업 넘기기가 쓴다 — 확대는 +/− 키로 */
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === '+' || e.key === '=') go(step + 1)
+      if (e.key === '-' || e.key === '_') go(step - 1)
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  })
+
+  return (
+    <div className="relative min-h-0 flex-1 bg-white">
+      <div ref={boxRef} className="absolute inset-0 overflow-auto">
+        {/* 그림보다 칸이 크면 가운데에, 그림이 크면 그림만큼 넓어져 스크롤된다 */}
+        <div className="grid min-h-full w-max min-w-full place-items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src}
+            alt={alt}
+            onLoad={(e) =>
+              setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
+            }
+            /* 크기를 재기 전(이미지·칸이 아직 안 잡혔을 때)에는 CSS 로 칸에 맞춰 둔다 */
+            style={
+              fit
+                ? { width: natural!.w * fit * zoom, height: natural!.h * fit * zoom, maxWidth: 'none' }
+                : undefined
+            }
+            className={fit ? 'block' : 'max-h-full max-w-full object-contain'}
+          />
+        </div>
+      </div>
+
+      <div className="absolute bottom-3 right-3 flex items-center overflow-hidden rounded-full bg-white/90 text-neutral-700 shadow-md">
+        <button
+          onClick={() => go(step - 1)}
+          disabled={step === 0}
+          aria-label="축소"
+          className="grid size-10 place-items-center text-lg transition hover:bg-neutral-100 disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          −
+        </button>
+        {/* 지금 배율 — 눌러서 처음 크기로 */}
+        <button
+          onClick={() => go(0)}
+          aria-label="원래 크기로"
+          className="min-w-12 px-1 text-xs tabular-nums transition hover:text-neutral-900"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          onClick={() => go(step + 1)}
+          disabled={step === ZOOMS.length - 1}
+          aria-label="확대"
+          className="grid size-10 place-items-center text-lg transition hover:bg-neutral-100 disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          +
+        </button>
       </div>
     </div>
   )
