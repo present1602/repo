@@ -95,7 +95,7 @@ export function DesignerConsole({
 
           <div className="mt-6 md:mt-8">
             {tab === 'profile' && (
-              <ProfileForm designer={designer} options={specialties} />
+              <ProfileForm designer={designer} options={specialties} works={works} />
             )}
             {tab === 'portfolio' && <PortfolioManager works={works} />}
             {tab === 'settings' && (

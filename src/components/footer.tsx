@@ -39,7 +39,7 @@ export function Footer() {
               디자이너 로그인
             </Link>
             <Link
-              href="/designers/proposal/v1-1"
+              href="/designers/proposal/v1-2"
               className="text-neutral-400 transition hover:text-violet-600"
             >
               디자이너 제안서

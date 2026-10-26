@@ -6,11 +6,13 @@ import { signIn, destroySession, changePassword, readSession } from '@/lib/desig
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { putImage } from '@/lib/upload'
 import {
+  type WorkRow,
   MAX_WORKS,
   MAX_DESCRIPTION,
   MIN_ROW_SPAN,
   MAX_ROW_SPAN,
   MAX_BIO,
+  checkPublicReady,
 } from '@/lib/portfolio-limits'
 import { isDesignPrice, isPremiumPrice, formatPrice } from '@/lib/plans'
 import { listVisibleSpecialties } from '@/lib/specialties'
@@ -153,6 +155,25 @@ export async function updateProfile(input: ProfileInput): Promise<Result> {
    끄는 순간 세션이 무효가 되어 다시 켜러 들어올 수 없다. */
 export async function setProfilePublic(isPublic: boolean): Promise<Result> {
   const { db, id } = await guard()
+
+  /* 켤 때만 조건을 본다 — 끄는 것은 언제든 할 수 있어야 한다.
+     화면에서도 막지만 서버 액션은 누구나 부를 수 있다. */
+  if (isPublic) {
+    const { data: works, error: readErr } = await db
+      .from('designer_works')
+      .select('visible, ai_used')
+      .eq('designer_id', id)
+
+    if (readErr) {
+      console.error('[designers] 공개 조건 확인 실패:', readErr.message)
+      return fail('확인에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+    }
+
+    const ready = checkPublicReady((works ?? []) as Pick<WorkRow, 'visible' | 'ai_used'>[])
+    if (!ready.ok) {
+      return fail(`공개하려면 ${ready.reasons.join(', ')}가 필요합니다.`)
+    }
+  }
 
   const { error } = await db
     .from('designers')

@@ -3,7 +3,13 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
-import { MAX_BIO } from '@/lib/portfolio-limits'
+import {
+  type WorkRow,
+  MAX_BIO,
+  MIN_PUBLIC_WORKS,
+  MIN_PUBLIC_AI_WORKS,
+  checkPublicReady,
+} from '@/lib/portfolio-limits'
 import { MAX_TAGS } from '@/lib/specialty-shape'
 import { updateProfile, updateAvatar, setProfilePublic } from '@/app/studio/actions'
 import { Img } from '@/components/img'
@@ -11,10 +17,13 @@ import { Img } from '@/components/img'
 export function ProfileForm({
   designer: d,
   options,
+  works,
 }: {
   designer: AdminDesigner
   /* 고를 수 있는 분야 — 어드민이 켜 둔 것만 온다(011_specialties.sql) */
   options: string[]
+  /* 공개 조건을 재는 데 쓴다 — 작업 수와 AI 표기를 센다 */
+  works: Pick<WorkRow, 'visible' | 'ai_used'>[]
 }) {
   const [name, setName] = useState(d.name ?? '')
   const [oneLiner, setOneLiner] = useState(d.one_liner ?? '')
@@ -58,7 +67,7 @@ export function ProfileForm({
 
   return (
     <div className="space-y-6">
-      <PublicToggle designer={d} onMessage={setMsg} />
+      <PublicToggle designer={d} works={works} onMessage={setMsg} />
 
       <AvatarPicker designer={d} onMessage={setMsg} />
 
@@ -204,9 +213,11 @@ export function ProfileForm({
    그 상태를 따로 알려준다. */
 function PublicToggle({
   designer: d,
+  works,
   onMessage,
 }: {
   designer: AdminDesigner
+  works: Pick<WorkRow, 'visible' | 'ai_used'>[]
   onMessage: (m: { ok: boolean; text: string } | null) => void
 }) {
   const [pending, start] = useTransition()
@@ -215,8 +226,20 @@ function PublicToggle({
   const on = d.profile_public
   const suspended = !d.visible
 
+  /* 공개 조건 — 서버 액션과 같은 기준을 쓴다(portfolio-limits.ts).
+     한쪽만 고치면 켤 수 있다고 해 놓고 서버가 거절하게 된다. */
+  const ready = checkPublicReady(works)
+  const blocked = !on && !ready.ok
+
   const toggle = () => {
     onMessage(null)
+
+    /* 켤 수 없는 상태면 서버까지 가지 않고 무엇이 모자란지 알린다 */
+    if (blocked) {
+      onMessage({ ok: false, text: `공개하려면 ${ready.reasons.join(', ')}가 필요합니다.` })
+      return
+    }
+
     start(async () => {
       const r = await setProfilePublic(!on)
       if (!r.ok) {
@@ -244,7 +267,9 @@ function PublicToggle({
           <p className="mt-1 text-xs text-neutral-500">
             {on
               ? '탐색 화면에 프로필과 포트폴리오가 보입니다.'
-              : '아직 공개되지 않았습니다. 프로필과 포트폴리오를 채운 뒤 켜 주세요.'}
+              : ready.ok
+                ? '공개 조건을 갖췄습니다. 오른쪽 스위치로 켜 주세요.'
+                : '아직 공개되지 않았습니다. 아래 조건을 갖추면 켤 수 있습니다.'}
           </p>
         </div>
 
@@ -267,6 +292,21 @@ function PublicToggle({
         </button>
       </div>
 
+      {/* 공개 조건 — 켜져 있을 때는 숨긴다. 이미 지난 관문이다.
+          무엇이 남았는지 눈에 보여야 "왜 안 켜지지"로 멈추지 않는다. */}
+      {!on && (
+        <ul className="mt-3 space-y-1.5 border-t border-neutral-200 pt-3">
+          <Requirement met={ready.shown >= MIN_PUBLIC_WORKS}>
+            공개된 작업 {MIN_PUBLIC_WORKS}개 이상
+            <span className="ml-1 text-neutral-400">(지금 {ready.shown}개)</span>
+          </Requirement>
+          <Requirement met={ready.ai >= MIN_PUBLIC_AI_WORKS}>
+            AI 활용 작업 {MIN_PUBLIC_AI_WORKS}개 이상
+            <span className="ml-1 text-neutral-400">(지금 {ready.ai}개)</span>
+          </Requirement>
+        </ul>
+      )}
+
       {suspended && (
         <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
           관리자가 계정을 비활성화했습니다. 이 설정과 무관하게 탐색 화면에 노출되지 않습니다 —
@@ -274,6 +314,26 @@ function PublicToggle({
         </p>
       )}
     </div>
+  )
+}
+
+/* 공개 조건 한 줄 — 갖췄으면 초록 체크, 아니면 빈 동그라미 */
+function Requirement({ met, children }: { met: boolean; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2 text-xs">
+      <span
+        aria-hidden
+        className={`mt-px grid size-4 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
+          met ? 'bg-emerald-500 text-white' : 'border border-neutral-300 text-transparent'
+        }`}
+      >
+        ✓
+      </span>
+      <span className={met ? 'text-neutral-600' : 'font-medium text-neutral-900'}>
+        {children}
+      </span>
+      <span className="sr-only">{met ? '갖춤' : '아직 모자람'}</span>
+    </li>
   )
 }
 

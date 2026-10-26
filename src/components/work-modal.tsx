@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import type { PublicWork } from '@/lib/designer-shape'
-import { Img } from './img'
-import { aspectOf } from './work-ratio'
 
 export function WorkModal({
   works,
@@ -51,6 +49,14 @@ export function WorkModal({
   const meta = [w.client, w.ai_used ? 'AI 활용' : null].filter(Boolean).join(' · ')
   const hasSheet = Boolean(w.title || meta || w.description)
 
+  /* 9:16 보다 세로로 긴가.
+
+     그보다 길면 높이에 맞춰 줄였을 때 글자를 알아볼 수 없을 만큼
+     작아진다 — 폭을 채우고 스크롤로 내려 보는 편이 낫다.
+     비율을 모르면(업로드 때 못 읽은 경우) 납작한 쪽으로 본다:
+     화면에 들어오는 편이 안전하다. */
+  const tall = Boolean(w.width && w.height && w.height / w.width > 16 / 9)
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/85 md:p-8"
@@ -78,14 +84,20 @@ export function WorkModal({
 
         {/* 이미지 — 남는 높이를 차지하고, 설명 칸은 그 아래 흐름에 선다.
             예전처럼 설명을 띄워(absolute) 두면 제목만 있을 때 아래 여백이
-            사라져 글자가 바닥에 붙는다. */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <Img
+            사라져 글자가 바닥에 붙는다.
+
+            여기서는 원본을 그대로 본다 — 목록 썸네일과 달리 잘라서는 안 된다.
+            9:16 보다 세로로 긴 이미지는 폭에 맞춰 길게 펼치고 이 칸을 스크롤해
+            내려 본다. 그보다 납작하면 높이에 맞추고 좌우에 흰 여백이 남는다. */}
+        <div
+          className={`min-h-0 flex-1 overflow-y-auto bg-white ${tall ? '' : 'grid place-items-center'}`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             key={w.id}
             src={w.image_url}
             alt={w.title ?? ''}
-            ratio={aspectOf(w)}
-            className="w-full"
+            className={tall ? 'w-full' : 'max-h-full max-w-full object-contain'}
           />
         </div>
 

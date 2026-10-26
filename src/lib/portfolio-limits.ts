@@ -10,6 +10,40 @@ export const MAX_WORKS = 30
 /* 상세 설명 길이 — textarea 와 DB check 제약이 같은 값을 쓴다 */
 export const MAX_DESCRIPTION = 1000
 
+/* 프로필을 공개하려면 갖춰야 할 것.
+
+   빈 프로필이 탐색에 서면 고객은 "볼 게 없는 플랫폼"으로 읽는다.
+   AI 작업을 하나는 요구하는 이유는 SOOM 이 AI 활용을 내세우기 때문이다 —
+   그 표기가 하나도 없으면 제안서와 화면이 어긋난다.
+
+   화면(profile-form.tsx)과 서버 액션(studio/actions.ts)이 이 값을 함께
+   쓴다. 한쪽만 고치면 켤 수 있다고 해 놓고 서버가 거절하게 된다. */
+export const MIN_PUBLIC_WORKS = 2
+export const MIN_PUBLIC_AI_WORKS = 1
+
+/* 공개할 수 있는 상태인지 — 모자라면 무엇이 모자란지 함께 돌려준다.
+   "조건을 채워 주세요"만 말하면 무엇을 해야 할지 알 수 없다. */
+export function checkPublicReady(works: Pick<WorkRow, 'visible' | 'ai_used'>[]): {
+  ok: boolean
+  /* 공개된(visible) 작업만 센다 — 숨긴 것은 탐색에 뜨지 않는다 */
+  shown: number
+  ai: number
+  reasons: string[]
+} {
+  const open = works.filter((w) => w.visible)
+  const ai = open.filter((w) => w.ai_used === true).length
+
+  const reasons: string[] = []
+  if (open.length < MIN_PUBLIC_WORKS) {
+    reasons.push(`공개된 작업 ${MIN_PUBLIC_WORKS}개 이상 (지금 ${open.length}개)`)
+  }
+  if (ai < MIN_PUBLIC_AI_WORKS) {
+    reasons.push(`AI 활용 작업 ${MIN_PUBLIC_AI_WORKS}개 이상 (지금 ${ai}개)`)
+  }
+
+  return { ok: reasons.length === 0, shown: open.length, ai, reasons }
+}
+
 /* 긴 소개글 길이 — 005_public_profile_fields.sql 의 check 제약과 같은 값 */
 export const MAX_BIO = 2000
 
