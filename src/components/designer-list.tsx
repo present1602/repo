@@ -49,6 +49,13 @@ export function DesignerList({
     })
   }, [shown, tag, q])
 
+  /* 분야를 바꾸면 목록이 통째로 바뀐다 — 내려가 있던 자리에 남으면
+     새 목록의 중간부터 보이므로 맨 위로 올린다 */
+  const pickTag = (t: string | null) => {
+    setTag(t)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+
   return (
     <div className="flex min-h-full bg-neutral-100 text-neutral-900">
       <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white p-6 lg:block">
@@ -59,7 +66,7 @@ export function DesignerList({
             return (
               <li key={t ?? 'all'}>
                 <button
-                  onClick={() => setTag(t)}
+                  onClick={() => pickTag(t)}
                   className={`flex w-full justify-between rounded-md px-2 py-1.5 ${
                     tag === t ? 'bg-violet-50 font-semibold text-violet-700' : 'text-neutral-600 hover:bg-neutral-100'
                   }`}
@@ -128,11 +135,11 @@ export function DesignerList({
 
         {allTags.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-3 lg:hidden">
-            <Chip on={!tag} onClick={() => setTag(null)}>
+            <Chip on={!tag} onClick={() => pickTag(null)}>
               전체
             </Chip>
             {allTags.map((t) => (
-              <Chip key={t} on={tag === t} onClick={() => setTag(t)}>
+              <Chip key={t} on={tag === t} onClick={() => pickTag(t)}>
                 {t}
               </Chip>
             ))}
