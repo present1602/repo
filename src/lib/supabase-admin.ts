@@ -21,3 +21,7 @@ export const DESIGNER_IMAGES_BUCKET = 'designer-images'
    저쪽은 공개 버킷이라 주소만 알면 누구나 열 수 있는데, 문의 첨부는
    사업 자료일 수 있어 비공개로 두고 서명 링크로만 연다. */
 export const INQUIRY_FILES_BUCKET = 'inquiry-files'
+
+/* 디자이너 지원서 첨부 — 이력서에 개인정보가 있어 비공개(021_designer_applications.sql).
+   지원 폼(클라이언트)도 이름을 알아야 해서 값은 application-shape.ts 에 둔다. */
+export { APPLICATION_FILES_BUCKET } from './application-shape'

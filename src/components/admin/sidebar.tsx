@@ -7,11 +7,26 @@ import { usePathname } from 'next/navigation'
 const menu = [
   { href: '/admin/designers', label: '디자이너' },
   { href: '/admin/inquiries', label: '문의' },
+  { href: '/admin/applications', label: '지원서' },
   { href: '/admin/featured', label: '메인 노출' },
   { href: '/admin/settings', label: '설정' },
 ]
 
-export function AdminSidebar({ email, unreadInquiries = 0 }: { email: string; unreadInquiries?: number }) {
+export function AdminSidebar({
+  email,
+  unreadInquiries = 0,
+  unreadApplications = 0,
+}: {
+  email: string
+  unreadInquiries?: number
+  unreadApplications?: number
+}) {
+  /* 메뉴별 미확인 배지 */
+  const badges: Record<string, number> = {
+    '/admin/inquiries': unreadInquiries,
+    '/admin/applications': unreadApplications,
+  }
+
   const pathname = usePathname() ?? ''
 
   return (
@@ -37,10 +52,10 @@ export function AdminSidebar({ email, unreadInquiries = 0 }: { email: string; un
               }`}
             >
               {m.label}
-              {/* 미확인 문의 건수 — 다른 화면에 있어도 눈에 띄게 */}
-              {m.href === '/admin/inquiries' && unreadInquiries > 0 && (
+              {/* 미확인 건수 — 다른 화면에 있어도 눈에 띄게 */}
+              {(badges[m.href] ?? 0) > 0 && (
                 <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
-                  {unreadInquiries}
+                  {badges[m.href]}
                 </span>
               )}
             </Link>

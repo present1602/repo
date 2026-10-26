@@ -10,9 +10,12 @@ import { SCOPES, SCOPE_HINTS, SCOPE_LABELS, type Scope } from '@/lib/scopes'
 
    고르지 않고 닫을 수도 있다. 강제로 막으면 둘러보러 온 사람이 되돌아간다. */
 export function ScopePrompt({
+  current = null,
   onPick,
   onSkip,
 }: {
+  /* 다시 열었을 때 지금 고른 유형 — 표시해 두어야 무엇에서 바꾸는지 보인다 */
+  current?: Scope | null
   onPick: (s: Scope) => void
   onSkip: () => void
 }) {
@@ -37,7 +40,10 @@ export function ScopePrompt({
               key={s}
               type="button"
               onClick={() => onPick(s)}
-              className="block w-full rounded-xl border border-neutral-300 px-4 py-3.5 text-left transition hover:border-violet-600 hover:bg-violet-50 md:px-5"
+              aria-pressed={current === s}
+              className={`block w-full rounded-xl border px-4 py-3.5 text-left transition hover:border-violet-600 hover:bg-violet-50 md:px-5 ${
+                current === s ? 'border-violet-600 bg-violet-50' : 'border-neutral-300'
+              }`}
             >
               <span className="block text-sm font-semibold">{SCOPE_LABELS[s]}</span>
               <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
@@ -52,7 +58,7 @@ export function ScopePrompt({
           onClick={onSkip}
           className="mt-5 w-full text-center text-xs text-neutral-500 transition hover:text-neutral-900"
         >
-          아직 정하지 않았어요 · 전체 보기
+          아직 모르겠어요.
         </button>
       </div>
     </div>

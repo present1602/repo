@@ -19,10 +19,6 @@ export function DesignerList({
   const [tag, setTag] = useState<string | null>(null)
   const [q, setQ] = useState('')
 
-  /* 한 행에 카드를 몇 장 깔지. 좁은 화면에서는 2열이 너무 답답해
-     아래 그리드에서 md 이상일 때만 2열이 된다. */
-  const [cols, setCols] = useState<1 | 2>(1)
-
   /* 들어오자마자 어떤 의뢰인지 묻고, 그 유형을 받는 디자이너만 남긴다.
      null 이면 거르지 않는다 — 고르지 않고 닫은 경우다. */
   const [scope, setScope] = useState<Scope | null>(null)
@@ -67,49 +63,51 @@ export function DesignerList({
         </ul>
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
+      {/* 1920px 화면에서 꼭 차는 폭(1920 - 사이드바 240)까지만 넓어진다.
+          그보다 큰 화면에서는 오른쪽이 빈 바탕으로 남는다 — 카드가 끝없이
+          늘어나면 썸네일 줄이 납작해지고 눈이 좌우로 너무 멀리 오간다. */}
+      <main className="min-w-0 max-w-[1680px] flex-1 px-4 py-6 md:px-8 md:py-8">
         {/* 타이틀 영역 우측 끝에 키워드 검색 */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-start gap-3">
-            {/* 보기 전환 — 좁은 화면에서는 어차피 1열이라 띄우지 않는다 */}
-            <div className="hidden shrink-0 gap-0.5 rounded-lg bg-white p-0.5 ring-1 ring-neutral-300 md:flex">
-              <ColumnButton on={cols === 1} onClick={() => setCols(1)} label="1열로 보기">
-                {/* 가로로 넓은 칸 하나 */}
-                <rect x="2" y="3" width="12" height="4.5" rx="1" />
-                <rect x="2" y="8.5" width="12" height="4.5" rx="1" />
-              </ColumnButton>
-              <ColumnButton on={cols === 2} onClick={() => setCols(2)} label="2열로 보기">
-                {/* 좌우로 나뉜 칸 둘 */}
-                <rect x="2" y="3" width="5.5" height="10" rx="1" />
-                <rect x="8.5" y="3" width="5.5" height="10" rx="1" />
-              </ColumnButton>
-            </div>
-
             <div>
-              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-                {tag ?? '모든 디자이너'}
-              </h1>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+                  {tag ?? 'Designers'}
+                </h1>
+                {/* 고른 유형을 제목 옆에 늘 보이게 — 왜 목록이 짧은지 모르면
+                    디자이너가 없는 줄 알고 되돌아간다. 고르지 않았으면 띄우지 않는다.
+                    제목을 가리지 않게 테두리 없는 작은 글자로 두고, 눌러서 처음의
+                    물음을 다시 연다 — 바꿀 수 있다는 걸 꺾쇠로 알린다. */}
+                {scope && (
+                  <button
+                    type="button"
+                    onClick={() => setAsked(false)}
+                    aria-label={`의뢰유형 변경 (지금: ${SCOPE_LABELS[scope]})`}
+                    className="inline-flex max-w-full items-center gap-1 text-xs text-violet-800 transition hover:text-violet-600"
+                  >
+                    <span className="shrink-0 text-violet-500">의뢰유형 :</span>
+                    <span className="truncate font-semibold">{SCOPE_LABELS[scope]}</span>
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-3 shrink-0"
+                      aria-hidden
+                    >
+                      <path d="M4 6l4 4 4-4" />
+                    </svg>
+                  </button>
+                )}
+              </div>
               <p className="mt-1 text-sm text-neutral-500">
                 {list.length}명 · 작업물로 먼저 확인하세요
               </p>
             </div>
           </div>
-
-          {/* 고른 유형을 늘 보이게 — 왜 목록이 짧은지 모르면 디자이너가
-              없는 줄 알고 되돌아간다 */}
-          {scope && (
-            <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-violet-50 px-3.5 py-2.5 text-sm text-violet-800">
-              <span className="min-w-0">
-                <b className="font-semibold">{SCOPE_LABELS[scope]}</b>를 받는 디자이너만 보는 중
-              </span>
-              <button
-                onClick={() => setScope(null)}
-                className="ml-auto shrink-0 rounded-md border border-violet-200 bg-white px-2.5 py-1 text-xs font-medium transition hover:bg-violet-100"
-              >
-                전체 보기
-              </button>
-            </div>
-          )}
 
           <input
             value={q}
@@ -132,13 +130,7 @@ export function DesignerList({
           </div>
         )}
 
-        {/* 2열은 넓은 화면에서만 — 좁은 화면에서 반으로 쪼개면
-            썸네일 줄이 한두 장밖에 들어가지 않는다.
-            클래스는 통째로 적는다: Tailwind 는 빌드 때 글자를 훑으므로
-            `grid-cols-${n}` 처럼 조립하면 CSS 에 그 클래스가 없다. */}
-        <div
-          className={`grid gap-4 ${cols === 2 ? 'md:grid-cols-2' : 'grid-cols-1'}`}
-        >
+        <div className="grid grid-cols-1 gap-4">
           {list.map((d) => (
             <DesignerCard key={d.id} designer={d} />
           ))}
@@ -156,11 +148,17 @@ export function DesignerList({
       {/* 목록 위에 덮는다 — 뒤가 비쳐야 무엇을 고르는 자리인지 읽힌다 */}
       {!asked && (
         <ScopePrompt
+          current={scope}
           onPick={(s) => {
             setScope(s)
             setAsked(true)
           }}
-          onSkip={() => setAsked(true)}
+          /* 다시 열어 '모르겠어요'를 누르면 고른 유형도 푼다 — 전체 보기 버튼을
+             따로 두지 않으므로 거르기를 끄는 길은 여기다 */
+          onSkip={() => {
+            setScope(null)
+            setAsked(true)
+          }}
         />
       )}
     </div>
@@ -304,40 +302,6 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       }`}
     >
       {children}
-    </button>
-  )
-}
-
-/* 1열·2열 전환 버튼.
-
-   children 으로 아이콘의 도형만 받는다 — 두 아이콘이 크기·색을 공유하므로
-   svg 껍데기를 양쪽에 베껴 두면 한쪽만 고쳐질 여지가 생긴다.
-   아이콘뿐이라 이름은 aria-label 로 남긴다. */
-function ColumnButton({
-  on,
-  onClick,
-  label,
-  children,
-}: {
-  on: boolean
-  onClick: () => void
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-pressed={on}
-      title={label}
-      className={`rounded-md p-1.5 transition ${
-        on ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100'
-      }`}
-    >
-      <svg viewBox="0 0 16 16" fill="currentColor" className="size-4">
-        {children}
-      </svg>
     </button>
   )
 }

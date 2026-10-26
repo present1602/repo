@@ -14,16 +14,16 @@ export function isScope(v: string): v is Scope {
 }
 
 export const SCOPE_LABELS: Record<Scope, string> = {
-  sample: '메인 시안만 의뢰',
-  full_design: '디자인 전체 의뢰',
-  with_dev: '디자인 + 개발 의뢰',
+  sample: '메인 시안 우선',
+  full_design: '디자인 의뢰',
+  with_dev: '프로젝트 의뢰',
 }
 
 export const SCOPE_HINTS: Record<Scope, string> = {
-  sample: '본 계약 전에 메인 화면 시안만 먼저 받아 봅니다.',
-  full_design: '서비스 전체 화면 디자인을 맡깁니다.',
+  sample: '메인화면 시안만 먼저 의뢰합니다.',
+  full_design: '서비스 전체 디자인을 맡깁니다.',
   with_dev:
-    '개발자와 함께 전체를 맡깁니다. 오프라인 미팅·상주 근무 요청이 있을 수 있습니다.',
+    '기획, 개발까지 포함한 프로젝트 전체 의뢰를 맡깁니다.',
 }
 
 /* 이 디자이너가 그 유형을 받는지.

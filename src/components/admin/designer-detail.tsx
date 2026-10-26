@@ -335,15 +335,15 @@ function PlanSummary({
                 onNotice({
                   kind: 'ok',
                   text: e.target.checked
-                    ? '디자인 + 개발 의뢰를 받도록 열었습니다.'
-                    : '디자인 + 개발 의뢰를 닫았습니다.',
+                    ? '프로젝트 의뢰(디자인 + 개발)를 받도록 열었습니다.'
+                    : '프로젝트 의뢰(디자인 + 개발)를 닫았습니다.',
                 })
               })
             }
             className="mt-0.5 shrink-0 accent-violet-600"
           />
           <span className="min-w-0">
-            <span className="block text-sm font-medium">디자인 + 개발 의뢰</span>
+            <span className="block text-sm font-medium">프로젝트 의뢰(디자인 + 개발)</span>
             <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
               켜면 이 디자이너가 개발까지 포함한 의뢰를 받습니다. 디자이너 본인은 바꿀 수
               없습니다.
@@ -352,7 +352,7 @@ function PlanSummary({
         </label>
 
         <p className="mt-2.5 text-xs text-neutral-400">
-          메인 시안 의뢰와 디자인 전체 의뢰는 디자이너가 직접 켜고 끕니다.
+          메인 시안 우선과 디자인 의뢰는 디자이너가 직접 켜고 끕니다.
         </p>
       </div>
     </section>
