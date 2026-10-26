@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import type { PlanCopy } from '@/lib/plans'
 import { PlanForm } from './plan-form'
@@ -19,6 +19,14 @@ export function SettingsPanel({
   openPasswordAtFirst?: boolean
 }) {
   const [pwOpen, setPwOpen] = useState(Boolean(openPasswordAtFirst))
+  const [toast, setToast] = useState<string | null>(null)
+
+  /* 잠깐 보여주고 스스로 사라진다 */
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 2500)
+    return () => clearTimeout(t)
+  }, [toast])
 
   return (
     <div className="space-y-8">
@@ -49,7 +57,26 @@ export function SettingsPanel({
         </div>
       </section>
 
-      {pwOpen && <ChangePasswordDialog onClose={() => setPwOpen(false)} />}
+      {pwOpen && (
+        <ChangePasswordDialog
+          onClose={() => setPwOpen(false)}
+          onChanged={() => {
+            setPwOpen(false)
+            setToast('비밀번호를 변경했습니다.')
+          }}
+        />
+      )}
+
+      {toast && (
+        <div
+          role="status"
+          className="pointer-events-none fixed inset-x-0 top-6 z-[60] flex justify-center px-4"
+        >
+          <p className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+            {toast}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

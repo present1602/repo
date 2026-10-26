@@ -30,12 +30,11 @@ export function ChangePasswordForm({ onChanged }: { onChanged?: () => void }) {
       setCurrent('')
       setNext('')
       setConfirm('')
-      setMsg({ ok: true, text: '비밀번호를 변경했습니다.' })
       /* 임시 비밀번호 안내 배너가 사라져야 한다 */
       router.refresh()
-      /* 임시 비밀번호로 들어와 비밀번호 탭에서 시작했을 때,
-         바꾸고 나면 본래 보려던 관리 화면으로 넘겨준다. */
-      onChanged?.()
+      /* 띄운 쪽이 알림을 맡으면(다이얼로그를 닫고 토스트) 여기서는 띄우지 않는다 */
+      if (onChanged) onChanged()
+      else setMsg({ ok: true, text: '비밀번호를 변경했습니다.' })
     })
   }
 

@@ -460,7 +460,10 @@ function AccountSection({
   onNotice: (n: Notice) => void
 }) {
   const [pending, start] = useTransition()
+  /* 재발급 직후 값 — router.refresh() 가 끝나기 전에도 바로 보여 복사할 수 있게 한다 */
+  const [issued, setIssued] = useState<string | null>(null)
   const router = useRouter()
+  const tempPassword = issued ?? d.temp_password
 
   return (
     <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
@@ -470,11 +473,12 @@ function AccountSection({
         <div className="flex gap-3">
           <dt className="w-28 shrink-0 text-neutral-500">비밀번호</dt>
           <dd>
-            {d.temp_password ? (
+            {tempPassword ? (
               <span className="flex flex-wrap items-center gap-2">
                 <code className="rounded bg-amber-100 px-2 py-0.5 text-[13px] tracking-wide text-amber-900">
-                  {d.temp_password}
+                  {tempPassword}
                 </code>
+                <CopyButton text={tempPassword} />
                 <span className="text-xs text-neutral-500">임시 — 아직 변경하지 않았습니다</span>
               </span>
             ) : (
@@ -501,10 +505,14 @@ function AccountSection({
       <div className="mt-5 flex flex-wrap gap-2">
         <button
           onClick={() => {
+            if (!confirm(`${displayName(d)}의 비밀번호를 재발급할까요? 지금 비밀번호는 바로 쓸 수 없게 됩니다.`)) {
+              return
+            }
             onNotice(null)
             start(async () => {
               const r = await resetPassword(d.id)
               if (!r.ok) return onNotice({ kind: 'error', text: r.error })
+              setIssued(r.tempPassword)
               onNotice(
                 r.mailed
                   ? { kind: 'ok', text: `${d.email} 로 새 임시 비밀번호를 보냈습니다.` }
@@ -541,6 +549,34 @@ function AccountSection({
         </button>
       </div>
     </section>
+  )
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!copied) return
+    const t = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(t)
+  }, [copied])
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text)
+          setCopied(true)
+        } catch {
+          /* http 접속 등으로 클립보드가 막히면 직접 고를 수 있게 둔다 */
+          window.prompt('복사해 주세요', text)
+        }
+      }}
+      className={ghostButton}
+    >
+      {copied ? '복사됨' : '복사'}
+    </button>
   )
 }
 

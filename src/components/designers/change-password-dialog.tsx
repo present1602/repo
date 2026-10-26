@@ -1,16 +1,20 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { ChangePasswordForm } from './change-password-form'
 
 /* 비밀번호 변경 다이얼로그.
 
    폼 자체는 ChangePasswordForm 을 그대로 쓴다 — 검증과 서버 호출을
-   여기에 다시 적으면 두 벌이 갈린다. 이 파일은 띄우고 닫는 일만 한다. */
-export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
-  /* 성공 메시지를 잠깐 보여주고 닫는다 — 바로 닫으면 바뀐 건지 알 수 없다 */
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
+   여기에 다시 적으면 두 벌이 갈린다. 이 파일은 띄우고 닫는 일만 한다.
+   바뀐 뒤 알림은 띄운 쪽이 맡는다(onChanged) — 다이얼로그는 곧바로 닫힌다. */
+export function ChangePasswordDialog({
+  onClose,
+  onChanged,
+}: {
+  onClose: () => void
+  onChanged: () => void
+}) {
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 화면이 스크롤되지 않게 한다 */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -22,8 +26,6 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
-      /* 메시지를 보는 중에 Esc 로 닫으면 타이머가 남는다 */
-      if (timer.current) clearTimeout(timer.current)
     }
   }, [onClose])
 
@@ -52,11 +54,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <ChangePasswordForm
-          onChanged={() => {
-            timer.current = setTimeout(onClose, 1200)
-          }}
-        />
+        <ChangePasswordForm onChanged={onChanged} />
       </div>
     </div>
   )
