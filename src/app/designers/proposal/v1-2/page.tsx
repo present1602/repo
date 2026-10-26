@@ -201,29 +201,34 @@ export default function ProposalV11Page() {
         {/* ─────────── 03 SAMPLE FIRST ─────────── */}
         <Spread id={3}>
           <Half tone="cream" top={['Feature · 02', 'Your choice']} foot={[BRAND, 'L']}>
-            <Label>Your choice</Label>
+            {/* 우측 쪽과 같은 값만큼 올려 두 쪽의 첫 줄이 같은 높이에서 시작한다 */}
+            <div className="md:-mt-12">
+              <Label>Choice</Label>
 
-            {/* 클라이언트가 무엇을 의뢰하는지 먼저 — 그걸 알아야
-                "그중에서 고른다"가 이해된다. */}
-            <p className="mt-5 text-lg leading-relaxed text-neutral-600 md:text-xl">
-              SOOM에게 의뢰를 주는 클라이언트는
-              <br />
-              <b className="font-semibold text-neutral-900">메인 시안만 의뢰</b>,{' '}
-              <b className="font-semibold text-neutral-900">디자인 전체 의뢰</b>,{' '}
-              <b className="font-semibold text-neutral-900">디자인 + 개발 의뢰</b> 중에서
-              선택합니다.
-            </p>
+              {/* 같은 문장이 우측에서 크게 나오므로 좌측은 한 줄로만 받는다.
+                  라벨 쪽으로 당겨 붙이고, 줄어든 만큼 아래 본문과 벌린다. */}
+              <h2 className="mt-3 text-2xl font-semibold leading-snug tracking-tight md:mt-4 md:text-4xl">
+                클라이언트와 디자이너 모두 <br/>
+                <span className="text-violet-600">원하는 의뢰 유형 선택</span>
+              </h2>
 
-            {/* 같은 문장이 우측에서 크게 나오므로 좌측은 한 줄로만 받는다 */}
-            <h2 className="mt-6 text-3xl font-semibold leading-snug tracking-tight md:mt-8 md:text-5xl">
-              <span className="text-violet-600">원하는 의뢰 유형 설정</span>
-            </h2>
+              {/* 클라이언트가 무엇을 의뢰하는지 먼저 — 그걸 알아야
+                  "그중에서 고른다"가 이해된다. */}
+              <p className="mt-8 text-lg leading-relaxed text-neutral-600 md:mt-12 md:text-xl">
+                SOOM에게 의뢰를 주는 클라이언트는
+                <br />
+                <b className="font-semibold text-neutral-900">메인 시안만 의뢰</b>,{' '}
+                <b className="font-semibold text-neutral-900">디자인 전체 의뢰</b>,{' '}
+                <b className="font-semibold text-neutral-900">디자인 + 개발 의뢰</b> 중에서
+                선택합니다.
+              </p>
+            </div>
           </Half>
 
           <Half tone="white" top={['The client', '2026']} foot={[BRAND, `03 / ${pad(TOTAL)}`]}>
-            {/* Half 이 내용을 세로 가운데에 두지만 이 쪽은 위쪽에 붙어야 한다 —
-                아래를 비워 가운데 정렬을 상쇄한다(다른 쪽은 그대로 둔다). */}
-            <div className="md:-mt-10 md:mb-auto">
+            {/* Half 의 세로 가운데 정렬은 그대로 두고 그 자리에서만 조금 올린다 —
+                mb-auto 로 아래를 비우면 쪽 맨 위에 붙어버린다. */}
+            <div className="md:-mt-12">
               <p className="text-sm font-medium tracking-[0.2em] text-violet-600">
                 클라이언트가 고르는 것
               </p>
@@ -246,10 +251,11 @@ export default function ProposalV11Page() {
               </ul>
 
               {/* 제안서의 핵심 문장 — 좌측에서 넘겨받아 여기서 크게 말한다 */}
-              <p className="mt-8 text-2xl font-semibold leading-snug tracking-tight md:text-3xl md:leading-[1.45]">
-                디자이너는 그 중 받고자 하는 의뢰유형만
+              <p className="mt-8 text-3xl font-semibold leading-snug tracking-tight md:text-3xl md:leading-[1.45]">
+                디자이너는 그 중 <br/>
+                <span className="text-violet-600">받고자 하는 의뢰유형만
                 <br />
-                <span className="text-violet-600">직접 선택합니다.</span>
+                직접 선택</span> 합니다.
               </p>
             </div>
           </Half>
