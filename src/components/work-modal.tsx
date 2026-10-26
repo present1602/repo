@@ -105,34 +105,88 @@ export function WorkModal({
 
         {hasSheet && (
           <div className="shrink-0 border-t border-neutral-200 px-5 py-5 md:px-8">
-            {meta && <p className="text-[11px] tracking-widest text-neutral-500">{meta}</p>}
-            {w.title && (
-              <h3 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">{w.title}</h3>
-            )}
+            <SheetHead meta={meta} title={w.title} />
 
             {w.description && (
               /* relative — 아래 Toggle 의 숨은 사본이 이 칸을 기준으로 선다.
                  없으면 모달 전체를 기준으로 삼아 엉뚱한 자리에 깔린다. */
               <div className="relative mt-2.5">
-                <p
-                  className={`whitespace-pre-line text-[15px] leading-relaxed text-neutral-600 ${
-                    /* 접힌 상태에서는 두 줄까지만 — 넘치면 끝에 말줄임이 붙는다.
-                       펼치면 길어질 수 있어 이 칸 자체가 스크롤을 갖는다. */
-                    open ? 'max-h-[30vh] overflow-y-auto' : 'line-clamp-2'
-                  }`}
-                >
+                {/* 여기는 늘 두 줄까지만 — 펼친 글은 아래 덮개 시트가 보여준다.
+                    이 칸이 자라면 이미지 칸이 줄어 그림이 작아진다. */}
+                <p className="line-clamp-2 whitespace-pre-line text-[15px] leading-relaxed text-neutral-600">
                   {w.description}
                 </p>
 
-                {/* 펼치기·접기 — 글자 대신 화살표 하나로 둔다.
+                {/* 펼치기 — 글자 대신 화살표 하나로 둔다.
                     두 줄 안에 들어가는 짧은 설명에는 버튼을 만들지 않는다. */}
                 <Toggle open={open} onToggle={() => setOpen((v) => !v)} text={w.description} />
               </div>
             )}
           </div>
         )}
+
+        {/* 펼친 설명 — 이미지 위로 덮어 올린다. 늘 그려 두고 위치·투명도만
+            바꿔 열고 닫힘이 부드럽게 이어지게 한다. 닫혀 있을 때는 inert 로
+            포커스·스크린리더에서 뺀다. */}
+        {hasSheet && w.description && (
+          <>
+            {/* 뒤쪽을 살짝 가린다 — 눌러도 접힌다 */}
+            <div
+              aria-hidden
+              onClick={() => setOpen(false)}
+              className={`absolute inset-0 z-10 bg-neutral-950/30 transition-opacity duration-300 ${
+                open ? 'opacity-100' : 'pointer-events-none opacity-0'
+              }`}
+            />
+            <div
+              inert={!open}
+              className={`absolute inset-x-0 bottom-0 z-20 flex max-h-[75%] flex-col bg-white px-5 py-5 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] transition-transform duration-300 ease-out md:px-8 ${
+                open ? 'translate-y-0' : 'translate-y-full'
+              }`}
+            >
+              <SheetHead meta={meta} title={w.title} />
+              <p className="mt-2.5 min-h-0 overflow-y-auto whitespace-pre-line text-[15px] leading-relaxed text-neutral-600">
+                {w.description}
+              </p>
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="설명 접기"
+                aria-expanded={open}
+                className="mt-1.5 grid size-7 shrink-0 place-items-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900"
+              >
+                <Chevron up />
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
+  )
+}
+
+/* 설명 칸 머리 — 접힌 칸과 펼친 시트가 같이 쓴다 */
+function SheetHead({ meta, title }: { meta: string; title: string | null }) {
+  return (
+    <>
+      {meta && <p className="text-[11px] tracking-widest text-neutral-500">{meta}</p>}
+      {title && <h3 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">{title}</h3>}
+    </>
+  )
+}
+
+function Chevron({ up }: { up?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`size-4 ${up ? 'rotate-180' : ''}`}
+    >
+      <path d="M4 6l4 4 4-4" />
+    </svg>
   )
 }
 
@@ -163,7 +217,7 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
     if (!box) return
     const measure = () => setBoxSize({ w: box.clientWidth, h: box.clientHeight })
     measure()
-    /* 창 크기가 바뀌거나 설명을 펼쳐 칸이 줄면 맞춤 크기도 다시 잡는다 */
+    /* 창 크기가 바뀌면 맞춤 크기도 다시 잡는다 */
     const ro = new ResizeObserver(measure)
     ro.observe(box)
     return () => ro.disconnect()
@@ -312,21 +366,11 @@ function Toggle({
       {overflows && (
         <button
           onClick={onToggle}
-          aria-label={open ? '설명 접기' : '설명 더 보기'}
+          aria-label="설명 더 보기"
           aria-expanded={open}
           className="mt-1.5 grid size-7 place-items-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900"
         >
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={`size-4 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
-          >
-            <path d="M4 6l4 4 4-4" />
-          </svg>
+          <Chevron />
         </button>
       )}
     </>

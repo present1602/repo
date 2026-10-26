@@ -351,6 +351,16 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   const up = await putImage(file, `works/${id}`)
   if (!up.ok) return fail(up.error)
 
+  /* 썸네일 — 화면에서 만들어 함께 보낸다(make-thumb.ts).
+     못 만들었으면 원본을 가리킨다 — 어드민 등록(adminAddWork)과 같은 방침이다. */
+  const thumb = form.get('thumb')
+  let thumbUrl = up.url
+  if (thumb instanceof File && thumb.size > 0) {
+    const t = await putImage(thumb, `works/${id}/thumbs`)
+    if (t.ok) thumbUrl = t.url
+    else console.error('[works] 썸네일 저장 실패, 원본으로 대체:', t.error)
+  }
+
   /* 세로로 긴 이미지는 기본 2칸 — 비율대로 쌓이는 모양이 자연스럽다.
      올린 뒤 본인이 조절할 수 있다. */
   const rowSpan = width && height && height > width * 1.4 ? 2 : 1
@@ -360,6 +370,7 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
     .insert({
       designer_id: id,
       image_url: up.url,
+      thumb_url: thumbUrl,
       width,
       height,
       title: title || null,

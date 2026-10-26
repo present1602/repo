@@ -36,11 +36,9 @@ export default function DesignerDetailPage(props: PageProps<'/designers/[id]'>) 
 
 async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>['params'] }) {
   const { id } = await params
-  const d = await getPublicDesigner(id)
+  /* 플랜 문구는 전역 설정 — 디자이너 조회를 기다릴 필요가 없어 동시에 받는다 */
+  const [d, copy] = await Promise.all([getPublicDesigner(id), getPlanCopy()])
   if (!d) notFound()
-
-  /* 플랜 문구는 전역 설정 — 디자이너 조회와 함께 기다릴 필요가 없어 여기서 받는다 */
-  const copy = await getPlanCopy()
 
   const name = displayNameOf(d)
 

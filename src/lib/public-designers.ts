@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache } from 'react'
 import { supabaseAdmin } from './supabase-admin'
 import { MAX_WORKS, CARD_THUMBS } from './portfolio-limits'
 import type {
@@ -257,8 +258,13 @@ export async function getDesignerCardPreview(id: string): Promise<PublicDesigner
 
 /* 상세 화면 — 프로필 + 공개된 작업 전부.
 
-   숨긴 계정이나 비공개 프로필이면 null 을 돌려준다(호출부에서 notFound). */
-export async function getPublicDesigner(id: string): Promise<PublicDesignerDetail | null> {
+   숨긴 계정이나 비공개 프로필이면 null 을 돌려준다(호출부에서 notFound).
+
+   cache — generateMetadata 와 본문이 같은 요청에서 각각 부른다.
+   감싸지 않으면 같은 질의가 두 번 나간다. */
+export const getPublicDesigner = cache(async function getPublicDesigner(
+  id: string,
+): Promise<PublicDesignerDetail | null> {
   if (!supabaseAdmin) return null
   const db = supabaseAdmin
 
@@ -266,32 +272,35 @@ export async function getPublicDesigner(id: string): Promise<PublicDesignerDetai
      잘못된 URL 은 에러가 아니라 404 로 다뤄야 한다. */
   if (!isUuid(id)) return null
 
-  const { data, error } = await selectDesigner<PublicDesignerDetail>((cols) =>
-    db
-      .from('designers')
-      .select(cols)
-      .eq('id', id)
-      .eq('visible', true)
-      .eq('profile_public', true)
-      .maybeSingle()
-      .overrideTypes<PublicDesignerDetail>(),
-  )
+  /* 디자이너와 작업을 동시에 묻는다 — 작업 질의는 id 만 있으면 되므로
+     디자이너 결과를 기다릴 이유가 없다. 비공개로 판명되면 작업은 버린다. */
+  const [{ data, error }, { data: workRows, error: workError }] = await Promise.all([
+    selectDesigner<PublicDesignerDetail>((cols) =>
+      db
+        .from('designers')
+        .select(cols)
+        .eq('id', id)
+        .eq('visible', true)
+        .eq('profile_public', true)
+        .maybeSingle()
+        .overrideTypes<PublicDesignerDetail>(),
+    ),
+    selectWorks<WorkWithOwner>((cols) =>
+      db
+        .from('designer_works')
+        .select(cols)
+        .eq('designer_id', id)
+        .eq('visible', true)
+        .limit(MAX_WORKS)
+        .overrideTypes<WorkWithOwner[]>(),
+    ),
+  ])
 
   if (error) {
     console.error('[public] 디자이너 조회 실패:', error.message)
     return null
   }
   if (!data) return null
-
-  const { data: workRows, error: workError } = await selectWorks<WorkWithOwner>((cols) =>
-    db
-      .from('designer_works')
-      .select(cols)
-      .eq('designer_id', id)
-      .eq('visible', true)
-      .limit(MAX_WORKS)
-      .overrideTypes<WorkWithOwner[]>(),
-  )
 
   if (workError) {
     console.error('[public] 작업 조회 실패:', workError.message)
@@ -300,7 +309,7 @@ export async function getPublicDesigner(id: string): Promise<PublicDesignerDetai
   const works = ((workRows ?? []) as WorkWithOwner[]).sort(byOrder).map(strip)
 
   return { ...(data as PublicDesignerDetail), works }
-}
+})
 
 /* 홈 화면 피드 — 어드민이 고른 작업을 앞에, 나머지는 최신순으로.
 
@@ -348,22 +357,43 @@ export async function listRecentWorks(limit: number): Promise<FeedWork[]> {
     }
   }
 
-  /* 1) 어드민이 고른 작업 — 고른 순서대로.
+  /* 아래 두 질의는 서로의 결과가 필요 없어 동시에 보낸다.
+
+     1) 어드민이 고른 작업 — 고른 순서대로.
         디자이너가 그 사이 숨겼으면(visible=false) 빠진다. 어드민이 골랐더라도
-        본인이 내린 작업을 공개 화면에 올리지는 않는다. */
-  const { data: picked, error: pickError } = await selectWorks<WorkWithOwner>(
-    (cols) =>
-      db
-        .from('designer_works')
-        .select(cols)
-        .eq('visible', true)
-        .eq('featured', true)
-        .in('designer_id', ids)
-        .order('featured_at', { ascending: false })
-        .limit(limit)
-        .overrideTypes<WorkWithOwner[]>(),
-    FEED_WORK_COLS,
-  )
+        본인이 내린 작업을 공개 화면에 올리지는 않는다.
+
+     2) 모자란 만큼 채울 최신 작업.
+        정렬은 작업의 created_at 으로 한다 — sort_order 는 디자이너가
+        자기 포트폴리오 안에서 매긴 순서라 디자이너끼리 비교할 수 없다.
+        featured 를 읽지 않으므로 007 마이그레이션 전에도 홈이 평소대로 뜬다.
+        고른 것이 최대 limit 장 섞여 들어오므로 두 배를 받아 둔다. */
+  const [{ data: picked, error: pickError }, { data: workRows, error: workError }] =
+    await Promise.all([
+      selectWorks<WorkWithOwner>(
+        (cols) =>
+          db
+            .from('designer_works')
+            .select(cols)
+            .eq('visible', true)
+            .eq('featured', true)
+            .in('designer_id', ids)
+            .order('featured_at', { ascending: false })
+            .limit(limit)
+            .overrideTypes<WorkWithOwner[]>(),
+        FEED_WORK_COLS,
+      ),
+      selectWorks<WorkWithOwner>((cols) =>
+        db
+          .from('designer_works')
+          .select(cols)
+          .eq('visible', true)
+          .in('designer_id', ids)
+          .order('created_at', { ascending: false })
+          .limit(limit * 2)
+          .overrideTypes<WorkWithOwner[]>(),
+      ),
+    ])
 
   if (pickError) {
     console.error('[public] 홈 피드 선택 작업 조회 실패:', pickError.message)
@@ -372,25 +402,7 @@ export async function listRecentWorks(limit: number): Promise<FeedWork[]> {
   const feed = ((picked ?? []) as WorkWithOwner[]).map(withOwner)
   if (feed.length >= limit) return feed.slice(0, limit)
 
-  /* 2) 모자란 만큼 최신순으로 채운다.
-        정렬은 작업의 created_at 으로 한다 — sort_order 는 디자이너가
-        자기 포트폴리오 안에서 매긴 순서라 디자이너끼리 비교할 수 없다. */
   const chosen = new Set(feed.map((w) => w.id))
-
-  /* 채우기 질의는 featured 를 읽지 않는다 — 정렬에도 쓰지 않으므로
-     007 마이그레이션 전에도 홈이 평소대로 뜬다. 고르는 기능만 쉬고
-     화면이 비지는 않는다. */
-  const { data: workRows, error: workError } = await selectWorks<WorkWithOwner>((cols) =>
-    db
-      .from('designer_works')
-      .select(cols)
-      .eq('visible', true)
-      .in('designer_id', ids)
-      .order('created_at', { ascending: false })
-      /* 이미 고른 것이 섞여 들어오므로 그만큼 더 받아 둔다 */
-      .limit(limit + chosen.size)
-      .overrideTypes<WorkWithOwner[]>(),
-  )
 
   if (workError) {
     console.error('[public] 홈 피드 작업 조회 실패:', workError.message)

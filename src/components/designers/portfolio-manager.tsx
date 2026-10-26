@@ -22,7 +22,7 @@ import {
   ratioValue,
   reshapeCrop,
 } from '@/lib/crop'
-import { makeThumbFromUrl } from '@/lib/make-thumb'
+import { makeThumb, makeThumbFromUrl } from '@/lib/make-thumb'
 
 export function PortfolioManager({ works }: { works: WorkRow[] }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -311,10 +311,12 @@ function AddButton({
   const upload = (file: File, ai: boolean, soom: boolean) => {
     onMessage(null)
     start(async () => {
-      const { width, height } = await measure(file)
+      /* 목록에서 쓸 작은 이미지를 함께 만든다 — 실패해도 그냥 올린다(make-thumb.ts) */
+      const [{ width, height }, thumb] = await Promise.all([measure(file), makeThumb(file, null)])
 
       const form = new FormData()
       form.set('image', file)
+      if (thumb) form.set('thumb', thumb.file)
       if (width) form.set('width', String(width))
       if (height) form.set('height', String(height))
       /* 답했다는 사실과 답 자체를 따로 보낸다 — 체크하지 않은 체크박스는
