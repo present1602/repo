@@ -279,7 +279,15 @@ export default function ProposalV11Page() {
           </Half>
 
           <Half tone="white" top={['Types', '2026']} foot={[BRAND, `04 / ${pad(TOTAL)}`]}>
-            <p className="text-sm font-medium tracking-[0.2em] text-violet-600">
+
+            <p className="mt-4 text-md md:text-xl leading-relaxed">
+              <span className="text-violet-600 font-semibold">바쁠 때는 메인 시안만, 여유가 생기면 더 큰 건까지 — </span>
+              <br/>설정에서 언제든 바꿀 수
+              있습니다.
+            </p>
+              
+
+            <p className="mt-10 text-sm font-medium tracking-[0.2em] text-violet-600 md:mt-10">
               받을 유형 고르기
             </p>
 
@@ -297,14 +305,13 @@ export default function ProposalV11Page() {
                   t: '디자인 전체 의뢰',
                   s: '서비스 전체 화면 디자인',
                   price: '본계약',
-                  on: true,
+                  on: false,
                 },
                 {
                   t: '디자인 + 개발 의뢰',
                   s: '개발자와 협업하는 통합 프로젝트',
                   price: '본계약',
-                  on: false,
-                  tag: 'SOOM 제안',
+                  on: false
                 },
               ].map((x) => (
                 <div
@@ -342,10 +349,6 @@ export default function ProposalV11Page() {
               ))}
             </div>
 
-            <p className="mt-4 text-sm leading-relaxed text-neutral-600">
-              바쁠 때는 메인 시안만, 여유가 생기면 더 큰 건까지 — 설정에서 언제든 바꿀 수
-              있습니다.
-            </p>
             <p className="mt-2.5 text-xs leading-relaxed text-neutral-500">
               * &lsquo;디자인 + 개발 의뢰&rsquo;건은 SOOM과 협력하는 일부 디자이너분들만 받을 수
               있어요.
