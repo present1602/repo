@@ -82,7 +82,10 @@ export function DesignerList({
       {/* 1920px 화면에서 꼭 차는 폭(1920 - 사이드바 240)까지만 넓어진다.
           그보다 큰 화면에서는 오른쪽이 빈 바탕으로 남는다 — 카드가 끝없이
           늘어나면 썸네일 줄이 납작해지고 눈이 좌우로 너무 멀리 오간다. */}
-      <main className="min-w-0 max-w-[1680px] flex-1 px-4 py-6 md:px-8 md:py-8">
+      {/* 가운데 맞춤은 사이드바를 뺀 나머지가 아니라 화면 전체 기준이다.
+          왼쪽 여백 = (화면 폭 - 본문 폭) / 2 - 사이드바 폭. 화면이 좁아
+          음수가 되면 0 으로 — 사이드바 바로 옆에 붙어 남는 폭을 다 쓴다. */}
+      <main className="mx-auto min-w-0 max-w-[1680px] flex-1 px-4 py-6 md:px-8 md:py-8 lg:mx-0 lg:ml-[max(0px,calc((100vw_-_min(1680px,100vw_-_15rem))_/_2_-_15rem))]">
         {/* 타이틀 영역 우측 끝에 키워드 검색 */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-start gap-3">

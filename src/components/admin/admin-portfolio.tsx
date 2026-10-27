@@ -25,7 +25,7 @@ import {
 } from '@/lib/crop'
 import { makeThumb, makeThumbFromUrl } from '@/lib/make-thumb'
 
-type Notice = { kind: 'ok' | 'error'; text: string } | null
+export type Notice = { kind: 'ok' | 'error'; text: string } | null
 
 export function AdminPortfolio({
   designerId,
@@ -701,7 +701,7 @@ function UploadDialog({
 }
 /* ─────────── 상세 ─────────── */
 
-function WorkDialog({
+export function WorkDialog({
   work: w,
   designerId,
   onClose,

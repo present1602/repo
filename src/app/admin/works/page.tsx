@@ -12,8 +12,8 @@ export const metadata: Metadata = {
 
 export const instant = false
 
-/* 한 쪽에 30개 — 3열이면 10줄 */
-const PAGE_SIZE = 30
+/* 한 쪽에 32개 — 4열(1920px 이상)이면 8줄, 2열이면 16줄로 딱 떨어진다 */
+const PAGE_SIZE = 32
 
 /* 모든 디자이너의 작업을 올라온 순서대로 훑어보는 화면.
    카드를 누르면 상세 모달이, 디자이너 이름을 누르면 그 디자이너의

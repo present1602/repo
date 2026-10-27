@@ -10,6 +10,7 @@ const menu = [
   { href: '/admin/inquiries', label: '문의' },
   { href: '/admin/applications', label: '지원서' },
   { href: '/admin/featured', label: '메인 노출' },
+  { href: '/admin/popups', label: '팝업' },
   { href: '/admin/settings', label: '설정' },
 ]
 

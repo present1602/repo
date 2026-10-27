@@ -7,8 +7,11 @@ import { Navbar } from './navbar'
 
    제안서는 자체 바(ProposalNav)와 쪽 번호를 가진 한 권짜리 문서다 —
    위에 사이트 바가 또 붙으면 바가 둘로 겹치고, 한 장씩 멈추는
-   스크롤(proposal-snap)이 쓸 높이도 그만큼 줄어든다. */
-const HIDDEN = ['/designers/proposal']
+   스크롤(proposal-snap)이 쓸 높이도 그만큼 줄어든다.
+
+   어드민은 자체 사이드바·상단 바(admin/layout.tsx)를 가진다 — 방문자용
+   메뉴(탐색·의뢰하기)가 위에 붙으면 관리 화면과 사이트가 섞여 보인다. */
+const HIDDEN = ['/admin', '/designers/proposal']
 
 export function SiteNavbar() {
   const pathname = usePathname() ?? ''

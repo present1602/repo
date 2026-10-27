@@ -4,6 +4,8 @@ import { HomeFeed } from '@/components/home-feed'
 import { HomeCta } from '@/components/home-cta'
 import { HtmlClass } from '@/components/html-class'
 import { listRecentWorks } from '@/lib/public-designers'
+import { listActivePopups } from '@/lib/popups-db'
+import { SitePopups } from '@/components/site-popup'
 import { DEFAULT_DESIGN_PRICE, formatPrice } from '@/lib/plans'
 
 /* 홈에 띄우는 작업 수.
@@ -47,8 +49,19 @@ export default function Home() {
 
       {/* 작업을 쭉 본 뒤 바로 의뢰로 넘어가는 자리 — 푸터 바로 위에 둔다 */}
       <HomeCta price={START_PRICE} />
+
+      {/* 팝업은 게시 기간을 현재 시각으로 거르므로 요청마다 묻는다 —
+          화면을 막지 않도록 Suspense 뒤로 넘긴다 */}
+      <Suspense fallback={null}>
+        <Popups />
+      </Suspense>
     </main>
   )
+}
+
+async function Popups() {
+  const popups = await listActivePopups()
+  return popups.length > 0 ? <SitePopups popups={popups} /> : null
 }
 
 async function Feed() {

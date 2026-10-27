@@ -28,6 +28,8 @@ function fail(error: string) {
 
 function refresh(id?: string) {
   revalidatePath('/admin/designers')
+  /* 포트폴리오 모아보기에서도 같은 작업을 고친다 */
+  revalidatePath('/admin/works')
   revalidatePath('/explore')
   if (id) {
     revalidatePath(`/admin/designers/${id}`)
