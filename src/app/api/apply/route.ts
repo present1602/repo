@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { Resend } from 'resend'
+import { allowedEmails } from '@/lib/admin-auth'
 import {
   supabaseAdmin,
   supabaseConfigured,
@@ -33,6 +35,14 @@ import {
    파일 크기는 버킷의 file_size_limit 가 최종으로 막는다. */
 
 type FileMeta = { name: string; size: number }
+
+/* 보내는 주소는 Resend 에서 인증한 도메인이어야 한다 — 아무 주소나 쓰면
+   발송 자체가 거부된다. 지원자 주소는 답장 대상(replyTo)과 본문에 넣는다. */
+const FROM = process.env.MAIL_FROM_EMAIL ?? 'onboarding@resend.dev'
+
+/* 메일 속 내려받기 링크 유효기간 — 7일. 비공개 버킷이라 서명 링크로만 열린다.
+   만료 후에도 파일은 남아 있고 어드민 지원서 화면에서 다시 받을 수 있다. */
+const SIGNED_URL_TTL = 60 * 60 * 24 * 7
 
 function bad(error: string, status = 400) {
   return NextResponse.json({ ok: false, error }, { status })
@@ -175,7 +185,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const { error: dbErr } = await db.from('designer_applications').insert({
+    const { data: row, error: dbErr } = await db.from('designer_applications').insert({
       name,
       email,
       resume: saved.resume ?? null,
@@ -185,7 +195,7 @@ export async function POST(req: Request) {
       ...(intro ? { intro } : {}),
       ...(portfolioUrl ? { portfolio_url: portfolioUrl } : {}),
       submit_key: submitKey,
-    })
+    }).select('id').single()
 
     if (dbErr) {
       /* 유니크 제약 위반 = 동시에 들어온 중복 제출 */
@@ -197,9 +207,128 @@ export async function POST(req: Request) {
       return bad('접수 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.', 500)
     }
 
-    return NextResponse.json({ ok: true })
+    /* ── 알림 메일 ──
+       DB 에 이미 남았으므로 메일이 실패해도 접수는 성공으로 돌려준다.
+       못 나간 지원서도 어드민 지원서 화면에서는 보인다. */
+    const mailed = await notifyAdmins(db, {
+      id: row.id as string,
+      name,
+      email,
+      intro,
+      portfolioUrl,
+      saved,
+    })
+
+    return NextResponse.json({ ok: true, mailed })
   } catch (err) {
     console.error('[apply] 처리 실패:', err)
     return bad('전송 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.', 500)
   }
+}
+
+/* ─────────── 알림 메일 ─────────── */
+
+type Saved = Partial<Record<ApplicationFileKind, ApplicationFile>>
+
+async function notifyAdmins(
+  db: NonNullable<typeof supabaseAdmin>,
+  a: { id: string; name: string; email: string; intro: string | null; portfolioUrl: string | null; saved: Saved },
+): Promise<boolean> {
+  const to = allowedEmails()
+  if (!process.env.RESEND_API_KEY || to.length === 0) {
+    console.warn('[apply] 메일 미설정 — 접수만 저장됨:', a.id)
+    return false
+  }
+
+  try {
+    /* 파일마다 내려받기 링크를 만든다. 실패하면 링크 없이 이름만 싣는다 —
+       링크 하나 때문에 알림 전체를 놓치는 것보다 낫다. */
+    const links: Partial<Record<ApplicationFileKind, string>> = {}
+    for (const kind of APPLICATION_FILE_KINDS) {
+      const f = a.saved[kind]
+      if (!f) continue
+      const { data } = await db.storage
+        .from(APPLICATION_FILES_BUCKET)
+        .createSignedUrl(f.path, SIGNED_URL_TTL, { download: f.name })
+      if (data?.signedUrl) links[kind] = data.signedUrl
+    }
+
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    const { error } = await resend.emails.send({
+      from: `soom 디자이너 지원 <${FROM}>`,
+      to,
+      /* 답장을 누르면 바로 지원자에게 간다 */
+      replyTo: a.email,
+      subject: `[디자이너 지원] ${a.name}`,
+      html: mailHtml(a, links),
+    })
+    if (error) throw error
+    return true
+  } catch (err) {
+    console.error('[apply] 메일 전송 실패 (접수는 저장됨):', a.id, err)
+    return false
+  }
+}
+
+/* 메일 본문에 들어가는 지원자 입력을 막는다 — 그대로 넣으면 태그가
+   살아나 본문이 깨지거나 엉뚱한 링크가 심긴다. */
+function esc(s: string) {
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+  )
+}
+
+function mailHtml(
+  a: { id: string; name: string; email: string; intro: string | null; portfolioUrl: string | null; saved: Saved },
+  links: Partial<Record<ApplicationFileKind, string>>,
+) {
+  const file = (kind: ApplicationFileKind) => {
+    const f = a.saved[kind]!
+    const size = `${(f.size / 1024 / 1024).toFixed(1)}MB`
+    return links[kind]
+      ? `<a href="${links[kind]}">${esc(f.name)}</a> (${size})`
+      : `${esc(f.name)} (${size}) — 링크를 만들지 못했습니다. 어드민 화면에서 받아 주세요.`
+  }
+
+  /* 이력서는 파일 또는 짧은 자기소개, 포트폴리오는 파일 또는 주소 */
+  const resume = a.saved.resume
+    ? file('resume')
+    : `<span style="white-space:pre-wrap">${esc(a.intro ?? '')}</span>`
+  /* 주소는 접수 때 http(s) 만 받았다(isHttpUrl) — 그래도 속성에 넣으니 이스케이프한다 */
+  const portfolio = a.saved.portfolio
+    ? file('portfolio')
+    : `<a href="${esc(a.portfolioUrl ?? '')}">${esc(a.portfolioUrl ?? '')}</a>`
+
+  const rows: [string, string][] = [
+    ['이름', esc(a.name)],
+    ['이메일', `<a href="mailto:${esc(a.email)}">${esc(a.email)}</a>`],
+    [a.saved.resume ? '이력서' : '자기소개', resume],
+    ['포트폴리오', portfolio],
+  ]
+
+  const hasFiles = Boolean(a.saved.resume || a.saved.portfolio)
+
+  return `
+    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:640px">
+      <h2 style="margin:0 0 18px;font-size:18px">새 디자이너 지원서가 접수되었습니다</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        ${rows
+          .map(
+            ([k, v]) => `<tr>
+              <td style="padding:8px 0;color:#666;width:110px;vertical-align:top">${k}</td>
+              <td style="padding:8px 0;line-height:1.7">${v}</td>
+            </tr>`,
+          )
+          .join('')}
+      </table>
+      ${
+        hasFiles
+          ? `<p style="font-size:12px;color:#999;margin-top:14px">
+               파일 링크는 7일간 유효합니다. 이후에는 어드민 지원서 화면에서 받을 수 있습니다.
+             </p>`
+          : ''
+      }
+      <p style="font-size:12px;color:#999;margin-top:24px">접수 번호: ${a.id}</p>
+    </div>`
 }
