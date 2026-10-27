@@ -108,53 +108,45 @@ export function WorkModal({
             <SheetHead meta={meta} title={w.title} />
 
             {w.description && (
-              /* relative — 아래 Toggle 의 숨은 사본이 이 칸을 기준으로 선다.
-                 없으면 모달 전체를 기준으로 삼아 엉뚱한 자리에 깔린다. */
-              <div className="relative mt-2.5">
-                {/* 여기는 늘 두 줄까지만 — 펼친 글은 아래 덮개 시트가 보여준다.
-                    이 칸이 자라면 이미지 칸이 줄어 그림이 작아진다. */}
-                <p className="line-clamp-2 whitespace-pre-line text-[15px] leading-relaxed text-neutral-600">
-                  {w.description}
-                </p>
-
-                {/* 펼치기 — 글자 대신 화살표 하나로 둔다.
-                    두 줄 안에 들어가는 짧은 설명에는 버튼을 만들지 않는다. */}
-                <Toggle open={open} onToggle={() => setOpen((v) => !v)} text={w.description} />
-              </div>
+              /* 여기는 늘 두 줄까지만 — 펼친 글은 아래 덮개 시트가 보여준다.
+                 이 칸이 자라면 이미지 칸이 줄어 그림이 작아진다. */
+              <Excerpt key={w.id} text={w.description} open={open} onOpen={() => setOpen(true)} />
             )}
           </div>
         )}
 
-        {/* 펼친 설명 — 이미지 위로 덮어 올린다. 늘 그려 두고 위치·투명도만
-            바꿔 열고 닫힘이 부드럽게 이어지게 한다. 닫혀 있을 때는 inert 로
+        {/* 펼친 설명 — 이미지 위로 덮어 올린다. 늘 그려 두고 위치만 바꿔
+            열고 닫힘이 부드럽게 이어지게 한다. 닫혀 있을 때는 inert 로
             포커스·스크린리더에서 뺀다. */}
         {hasSheet && w.description && (
           <>
-            {/* 뒤쪽을 살짝 가린다 — 눌러도 접힌다 */}
+            {/* 바깥을 누르면 접힌다 — 그림은 가리지 않도록 투명하게 둔다 */}
             <div
               aria-hidden
               onClick={() => setOpen(false)}
-              className={`absolute inset-0 z-10 bg-neutral-950/30 transition-opacity duration-300 ${
-                open ? 'opacity-100' : 'pointer-events-none opacity-0'
-              }`}
+              className={`absolute inset-0 z-10 ${open ? '' : 'pointer-events-none'}`}
             />
+            {/* 시트 바탕만 반투명하게 — 뒤 그림이 흐릿하게 비친다 */}
             <div
               inert={!open}
-              className={`absolute inset-x-0 bottom-0 z-20 flex max-h-[75%] flex-col bg-white px-5 py-5 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] transition-transform duration-300 ease-out md:px-8 ${
+              className={`absolute inset-x-0 bottom-0 z-20 flex max-h-[75%] flex-col bg-white/80 px-5 py-5 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-md transition-transform duration-300 ease-out md:px-8 ${
                 open ? 'translate-y-0' : 'translate-y-full'
               }`}
             >
               <SheetHead meta={meta} title={w.title} />
-              <p className="mt-2.5 min-h-0 overflow-y-auto whitespace-pre-line text-[15px] leading-relaxed text-neutral-600">
+              {/* pr — 오른쪽 아래 접기 버튼 자리를 비워 둔다 */}
+              <p className="mt-2.5 min-h-0 overflow-y-auto whitespace-pre-line pr-7 text-[15px] leading-relaxed text-neutral-600">
                 {w.description}
               </p>
+              {/* 접기 — 접힌 칸의 V 와 같은 오른쪽 아래 자리에 둔다.
+                  자리는 그대로이고 화살표만 위로 돌아간다. */}
               <button
                 onClick={() => setOpen(false)}
                 aria-label="설명 접기"
                 aria-expanded={open}
-                className="mt-1.5 grid size-7 shrink-0 place-items-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900"
+                className="absolute bottom-5 right-5 text-neutral-400 transition hover:text-neutral-900 md:right-8"
               >
-                <Chevron up />
+                <Chevron up={open} />
               </button>
             </div>
           </>
@@ -183,7 +175,7 @@ function Chevron({ up }: { up?: boolean }) {
       strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={`size-4 ${up ? 'rotate-180' : ''}`}
+      className={`size-4 transition-transform duration-300 ${up ? 'rotate-180' : ''}`}
     >
       <path d="M4 6l4 4 4-4" />
     </svg>
@@ -320,21 +312,33 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
   )
 }
 
-/* 설명이 두 줄을 넘는지 재서, 넘칠 때만 펼침 버튼을 보여준다.
+/* 접힌 설명 — 두 줄까지 보이고, 넘치면 둘째 줄 끝이 '…' 로 끊기며
+   그 오른쪽에 V 가 붙는다. 글 아무 데나 눌러도 펼쳐진다.
 
-   글자 수로 어림잡으면 줄바꿈이 섞인 글에서 틀린다 — 실제로 그려진
-   높이를 재는 편이 정확하다. */
-function Toggle({
-  open,
-  onToggle,
+   V 를 둘째 줄 끝에 앉히는 방법: 글 칸 안에 오른쪽으로 뜨는 빈 기둥
+   (::before, 높이 = 전체 - 한 줄)을 세우고, V 를 그 아래(clear)에 띄운다.
+   그러면 V 는 마지막 줄 오른쪽 끝에 자리를 잡고 글이 그 앞에서 '…' 로
+   끊긴다. 기둥 높이를 % 로 주려면 부모 높이가 정해져 있어야 해서
+   바깥을 flex 로 감싼다.
+
+   넘치는지는 글 수로 어림잡지 않고 숨은 사본의 실제 높이로 잰다 —
+   줄바꿈이 섞인 글에서 어림이 틀린다. */
+function Excerpt({
   text,
+  open,
+  onOpen,
 }: {
-  open: boolean
-  onToggle: () => void
   text: string
+  open: boolean
+  onOpen: () => void
 }) {
   const [overflows, setOverflows] = useState(false)
   const [el, setEl] = useState<HTMLParagraphElement | null>(null)
+
+  /* 접힌 칸에서는 줄바꿈을 공백으로 잇는다 — 살려 두면 첫 문단이 짧을 때
+     둘째 줄이 빈 줄이 되어 '… V' 만 남는다. 문단은 펼친 시트에서 보인다. */
+  const flat = text.replace(/\s*\n+\s*/g, ' ').trim()
+  const textCls = 'line-clamp-2 text-[15px] leading-relaxed'
 
   useEffect(() => {
     if (!el) return
@@ -346,33 +350,49 @@ function Toggle({
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [el, text])
+  }, [el, flat])
 
   return (
-    <>
-      {/* 높이를 재기 위한 숨은 사본 — 보이는 글은 위에서 그린다.
-          펼친 상태에서도 "접힌 높이"를 알아야 버튼을 계속 띄울 수 있다.
-
-          inset-x-0 으로 보이는 글과 같은 너비를 갖게 한다 — 너비가 다르면
-          줄 수가 달라져 "넘치는지" 판단이 틀린다. */}
+    /* relative — 숨은 사본이 이 칸을 기준으로 선다 */
+    <div className="relative mt-2.5">
+      {/* 높이를 재기 위한 숨은 사본 — V 가 없는 순수한 글이어야
+          "두 줄을 넘는지"를 바로 잴 수 있다. inset-x-0 으로 보이는 글과
+          같은 너비를 갖게 한다 — 너비가 다르면 줄 수가 달라진다. */}
       <p
         ref={setEl}
         aria-hidden
-        className="pointer-events-none invisible absolute inset-x-0 top-0 line-clamp-2 whitespace-pre-line text-[15px] leading-relaxed"
+        className={`pointer-events-none invisible absolute inset-x-0 top-0 ${textCls}`}
       >
-        {text}
+        {flat}
       </p>
 
-      {overflows && (
-        <button
-          onClick={onToggle}
+      {overflows ? (
+        <div
+          role="button"
+          tabIndex={0}
           aria-label="설명 더 보기"
           aria-expanded={open}
-          className="mt-1.5 grid size-7 place-items-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900"
+          onClick={onOpen}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onOpen()
+            }
+          }}
+          className="group flex cursor-pointer"
         >
-          <Chevron />
-        </button>
+          <p
+            className={`${textCls} text-neutral-600 transition group-hover:text-neutral-900 before:float-right before:h-[calc(100%-1lh)] before:content-['']`}
+          >
+            <span className="float-right clear-both ml-1 mt-[0.2em] text-neutral-400 transition group-hover:text-neutral-900">
+              <Chevron />
+            </span>
+            {flat}
+          </p>
+        </div>
+      ) : (
+        <p className={`${textCls} text-neutral-600`}>{flat}</p>
       )}
-    </>
+    </div>
   )
 }

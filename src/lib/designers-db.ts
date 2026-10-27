@@ -83,6 +83,30 @@ export async function listFeaturedWorks(): Promise<FeaturedCandidate[]> {
   return (data ?? []) as FeaturedCandidate[]
 }
 
+/* 포트폴리오 모아보기 — 모든 디자이너의 작업을 올라온 순서(최신 먼저)로.
+   숨긴 작업·숨긴 계정까지 전부 보여준다. 한 쪽씩 끊어 받고 전체 개수도 함께 센다. */
+export async function listWorksPage(
+  page: number,
+  size: number,
+): Promise<{ works: FeaturedCandidate[]; total: number }> {
+  if (!supabaseAdmin) return { works: [], total: 0 }
+
+  const from = (page - 1) * size
+  const { data, error, count } = await supabaseAdmin
+    .from('designer_works')
+    .select('*, designer:designers!inner(id, name, email, avatar_url, visible, profile_public)', {
+      count: 'exact',
+    })
+    .order('created_at', { ascending: false })
+    .range(from, from + size - 1)
+
+  if (error) {
+    console.error('[works] 포트폴리오 목록 조회 실패:', error.message)
+    return { works: [], total: 0 }
+  }
+  return { works: (data ?? []) as FeaturedCandidate[], total: count ?? 0 }
+}
+
 /* 관리 화면 목록 — 숨긴 계정까지 전부 */
 export async function listAllDesigners(): Promise<DesignerRow[]> {
   if (!supabaseAdmin) return []

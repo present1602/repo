@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 // 메뉴는 앞으로 더 붙는다 — 배열에 항목만 추가하면 된다
 const menu = [
   { href: '/admin/designers', label: '디자이너' },
+  { href: '/admin/works', label: '포트폴리오' },
   { href: '/admin/inquiries', label: '문의' },
   { href: '/admin/applications', label: '지원서' },
   { href: '/admin/featured', label: '메인 노출' },
