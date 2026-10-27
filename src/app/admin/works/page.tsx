@@ -3,9 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
 import { listWorksPage } from '@/lib/designers-db'
-import { thumbSrc } from '@/lib/portfolio-limits'
-import { displayName } from '@/lib/display-name'
-import { shortDate } from '@/lib/format-date'
+import { WorksGrid } from '@/components/admin/works-grid'
 
 export const metadata: Metadata = {
   title: '포트폴리오 · SOOM',
@@ -18,7 +16,8 @@ export const instant = false
 const PAGE_SIZE = 30
 
 /* 모든 디자이너의 작업을 올라온 순서대로 훑어보는 화면.
-   카드를 누르면 그 디자이너의 관리 화면으로 간다 — 고치는 일은 거기서 한다. */
+   카드를 누르면 상세 모달이, 디자이너 이름을 누르면 그 디자이너의
+   관리 화면이 열린다 — 고치는 일은 거기서 한다. */
 export default async function AdminWorksPage(props: PageProps<'/admin/works'>) {
   const user = await getAdminUser()
   if (!user) redirect('/admin/login')
@@ -40,46 +39,7 @@ export default async function AdminWorksPage(props: PageProps<'/admin/works'>) {
           {total === 0 ? '아직 올라온 작업이 없습니다.' : '이 쪽에는 작업이 없습니다.'}
         </p>
       ) : (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {works.map((w) => {
-            /* 공개 화면에 안 보이는 이유 — 작업을 숨겼거나 디자이너 쪽이 닫혀 있다 */
-            const hidden = !w.visible
-              ? '작업 숨김'
-              : !w.designer.visible
-                ? '계정 비활성'
-                : !w.designer.profile_public
-                  ? '프로필 숨김'
-                  : null
-
-            return (
-              <li key={w.id}>
-                <Link href={`/admin/designers/${w.designer.id}`} className="group block">
-                  <div className="relative aspect-[5/4] overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-200">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={thumbSrc(w)}
-                      alt={w.title ?? ''}
-                      loading="lazy"
-                      className="size-full object-cover object-top transition duration-300 group-hover:scale-[1.02]"
-                    />
-                    {hidden && (
-                      <span className="absolute left-2 top-2 rounded bg-neutral-900/70 px-1.5 py-0.5 text-[11px] font-medium text-white">
-                        {hidden}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-2 flex items-baseline justify-between gap-2 text-sm">
-                    <span className="truncate font-medium">
-                      {w.title || <span className="text-neutral-400">제목 없음</span>}
-                    </span>
-                    <span className="shrink-0 text-xs text-neutral-400">{shortDate(w.created_at)}</span>
-                  </div>
-                  <p className="truncate text-xs text-neutral-500">{displayName(w.designer)}</p>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+        <WorksGrid works={works} />
       )}
 
       {pages > 1 && <Pager page={page} pages={pages} />}
