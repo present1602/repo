@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "folio",
+  title: "SOOM",
   description: "디자이너 포트폴리오 플랫폼",
 };
 

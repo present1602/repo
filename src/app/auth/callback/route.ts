@@ -6,7 +6,10 @@ import { createClient, isAllowed } from '@/lib/admin-auth'
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/admin'
+  /* 같은 사이트 안의 경로만 받는다 — origin 뒤에 그대로 붙이므로
+     '@evil.com' 이나 '.evil.com' 이 오면 다른 호스트로 넘어간다 */
+  const raw = searchParams.get('next') ?? ''
+  const next = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/admin'
 
   if (!code) {
     return NextResponse.redirect(`${origin}/admin/login?error=no_code`)

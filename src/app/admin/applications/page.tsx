@@ -6,7 +6,7 @@ import { listApplications } from '@/lib/applications-db'
 import { ApplicationList } from '@/components/admin/application-list'
 
 export const metadata: Metadata = {
-  title: '지원서 · folio',
+  title: '지원서 · SOOM',
   robots: { index: false, follow: false },
 }
 

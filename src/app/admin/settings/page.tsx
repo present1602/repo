@@ -8,7 +8,7 @@ import { PlanCopyForm } from '@/components/admin/plan-copy-form'
 import { SpecialtyManager } from '@/components/admin/specialty-manager'
 
 export const metadata: Metadata = {
-  title: '설정 · folio',
+  title: '설정 · SOOM',
   robots: { index: false, follow: false },
 }
 

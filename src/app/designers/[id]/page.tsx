@@ -17,10 +17,10 @@ export async function generateMetadata(props: PageProps<'/designers/[id]'>) {
   const { id } = await props.params
   const d = await getPublicDesigner(id)
 
-  if (!d) return { title: '디자이너를 찾을 수 없습니다 · folio' }
+  if (!d) return { title: '디자이너를 찾을 수 없습니다 · SOOM' }
 
   return {
-    title: `${displayNameOf(d)} · folio`,
+    title: `${displayNameOf(d)} · SOOM`,
     description: d.one_liner ?? undefined,
   }
 }

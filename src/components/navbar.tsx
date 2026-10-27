@@ -16,7 +16,11 @@ export function Navbar() {
     <>
       <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 md:px-8">
-          <Link href="/" className="text-lg font-black tracking-tight">
+          {/* 글자에 보라→파랑 그라데이션을 입힌다 — 배경을 글자 모양으로 잘라 낸다 */}
+          <Link
+            href="/"
+            className="bg-gradient-to-r from-violet-600 to-blue-500 bg-clip-text text-lg font-black tracking-tight text-transparent"
+          >
             SOOM
           </Link>
 

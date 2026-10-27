@@ -7,7 +7,7 @@ import { listWorksForFeature } from '@/lib/designers-db'
 import { FeaturedPicker } from '@/components/admin/featured-picker'
 
 export const metadata: Metadata = {
-  title: '메인 노출 작업 고르기 · folio',
+  title: '메인 노출 작업 고르기 · SOOM',
   robots: { index: false, follow: false },
 }
 

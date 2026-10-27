@@ -105,12 +105,15 @@ function Hero() {
           </a>
         </div>
 
-        <ol className="mx-auto mt-14 grid max-w-2xl grid-cols-3 gap-2 text-left text-xs md:text-sm">
+        {/* 진행 순서 — 로마 숫자와 세리프로 에디토리얼하게(ref/soom-design MainPageV4) */}
+        <ol className="mx-auto mt-20 grid max-w-4xl gap-10 md:mt-24 md:grid-cols-3 md:gap-12">
           {STEPS.map(([no, title, note]) => (
-            <li key={no} className="rounded-xl bg-neutral-50 p-3 ring-1 ring-neutral-200 md:p-4">
-              <p className="font-mono text-[11px] text-violet-600">{no}</p>
-              <p className="mt-1 font-semibold">{title}</p>
-              <p className="text-neutral-500">{note}</p>
+            <li key={no} className="text-center">
+              <p className="font-serif text-4xl italic text-violet-600 md:text-5xl">{no}</p>
+              <p className="mt-4 font-serif text-xl md:mt-5 md:text-2xl">{title}</p>
+              <p className="mx-auto mt-3 max-w-[16rem] text-sm leading-relaxed text-neutral-500">
+                {note}
+              </p>
             </li>
           ))}
         </ol>
@@ -120,9 +123,9 @@ function Hero() {
 }
 
 const STEPS: [string, string, string][] = [
-  ['01', '메인 시안 의뢰', `${formatPrice(START_PRICE)}~`],
-  ['02', '시안 확인', '마음에 들면'],
-  ['03', '본 계약 진행', '전체 작업'],
+  ['I', '메인 시안 의뢰', `${formatPrice(START_PRICE)}부터, 부담 없이 첫 장면을 의뢰합니다.`],
+  ['II', '시안 확인', '결과물을 받아보고 만족하셨다면,'],
+  ['III', '본 계약', ' 그때 본 계약을 의뢰합니다.'],
 ]
 
 /* 실제 피드와 같은 벽 모양으로 둔다 — 작업이 들어올 때 화면이 튀지 않게.

@@ -5,7 +5,7 @@ import { listPublicDesigners, collectTags } from '@/lib/public-designers'
 import { listVisibleSpecialties } from '@/lib/specialties'
 
 export const metadata: Metadata = {
-  title: '탐색 · folio',
+  title: '탐색 · SOOM',
 }
 
 /* 목록은 캐시하지 않는다 — 디자이너가 프로필을 공개·비공개로 바꾸거나

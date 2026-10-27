@@ -9,7 +9,7 @@ import { logout } from './actions'
 import { DesignerConsole } from '@/components/designers/console'
 
 export const metadata: Metadata = {
-  title: '내 관리 페이지 · folio',
+  title: '내 관리 페이지 · SOOM',
   robots: { index: false, follow: false },
 }
 

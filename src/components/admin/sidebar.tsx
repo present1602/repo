@@ -33,9 +33,9 @@ export function AdminSidebar({
     <aside className="hidden w-56 shrink-0 flex-col border-r border-neutral-200 bg-white p-5 md:flex">
       <Link href="/admin" className="flex items-center gap-2 text-sm font-bold tracking-tight">
         <span className="grid size-6 place-items-center rounded-md bg-violet-600 text-[11px] text-white">
-          F
+          S
         </span>
-        folio
+        SOOM
         <span className="text-[11px] font-medium text-neutral-400">admin</span>
       </Link>
 

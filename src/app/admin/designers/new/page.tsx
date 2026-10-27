@@ -5,7 +5,7 @@ import { getAdminUser } from '@/lib/admin-auth'
 import { DesignerCreateForm } from '@/components/admin/designer-create-form'
 
 export const metadata: Metadata = {
-  title: '디자이너 추가 · folio',
+  title: '디자이너 추가 · SOOM',
   robots: { index: false, follow: false },
 }
 

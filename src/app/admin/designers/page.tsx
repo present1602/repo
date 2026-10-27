@@ -7,7 +7,7 @@ import { listAllDesignersWithActivity } from '@/lib/designers-db'
 import { DesignerTable } from '@/components/admin/designer-table'
 
 export const metadata: Metadata = {
-  title: '디자이너 관리 · folio',
+  title: '디자이너 관리 · SOOM',
   robots: { index: false, follow: false },
 }
 

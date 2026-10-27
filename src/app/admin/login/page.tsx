@@ -4,7 +4,7 @@ import { getAdminUser, authConfigured } from '@/lib/admin-auth'
 import { GoogleLoginButton } from '@/components/admin/google-login-button'
 
 export const metadata: Metadata = {
-  title: '관리자 로그인 · folio',
+  title: '관리자 로그인 · SOOM',
   robots: { index: false, follow: false },
 }
 
