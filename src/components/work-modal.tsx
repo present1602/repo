@@ -247,6 +247,35 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
 
   useEffect(() => () => window.clearTimeout(flashTimer.current), [])
 
+  /* 확대했을 때 마우스로 끌어 옮긴다 — 손 모양 커서로 잡고 끄는 만큼
+     스크롤을 반대로 움직인다. 터치는 브라우저 기본 스크롤이 이미 같은 일을
+     하므로 마우스만 다룬다. */
+  const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const pannable = step > 0
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const box = boxRef.current
+    if (!box || !pannable || e.pointerType !== 'mouse' || e.button !== 0) return
+    e.preventDefault()
+    box.setPointerCapture(e.pointerId)
+    drag.current = { x: e.clientX, y: e.clientY, left: box.scrollLeft, top: box.scrollTop }
+    setDragging(true)
+  }
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const box = boxRef.current
+    const d = drag.current
+    if (!box || !d) return
+    box.scrollLeft = d.left - (e.clientX - d.x)
+    box.scrollTop = d.top - (e.clientY - d.y)
+  }
+
+  const endDrag = () => {
+    drag.current = null
+    setDragging(false)
+  }
+
   /* 화살표 키는 작업 넘기기가 쓴다 — 확대는 +/− 키로 */
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -259,13 +288,24 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
 
   return (
     <div className="relative min-h-0 flex-1 bg-white">
-      <div ref={boxRef} className="absolute inset-0 overflow-auto">
+      <div
+        ref={boxRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        className={`absolute inset-0 overflow-auto ${
+          pannable ? (dragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''
+        }`}
+      >
         {/* 그림보다 칸이 크면 가운데에, 그림이 크면 그림만큼 넓어져 스크롤된다 */}
         <div className="grid min-h-full w-max min-w-full place-items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt={alt}
+            /* 브라우저 기본 이미지 끌기(유령 이미지)가 끌어 옮기기를 가로챈다 */
+            draggable={false}
             onLoad={(e) =>
               setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
             }
