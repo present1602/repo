@@ -41,7 +41,7 @@ export default async function DesignerLoginPage() {
         <div className="mt-8 border-t border-neutral-200 pt-6 text-center">
           <p className="text-xs text-neutral-500">SOOM 디자이너로 활동하고 싶다면</p>
           <Link
-            href="/designers/proposal/v1-4"
+            href="/designers/proposal/v1"
             className="mt-1.5 inline-block text-sm font-medium text-violet-600 transition hover:text-violet-700"
           >
             디자이너 제안서 보기 →

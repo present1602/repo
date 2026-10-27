@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-/* 디자이너 모집 제안서 v1-4.
+/* 디자이너 모집 제안서 v1.
 
    v1-2 와 같고 마지막 쪽만 다르다 — 메일로 받던 지원을 디자이너 신청
    화면(/designers/apply)으로 보낸다. 메일 주소는 문의 창구로 남겼다.

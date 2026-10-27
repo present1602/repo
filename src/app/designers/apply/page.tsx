@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 /* 디자이너 신청.
 
-   디자이너 로그인 화면과 제안서(v1-4) 마지막 쪽에서 들어온다.
+   디자이너 로그인 화면과 제안서(v1) 마지막 쪽에서 들어온다.
    접수된 신청은 어드민 '지원서' 화면에서 본다. */
 export default function DesignerApplyPage() {
   return (

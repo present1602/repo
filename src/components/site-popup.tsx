@@ -38,13 +38,52 @@ function hideFor(id: string, days: number) {
   }
 }
 
+/* 이미지 하나가 끝나기를 기다린다. 깨진 이미지도 끝난 것으로 보고,
+   너무 오래 걸리면 그냥 띄운다 — 느린 이미지 하나 때문에 팝업이 영영
+   안 뜨는 것보다 늦게 채워지는 편이 낫다. */
+const PRELOAD_TIMEOUT = 4000
+
+function preload(p: PublicPopup): Promise<void> {
+  const urls = p.body.flatMap((b) => (b.type === 'image' ? [publicUrl(b.path)] : []))
+  if (urls.length === 0) return Promise.resolve()
+
+  const all = Promise.all(
+    urls.map(
+      (src) =>
+        new Promise<void>((done) => {
+          const img = new Image()
+          img.onload = img.onerror = () => done()
+          img.src = src
+        }),
+    ),
+  ).then(() => undefined)
+
+  return Promise.race([all, new Promise<void>((done) => setTimeout(done, PRELOAD_TIMEOUT))])
+}
+
 export function SitePopups({ popups }: { popups: PublicPopup[] }) {
   /* 서버에서는 무엇을 숨겼는지 알 수 없다 — 붙은 뒤에 고른다 */
   const [queue, setQueue] = useState<PublicPopup[] | null>(null)
 
+  /* 본문 이미지를 다 받은 팝업만 띄운다. 먼저 띄우면 이미지가 들어오면서
+     높이가 늘어나 팝업이 한 번 튄다. 대기 중인 것까지 한꺼번에 받아 두어
+     닫고 다음 팝업이 뜰 때도 기다리지 않게 한다. */
+  const [ready, setReady] = useState<Set<string>>(() => new Set())
+
   useEffect(() => {
+    const list = popups.filter((p) => !isHidden(p.id))
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage 는 붙은 뒤에만 읽을 수 있다
-    setQueue(popups.filter((p) => !isHidden(p.id)))
+    setQueue(list)
+
+    let alive = true
+    for (const p of list) {
+      preload(p).then(() => {
+        if (alive) setReady((r) => (r.has(p.id) ? r : new Set(r).add(p.id)))
+      })
+    }
+    return () => {
+      alive = false
+    }
   }, [popups])
 
   const current = queue?.[0]
@@ -58,7 +97,7 @@ export function SitePopups({ popups }: { popups: PublicPopup[] }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [current])
 
-  if (!current) return null
+  if (!current || !ready.has(current.id)) return null
 
   const close = (days = 0) => {
     if (days > 0) hideFor(current.id, days)
