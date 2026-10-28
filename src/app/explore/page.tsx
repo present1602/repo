@@ -49,7 +49,7 @@ function ExploreSkeleton() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
+      <main className="min-w-0 flex-1 px-2 py-6 sm:px-4 md:px-8 md:py-8">
         <div className="h-8 w-48 animate-pulse rounded bg-neutral-200" />
         <div className="mt-6 space-y-4">
           {Array.from({ length: 3 }, (_, i) => (
@@ -61,9 +61,15 @@ function ExploreSkeleton() {
                   <div className="h-3 w-56 animate-pulse rounded bg-neutral-100" />
                 </div>
               </div>
-              <div className="flex h-44 gap-2 px-4 pb-4 md:h-56 md:px-5 md:pb-5">
+              {/* 실제 카드와 같은 자리 — 스마트폰은 한 장을 폭에 꽉, 태블릿부터는 한 줄로 */}
+              <div className="flex gap-2 px-4 pb-4 sm:h-64 md:h-80 md:px-5 md:pb-5">
                 {Array.from({ length: 4 }, (_, j) => (
-                  <div key={j} className="h-full w-28 shrink-0 animate-pulse rounded-lg bg-neutral-200" />
+                  <div
+                    key={j}
+                    className={`aspect-[3/4] w-full shrink-0 animate-pulse rounded-lg bg-neutral-200 sm:h-full sm:w-auto ${
+                      j > 0 ? 'hidden sm:block' : ''
+                    }`}
+                  />
                 ))}
               </div>
             </div>

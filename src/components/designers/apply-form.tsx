@@ -1,6 +1,6 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import {
   APPLICATION_FILES_BUCKET,
@@ -16,13 +16,15 @@ import {
 /* 디자이너 신청 폼(designers/apply).
 
    제안서 v1-3 의 지원 폼(proposal/apply-form.tsx)과 같은 접수 API 를 쓰되,
-   두 가지를 파일 대신 글로 낼 수 있다 —
-     이력서     파일  또는  짧은 자기소개(500자)
-     포트폴리오  파일  또는  URL
+   둘 다 파일 또는 URL 로 낸다 —
+     포트폴리오  필수
+     기타 자료   선택 — 이력서·자소서 등 지원자를 소개할 자료. 파일·URL·직접 입력
+                (파일은 resume, 직접 입력은 intro 칸에 담는다)
    파일은 서버를 거치지 않고 Storage 로 바로 올린다(app/api/apply/route.ts). */
 
-type ResumeMode = 'file' | 'intro'
-type PortfolioMode = 'file' | 'url'
+type Mode = 'file' | 'url'
+/* 기타 자료는 직접 적을 수도 있다 */
+type ExtraMode = Mode | 'text'
 
 async function post(body: Record<string, unknown>) {
   const res = await fetch('/api/apply', {
@@ -41,12 +43,14 @@ const INPUT =
 export function DesignerApplyForm() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [resumeMode, setResumeMode] = useState<ResumeMode>('file')
-  const [portfolioMode, setPortfolioMode] = useState<PortfolioMode>('file')
-  const [resume, setResume] = useState<File | null>(null)
-  const [intro, setIntro] = useState('')
+  const [portfolioMode, setPortfolioMode] = useState<Mode>('file')
   const [portfolio, setPortfolio] = useState<File | null>(null)
   const [url, setUrl] = useState('')
+  /* 기타 자료 — 선택 */
+  const [extraMode, setExtraMode] = useState<ExtraMode>('file')
+  const [extra, setExtra] = useState<File | null>(null)
+  const [extraUrl, setExtraUrl] = useState('')
+  const [extraText, setExtraText] = useState('')
   const [trap, setTrap] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,12 +69,13 @@ export function DesignerApplyForm() {
     return () => {
       setName('')
       setEmail('')
-      setResumeMode('file')
       setPortfolioMode('file')
-      setResume(null)
-      setIntro('')
       setPortfolio(null)
       setUrl('')
+      setExtraMode('file')
+      setExtra(null)
+      setExtraUrl('')
+      setExtraText('')
       setError(null)
       setDone(false)
       submitKey.current = null
@@ -98,17 +103,17 @@ export function DesignerApplyForm() {
 
     /* 고른 쪽 값만 보낸다 — 라디오를 바꾸기 전에 넣어 둔 값이 함께 가지 않게 */
     const files: Partial<Record<ApplicationFileKind, File>> = {}
-    if (resumeMode === 'file') {
-      if (!resume) return setError('이력서(자기소개서) 파일을 첨부해 주세요.')
-      files.resume = resume
-    } else if (!intro.trim()) {
-      return setError('짧은 자기소개를 적어 주세요.')
-    }
     if (portfolioMode === 'file') {
       if (!portfolio) return setError('포트폴리오 파일을 첨부해 주세요.')
       files.portfolio = portfolio
     } else if (!isHttpUrl(url.trim())) {
       return setError('포트폴리오 주소를 확인해 주세요. (http:// 또는 https://로 시작)')
+    }
+    /* 기타 자료는 비워도 된다 — 적었을 때만 확인한다 */
+    const extraLink = extraMode === 'url' ? extraUrl.trim() : ''
+    if (extraMode === 'file' && extra) files.resume = extra
+    if (extraLink && !isHttpUrl(extraLink)) {
+      return setError('기타 자료 주소를 확인해 주세요. (http:// 또는 https://로 시작)')
     }
 
     submitKey.current ??= crypto.randomUUID()
@@ -118,8 +123,9 @@ export function DesignerApplyForm() {
       name: name.trim(),
       email: email.trim(),
       company_website: trap,
-      intro: resumeMode === 'intro' ? intro.trim() : '',
       portfolioUrl: portfolioMode === 'url' ? url.trim() : '',
+      resumeUrl: extraLink,
+      intro: extraMode === 'text' ? extraText.trim() : '',
       files: Object.fromEntries(kinds.map((k) => [k, { name: files[k]!.name, size: files[k]!.size }])),
     }
 
@@ -212,42 +218,9 @@ export function DesignerApplyForm() {
       />
 
       <fieldset>
-        <legend className="text-sm font-semibold">이력서</legend>
-        <Choice
-          name="resume-mode"
-          value={resumeMode}
-          onChange={setResumeMode}
-          options={[
-            ['file', '이력서(자기소개서) 업로드'],
-            ['intro', '짧은 자기소개'],
-          ]}
-        />
-        {resumeMode === 'file' ? (
-          <FilePick
-            file={resume}
-            hint="PDF · Word · 한글"
-            disabled={pending}
-            onPick={(f) => pick('이력서', f, setResume)}
-          />
-        ) : (
-          <div className="mt-3">
-            <textarea
-              value={intro}
-              onChange={(e) => setIntro(e.target.value)}
-              maxLength={MAX_INTRO}
-              rows={6}
-              placeholder="경력, 주로 하는 작업, 쓰는 도구 등을 자유롭게 적어 주세요."
-              className={`${INPUT} resize-none py-2.5 leading-relaxed`}
-            />
-            <p className="mt-1 text-right text-xs text-neutral-400">
-              {intro.length} / {MAX_INTRO}
-            </p>
-          </div>
-        )}
-      </fieldset>
-
-      <fieldset>
-        <legend className="text-sm font-semibold">포트폴리오</legend>
+        <legend className="text-sm font-semibold">
+          포트폴리오 <span className="text-violet-600">*</span>
+        </legend>
         <Choice
           name="portfolio-mode"
           value={portfolioMode}
@@ -276,6 +249,57 @@ export function DesignerApplyForm() {
         )}
       </fieldset>
 
+      <fieldset>
+        <legend className="text-sm font-semibold">
+          기타 <span className="font-normal text-neutral-400">(선택)</span>
+        </legend>
+        <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+          포트폴리오 외 지원자님을 소개해 줄 수 있는 자료가 있다면 자유롭게 첨부해 주세요.<br/>
+          (이력서, 자소서 등 첨부해 주셔도 좋아요)
+        </p>
+        <Choice
+          name="extra-mode"
+          value={extraMode}
+          onChange={setExtraMode}
+          options={[
+            ['file', '파일 첨부'],
+            ['url', 'URL'],
+            ['text', '직접 입력할게요'],
+          ]}
+        />
+        {extraMode === 'text' ? (
+          <div className="mt-3">
+            <textarea
+              value={extraText}
+              onChange={(e) => setExtraText(e.target.value)}
+              maxLength={MAX_INTRO}
+              rows={6}
+              placeholder="경력, 주로 하는 작업, 쓰는 도구 등을 자유롭게 적어 주세요."
+              className={`${INPUT} resize-none py-2.5 leading-relaxed`}
+            />
+            <p className="mt-1 text-right text-xs text-neutral-400">
+              {extraText.length} / {MAX_INTRO}
+            </p>
+          </div>
+        ) : extraMode === 'file' ? (
+          <FilePick
+            file={extra}
+            hint="PDF · Word · 한글 · 이미지 · ZIP"
+            disabled={pending}
+            onPick={(f) => pick('기타 자료', f, setExtra)}
+          />
+        ) : (
+          <input
+            type="url"
+            value={extraUrl}
+            onChange={(e) => setExtraUrl(e.target.value)}
+            maxLength={500}
+            placeholder="https:// (노션·구글 드라이브·링크드인 등)"
+            className={`${INPUT} mt-3 h-10`}
+          />
+        )}
+      </fieldset>
+
       {error && <p className="rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{error}</p>}
 
       <div>
@@ -292,7 +316,30 @@ export function DesignerApplyForm() {
   )
 }
 
-/* 둘 중 하나를 고르는 라디오 — 나란히 놓은 두 칸 */
+/* 선택지 아이콘 — 값의 종류마다 하나. 선 굵기·크기를 맞춰 한 벌로 보이게 */
+const CHOICE_ICONS: Record<string, React.ReactNode> = {
+  /* 클립 */
+  file: <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />,
+  /* 사슬 */
+  url: (
+    <>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </>
+  ),
+  /* 연필 */
+  text: (
+    <>
+      <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" />
+    </>
+  ),
+}
+
+/* 여럿 중 하나를 고르는 타일 — 위에 아이콘과 라디오 원, 아래에 이름.
+   타일 사이에 세로선과 'or' 를 세워 "하나만" 이 읽히게 한다.
+   고른 타일만 연보라 바탕에 보라 글씨, 원 안에 점이 찬다.
+   라디오의 키보드 동작(방향키로 옮기기)은 그대로 두고 기본 동그라미만 감춘다. */
 function Choice<T extends string>({
   name,
   value,
@@ -305,26 +352,60 @@ function Choice<T extends string>({
   options: [T, string][]
 }) {
   return (
-    <div className="mt-2.5 grid grid-cols-2 gap-2">
-      {options.map(([v, label]) => (
-        <label
-          key={v}
-          className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition ${
-            value === v
-              ? 'border-violet-600 bg-violet-50 font-medium text-violet-800'
-              : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50'
-          }`}
-        >
-          <input
-            type="radio"
-            name={name}
-            checked={value === v}
-            onChange={() => onChange(v)}
-            className="accent-violet-600"
-          />
-          {label}
-        </label>
-      ))}
+    <div role="radiogroup" className="mt-2.5 flex items-stretch">
+      {options.map(([v, label], i) => {
+        const on = value === v
+        return (
+          <Fragment key={v}>
+            {i > 0 && (
+              <span aria-hidden className="flex w-8 shrink-0 flex-col items-center sm:w-10">
+                <span className="w-px flex-1 bg-neutral-200" />
+                <span className="py-1 text-[11px] font-medium text-neutral-400">or</span>
+                <span className="w-px flex-1 bg-neutral-200" />
+              </span>
+            )}
+            <label
+              className={`relative flex min-w-0 flex-1 cursor-pointer flex-col gap-2 rounded-xl px-3 py-2.5 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-violet-500 sm:px-3.5 sm:py-3 ${
+                on ? 'bg-violet-50 text-violet-700' : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700'
+              }`}
+            >
+              <input
+                type="radio"
+                name={name}
+                checked={on}
+                onChange={() => onChange(v)}
+                className="sr-only"
+              />
+
+              <span className="flex items-start justify-between">
+                <svg
+                  viewBox="0 0 24 24"
+                  className={`size-4 shrink-0 ${on ? 'text-violet-600' : 'text-neutral-400'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  {CHOICE_ICONS[v]}
+                </svg>
+                {/* 라디오 원 — 고르면 안쪽 점이 찬다 */}
+                <span
+                  aria-hidden
+                  className={`grid size-4 shrink-0 place-items-center rounded-full border-2 bg-white transition ${
+                    on ? 'border-violet-600' : 'border-neutral-300'
+                  }`}
+                >
+                  <span className={`size-1.5 rounded-full bg-violet-600 transition ${on ? 'scale-100' : 'scale-0'}`} />
+                </span>
+              </span>
+
+              <span className={`text-[13px] leading-snug sm:text-sm ${on ? 'font-semibold' : ''}`}>{label}</span>
+            </label>
+          </Fragment>
+        )
+      })}
     </div>
   )
 }

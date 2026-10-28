@@ -105,6 +105,22 @@ export function ApplicationList({ applications: all }: { applications: Applicati
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  {/* 기타 자료를 주소로 낸 지원서(027) — 파일 대신 그 주소로 연다 */}
+                  {a.resume_url && (
+                    <a
+                      href={a.resume_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => unread && mark(a.id, 'read')}
+                      title={a.resume_url}
+                      className="order-2 flex max-w-56 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition hover:border-violet-600 hover:text-violet-700"
+                    >
+                      <span className="shrink-0 font-semibold">기타 자료</span>
+                      <span className="truncate text-neutral-500">
+                        {a.resume_url.replace(/^https?:\/\//, '')}
+                      </span>
+                    </a>
+                  )}
                   {/* 포트폴리오를 주소로 낸 지원서 — 파일 대신 그 주소로 연다 */}
                   {a.portfolio_url && (
                     <a
@@ -113,7 +129,7 @@ export function ApplicationList({ applications: all }: { applications: Applicati
                       rel="noopener noreferrer"
                       onClick={() => unread && mark(a.id, 'read')}
                       title={a.portfolio_url}
-                      className="order-2 flex max-w-56 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition hover:border-violet-600 hover:text-violet-700"
+                      className="order-1 flex max-w-56 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition hover:border-violet-600 hover:text-violet-700"
                     >
                       <span className="shrink-0 font-semibold">포트폴리오</span>
                       <span className="truncate text-neutral-500">
@@ -135,7 +151,7 @@ export function ApplicationList({ applications: all }: { applications: Applicati
                         /* 내려받기 = 확인 — 미확인일 때만 바꾼다 */
                         onClick={() => unread && mark(a.id, 'read')}
                         title={`${f.name} · ${mb(f.size)}`}
-                        className={`${k === 'resume' ? 'order-1' : 'order-2'} flex max-w-56 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition hover:border-violet-600 hover:text-violet-700`}
+                        className={`${k === 'portfolio' ? 'order-1' : 'order-2'} flex max-w-56 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition hover:border-violet-600 hover:text-violet-700`}
                       >
                         <span className="shrink-0 font-semibold">{APPLICATION_FILE_LABELS[k]}</span>
                         <span className="truncate text-neutral-500">{f.name}</span>
@@ -159,10 +175,11 @@ export function ApplicationList({ applications: all }: { applications: Applicati
                   {unread ? '확인함으로' : '미확인으로'}
                 </button>
 
-                {/* 이력서 대신 적은 짧은 자기소개 — 500자라 펼치지 않고 그대로 싣는다 */}
+                {/* 기타 자료를 직접 적은 글 — 예전 지원서에서는 이력서 대신 쓴 자기소개.
+                    500자라 펼치지 않고 그대로 싣는다 */}
                 {a.intro && (
                   <div className="basis-full rounded-lg bg-neutral-50 px-3.5 py-3">
-                    <p className="text-[11px] font-semibold text-neutral-500">자기소개</p>
+                    <p className="text-[11px] font-semibold text-neutral-500">기타 자료 (직접 입력)</p>
                     <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-neutral-700">
                       {a.intro}
                     </p>

@@ -85,7 +85,7 @@ export function DesignerList({
       {/* 가운데 맞춤은 사이드바를 뺀 나머지가 아니라 화면 전체 기준이다.
           왼쪽 여백 = (화면 폭 - 본문 폭) / 2 - 사이드바 폭. 화면이 좁아
           음수가 되면 0 으로 — 사이드바 바로 옆에 붙어 남는 폭을 다 쓴다. */}
-      <main className="mx-auto min-w-0 max-w-[1680px] flex-1 px-4 py-6 md:px-8 md:py-8 lg:mx-0 lg:ml-[max(0px,calc((100vw_-_min(1680px,100vw_-_15rem))_/_2_-_15rem))]">
+      <main className="mx-auto min-w-0 max-w-[1680px] flex-1 px-2 py-6 sm:px-4 md:px-8 md:py-8 lg:mx-0 lg:ml-[max(0px,calc((100vw_-_min(1680px,100vw_-_15rem))_/_2_-_15rem))]">
         {/* 타이틀 영역 우측 끝에 키워드 검색 */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-start gap-3">
@@ -241,21 +241,26 @@ export function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) 
 
       {/* 작업이 없는 디자이너도 있다 — 그때는 썸네일 줄을 아예 비운다 */}
       {d.works.length > 0 && (
-        /* 높이를 고정하고 너비는 비율대로 — 가로/세로 썸네일이 한 줄에 자연스럽게 섞인다 */
-        <div className="flex h-44 gap-2 overflow-x-auto px-4 pb-4 md:h-56 md:px-5 md:pb-5">
+        /* 태블릿 이상 — 높이를 고정하고 너비는 비율대로. 가로/세로 썸네일이 한 줄에
+           자연스럽게 섞인다. 디자이너가 아직 많지 않아 카드 하나를 크게 보여 준다.
+           스마트폰 — 폭이 좁아 여러 장을 늘어놓으면 하나하나가 너무 작다.
+           첫 작업 한 장만 카드 폭에 꽉 채우고, 나머지는 상세에서 본다. */
+        <div className="flex gap-2 overflow-x-auto px-4 pb-4 sm:h-64 md:h-80 md:px-5 md:pb-5">
           {d.works.map((w, i) => (
             <button
               key={w.id}
               onClick={() => setOpenIndex(i)}
               aria-label={w.title ? `${w.title} 크게 보기` : '작업 크게 보기'}
-              className="group relative h-full shrink-0 overflow-hidden rounded-lg"
+              className={`group relative w-full shrink-0 overflow-hidden rounded-lg sm:h-full sm:w-auto ${
+                i > 0 ? 'hidden sm:block' : ''
+              }`}
             >
               <Img
                 src={w.thumb_url}
                 alt={w.title ?? ''}
-                className={`h-full transition duration-500 group-hover:scale-[1.03] ${
-                  isLandscape(w) ? 'aspect-[16/10]' : 'aspect-[9/16]'
-                }`}
+                className="w-full transition duration-500 group-hover:scale-[1.03] sm:h-full sm:w-auto"
+                style={{ aspectRatio: cardRatio(w) }}
+                focus="center"
               />
               {w.title && (
                 <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-left text-[11px] text-white opacity-0 transition group-hover:opacity-100">
@@ -268,7 +273,7 @@ export function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) 
           {more > 0 && (
             <Link
               href={href}
-              className="grid h-full w-24 shrink-0 place-items-center rounded-lg border border-dashed border-neutral-300 text-center text-xs text-neutral-500 hover:border-violet-400 hover:text-violet-600"
+              className="hidden h-full w-24 shrink-0 place-items-center rounded-lg border border-dashed border-neutral-300 text-center text-xs text-neutral-500 hover:border-violet-400 hover:text-violet-600 sm:grid"
             >
               +{more}개
               <br />
@@ -307,9 +312,19 @@ function Avatar({ designer: d }: { designer: PublicDesignerCard }) {
 /* 원본 비율로 가로형을 가른다. 목업은 제목에 '웹·랜딩·대시보드'가 들어가면
    가로형으로 쳤지만, 실제 데이터는 업로드 때 받아 둔 width·height 가 있다.
    비율을 모르면 세로형으로 둔다 — 포트폴리오는 대개 세로로 길다. */
-function isLandscape(w: PublicWork): boolean {
-  if (!w.width || !w.height) return false
-  return w.width > w.height
+/* 목록 카드 썸네일 칸의 비율(가로/세로).
+
+   가로형은 16:10 으로 맞춘다. 세로형은 자기 비율대로 두되 3:4 보다 길면
+   3:4 에서 끊고 가운데를 보여 준다 — 긴 페이지 스크린샷이 칸을 길쭉하게
+   만들지 않게. 크기를 모르면 3:4 로 둔다. */
+const CARD_LANDSCAPE = 16 / 10
+const CARD_MAX_TALL = 3 / 4
+
+function cardRatio(w: PublicWork): number {
+  if (!w.width || !w.height) return CARD_MAX_TALL
+  const r = w.width / w.height
+  if (r > 1) return CARD_LANDSCAPE
+  return Math.max(r, CARD_MAX_TALL)
 }
 
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {

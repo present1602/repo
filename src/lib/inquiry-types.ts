@@ -14,9 +14,9 @@ export type InquiryType = (typeof INQUIRY_TYPES)[number]
 
 /* 라디오마다 한 줄 설명 — 무엇을 고르는지 이름만으로는 갈리지 않는다 */
 export const INQUIRY_TYPE_HINTS: Record<InquiryType, string> = {
-  '디자인 + 개발': '화면 디자인부터 실제 구현까지 함께 맡깁니다.',
   '메인화면 시안 먼저 의뢰': '',
   디자인: '디자인만 전체 작업을 의뢰합니다.',
+  '디자인 + 개발': '프로젝트 전체를 의뢰합니다.',
 }
 
 export function isInquiryType(v: string): v is InquiryType {

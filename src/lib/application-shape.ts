@@ -10,8 +10,10 @@ export const APPLICATION_FILES_BUCKET = 'designer-applications'
 export const APPLICATION_FILE_KINDS = ['resume', 'portfolio'] as const
 export type ApplicationFileKind = (typeof APPLICATION_FILE_KINDS)[number]
 
+/* resume 칸은 지금 '기타 자료'(이력서·자소서 등, 선택)를 담는다(027).
+   예전 지원서에서는 이력서 파일이었다 — 둘 다 아우르는 이름으로 둔다. */
 export const APPLICATION_FILE_LABELS: Record<ApplicationFileKind, string> = {
-  resume: '이력서',
+  resume: '기타 자료',
   portfolio: '포트폴리오',
 }
 
@@ -45,11 +47,14 @@ export type ApplicationRow = {
   created_at: string
   name: string
   email: string
-  /* 둘 중 하나는 늘 있다(022_application_text_url.sql) —
-     파일 또는 글(intro), 파일 또는 주소(portfolio_url) */
+  /* 둘 중 하나는 늘 있다(022·027) — 이력서는 파일 또는 주소(resume_url,
+     예전 지원서는 자기소개 intro), 포트폴리오는 파일 또는 주소(portfolio_url) */
   resume: ApplicationFile | null
   portfolio: ApplicationFile | null
+  /* 예전 신청 화면에서 이력서 대신 적은 자기소개 — 지금은 받지 않는다(027) */
   intro: string | null
+  /* 027 이전 지원서·DB 에는 없다 */
+  resume_url?: string | null
   portfolio_url: string | null
   submit_key: string
   status: ApplicationStatus

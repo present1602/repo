@@ -57,7 +57,7 @@ export const MAX_ROW_SPAN = 3
    조회(public-designers.ts)와 어드민 미리보기(designer-detail.tsx)가 함께
    쓴다 — 미리보기는 클라이언트 컴포넌트라, server-only 인 조회 모듈이 아니라
    여기에 둔다. */
-export const CARD_THUMBS = 7
+export const CARD_THUMBS = 5
 
 export type WorkRow = {
   id: string

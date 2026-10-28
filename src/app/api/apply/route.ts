@@ -18,10 +18,13 @@ import {
   type ApplicationFileKind,
 } from '@/lib/application-shape'
 
-/* 디자이너 지원서 접수(021_designer_applications.sql, 022_application_text_url.sql).
+/* 디자이너 지원서 접수(021_designer_applications.sql, 022_application_text_url.sql,
+   027_application_resume_url.sql).
 
-   이력서는 파일 대신 짧은 자기소개(intro)로, 포트폴리오는 파일 대신
-   주소(portfolioUrl)로 낼 수 있다 — 디자이너 신청 화면(designers/apply).
+   포트폴리오(필수)는 파일 또는 주소(portfolioUrl)로, 기타 자료(선택 — 이력서·
+   자소서 등)는 파일 또는 주소(resumeUrl)로 낸다 — 디자이너 신청 화면
+   (designers/apply, 027_application_resume_url.sql). 기타 자료는 resume 칸에 담고,
+   직접 적은 글이면 intro 칸에 담는다.
    제안서 v1-3 폼은 파일 두 개를 그대로 보낸다.
 
    파일은 이 라우트를 거치지 않는다 — 포트폴리오 PDF 는 수십 MB 인데
@@ -69,11 +72,12 @@ function readInput(body: Record<string, unknown>) {
   /* DB check 제약과 같은 값 — 거부되면 뭉뚱그린 오류만 남는다 */
   if (name.length > 100 || email.length > 200) return { error: '입력이 너무 깁니다.' }
 
-  /* 파일 대신 받을 수 있는 것(022_application_text_url.sql) —
-     이력서 ↔ 짧은 자기소개, 포트폴리오 파일 ↔ 주소. 파일이 오면 파일을 쓴다. */
+  /* 파일 대신 받을 수 있는 주소(022·027). 파일이 오면 파일을 쓴다.
+     기타 자료는 직접 적은 글(intro, 022 의 칸을 다시 쓴다)로도 낼 수 있다. */
+  const resumeUrl = String(body.resumeUrl ?? '').trim()
   const intro = String(body.intro ?? '').trim()
   const portfolioUrl = String(body.portfolioUrl ?? '').trim()
-  const alt: Record<ApplicationFileKind, string> = { resume: intro, portfolio: portfolioUrl }
+  const alt: Record<ApplicationFileKind, string> = { resume: resumeUrl, portfolio: portfolioUrl }
 
   const files: Partial<Record<ApplicationFileKind, FileMeta>> = {}
   for (const kind of APPLICATION_FILE_KINDS) {
@@ -82,13 +86,9 @@ function readInput(body: Record<string, unknown>) {
     const fname = String(f?.name ?? '').trim()
     const size = Number(f?.size ?? 0)
     if (!fname || !size) {
-      if (alt[kind]) continue
-      return {
-        error:
-          kind === 'resume'
-            ? '이력서 파일을 첨부하거나 짧은 자기소개를 적어 주세요.'
-            : '포트폴리오 파일을 첨부하거나 주소를 적어 주세요.',
-      }
+      /* 기타 자료는 선택 — 파일도 주소도 없으면 그냥 넘어간다 */
+      if (alt[kind] || kind === 'resume') continue
+      return { error: '포트폴리오 파일을 첨부하거나 주소를 적어 주세요.' }
     }
     if (size > MAX_APPLICATION_FILE_BYTES) return { error: `${label} 파일은 30MB를 넘을 수 없습니다.` }
     if (!APPLICATION_FILE_EXT.includes(fileExt(fname))) {
@@ -97,17 +97,22 @@ function readInput(body: Record<string, unknown>) {
     files[kind] = { name: fname.slice(0, 200), size }
   }
 
-  /* 파일을 낸 쪽의 글·주소는 버린다 — 화면에서 라디오를 바꾸며 남은 값이다 */
-  const introUsed = files.resume ? null : intro
+  /* 파일을 낸 쪽의 주소는 버린다 — 화면에서 라디오를 바꾸며 남은 값이다 */
+  const resumeUsed = files.resume ? null : resumeUrl || null
+  const introUsed = files.resume || resumeUsed ? null : intro || null
   const urlUsed = files.portfolio ? null : portfolioUrl
   if (introUsed && introUsed.length > MAX_INTRO) {
-    return { error: `자기소개는 ${MAX_INTRO}자 이내로 적어 주세요.` }
+    return { error: `기타 자료는 ${MAX_INTRO}자 이내로 적어 주세요.` }
+  }
+  /* http(s) 만 — javascript: 같은 주소가 어드민 화면·메일의 링크로 실리면 안 된다 */
+  if (resumeUsed && (resumeUsed.length > 500 || !isHttpUrl(resumeUsed))) {
+    return { error: '기타 자료 주소를 확인해 주세요. (http:// 또는 https://로 시작)' }
   }
   if (urlUsed && (urlUsed.length > 500 || !isHttpUrl(urlUsed))) {
     return { error: '포트폴리오 주소를 확인해 주세요. (http:// 또는 https://로 시작)' }
   }
 
-  return { name, email, submitKey, files, intro: introUsed, portfolioUrl: urlUsed }
+  return { name, email, submitKey, files, resumeUrl: resumeUsed, intro: introUsed, portfolioUrl: urlUsed }
 }
 
 export async function POST(req: Request) {
@@ -121,7 +126,7 @@ export async function POST(req: Request) {
 
     const input = readInput(body)
     if ('error' in input) return bad(input.error!)
-    const { name, email, submitKey, files, intro, portfolioUrl } = input
+    const { name, email, submitKey, files, resumeUrl, intro, portfolioUrl } = input
     /* 파일로 낸 종류만 — 글·주소로 낸 쪽은 올릴 것도 확인할 것도 없다 */
     const fileKinds = APPLICATION_FILE_KINDS.filter((k) => files[k])
 
@@ -190,8 +195,9 @@ export async function POST(req: Request) {
       email,
       resume: saved.resume ?? null,
       portfolio: saved.portfolio ?? null,
-      /* 022 전 DB 에는 이 두 칸이 없다 — 파일 두 개로 내는 v1-3 폼이
+      /* 022·027 전 DB 에는 이 칸들이 없다 — 파일 두 개로 내는 v1-3 폼이
          그동안에도 동작하도록 값이 있을 때만 싣는다 */
+      ...(resumeUrl ? { resume_url: resumeUrl } : {}),
       ...(intro ? { intro } : {}),
       ...(portfolioUrl ? { portfolio_url: portfolioUrl } : {}),
       submit_key: submitKey,
@@ -214,6 +220,7 @@ export async function POST(req: Request) {
       id: row.id as string,
       name,
       email,
+      resumeUrl,
       intro,
       portfolioUrl,
       saved,
@@ -232,7 +239,7 @@ type Saved = Partial<Record<ApplicationFileKind, ApplicationFile>>
 
 async function notifyAdmins(
   db: NonNullable<typeof supabaseAdmin>,
-  a: { id: string; name: string; email: string; intro: string | null; portfolioUrl: string | null; saved: Saved },
+  a: { id: string; name: string; email: string; resumeUrl: string | null; intro: string | null; portfolioUrl: string | null; saved: Saved },
 ): Promise<boolean> {
   const to = allowedEmails()
   if (!process.env.RESEND_API_KEY || to.length === 0) {
@@ -278,7 +285,7 @@ function esc(s: string) {
 }
 
 function mailHtml(
-  a: { id: string; name: string; email: string; intro: string | null; portfolioUrl: string | null; saved: Saved },
+  a: { id: string; name: string; email: string; resumeUrl: string | null; intro: string | null; portfolioUrl: string | null; saved: Saved },
   links: Partial<Record<ApplicationFileKind, string>>,
 ) {
   const file = (kind: ApplicationFileKind) => {
@@ -289,10 +296,14 @@ function mailHtml(
       : `${esc(f.name)} (${size}) — 링크를 만들지 못했습니다. 어드민 화면에서 받아 주세요.`
   }
 
-  /* 이력서는 파일 또는 짧은 자기소개, 포트폴리오는 파일 또는 주소 */
-  const resume = a.saved.resume
+  /* 포트폴리오는 파일 또는 주소, 기타 자료는 파일·주소·직접 입력·없음 */
+  const extra = a.saved.resume
     ? file('resume')
-    : `<span style="white-space:pre-wrap">${esc(a.intro ?? '')}</span>`
+    : a.resumeUrl
+      ? `<a href="${esc(a.resumeUrl)}">${esc(a.resumeUrl)}</a>`
+      : a.intro
+        ? `<span style="white-space:pre-wrap">${esc(a.intro)}</span>`
+        : '<span style="color:#999">없음</span>'
   /* 주소는 접수 때 http(s) 만 받았다(isHttpUrl) — 그래도 속성에 넣으니 이스케이프한다 */
   const portfolio = a.saved.portfolio
     ? file('portfolio')
@@ -301,8 +312,8 @@ function mailHtml(
   const rows: [string, string][] = [
     ['이름', esc(a.name)],
     ['이메일', `<a href="mailto:${esc(a.email)}">${esc(a.email)}</a>`],
-    [a.saved.resume ? '이력서' : '자기소개', resume],
     ['포트폴리오', portfolio],
+    ['기타 자료', extra],
   ]
 
   const hasFiles = Boolean(a.saved.resume || a.saved.portfolio)
