@@ -8,7 +8,13 @@ import { generateTempPassword, hashPassword } from '@/lib/password'
 import { sendTempPassword } from '@/lib/designer-mail'
 import { displayName } from '@/lib/display-name'
 import { putImage } from '@/lib/upload'
-import { MAX_DESCRIPTION, MAX_BIO, MAX_WORKS } from '@/lib/portfolio-limits'
+import {
+  MAX_DESCRIPTION,
+  MAX_BIO,
+  MAX_WORKS,
+  checkPublicReady,
+  type WorkRow,
+} from '@/lib/portfolio-limits'
 import { formatPrice, isPriceMax, MIN_PRICE_MAX, MAX_PRICE_MAX } from '@/lib/plans'
 
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
@@ -181,6 +187,34 @@ export async function setDesignerVisible(id: string, visible: boolean): Promise<
 
   refresh(id)
   return { ok: true }
+}
+
+/* 프로필 노출 — 계정(visible)은 그대로 두고 탐색·홈·상세에서만 빼거나 넣는다.
+   로그인은 막지 않는다. 디자이너도 스튜디오에서 같은 값을 켜고 끌 수 있다.
+
+   켤 때 공개 조건(작업 수 등)이 모자라도 어드민은 켤 수 있다 — 대신 무엇이
+   모자란지 함께 돌려줘 알고 켜게 한다. */
+export async function setDesignerProfilePublic(
+  id: string,
+  isPublic: boolean,
+): Promise<Result<{ warning?: string }>> {
+  const db = await guard()
+
+  let warning: string | undefined
+  if (isPublic) {
+    const { data: works } = await db.from('designer_works').select('visible, ai_used').eq('designer_id', id)
+    const ready = checkPublicReady((works ?? []) as Pick<WorkRow, 'visible' | 'ai_used'>[])
+    if (!ready.ok) warning = `노출했지만 공개 조건이 모자랍니다: ${ready.reasons.join(', ')}`
+  }
+
+  const { error } = await db.from('designers').update({ profile_public: isPublic }).eq('id', id)
+  if (error) {
+    console.error('[designers] 프로필 노출 변경 실패:', error.message)
+    return fail('변경에 실패했습니다.')
+  }
+
+  refresh(id)
+  return { ok: true, ...(warning ? { warning } : {}) }
 }
 
 /* 시안 가격 상한 — 어드민만 정한다(016_price_range.sql).

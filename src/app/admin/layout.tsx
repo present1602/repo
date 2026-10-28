@@ -1,7 +1,7 @@
 import { getAdminUser } from '@/lib/admin-auth'
 import { countUnreadInquiries } from '@/lib/inquiries-db'
 import { countUnreadApplications } from '@/lib/applications-db'
-import { AdminSidebar } from '@/components/admin/sidebar'
+import { AdminMobileMenu, AdminSidebar } from '@/components/admin/sidebar'
 import { SignOutButton } from '@/components/admin/sign-out-button'
 
 /* 로그인 여부에 따라 껍데기가 통째로 달라진다 — 정적 셸을 먼저 보낼 수 없으므로
@@ -21,16 +21,18 @@ export default async function AdminLayout({ children }: LayoutProps<'/admin'>) {
     countUnreadApplications(),
   ])
 
+  const menu = { email: user.email ?? '', unreadInquiries, unreadApplications }
+
   return (
     <div className="flex flex-1 bg-white">
-      <AdminSidebar
-        email={user.email ?? ''}
-        unreadInquiries={unreadInquiries}
-        unreadApplications={unreadApplications}
-      />
+      <AdminSidebar {...menu} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-12 shrink-0 items-center justify-end border-b border-neutral-200 px-5">
-          <SignOutButton />
+        <div className="flex h-12 shrink-0 items-center border-b border-neutral-200 px-5">
+          {/* 모바일에서는 사이드바가 숨는다 — 여기서 메뉴를 연다 */}
+          <AdminMobileMenu {...menu} />
+          <div className="ml-auto">
+            <SignOutButton />
+          </div>
         </div>
         {children}
       </div>

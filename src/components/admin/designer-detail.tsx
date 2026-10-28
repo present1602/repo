@@ -13,10 +13,11 @@ import {
   MIN_PRICE_MAX,
   MAX_PRICE_MAX,
 } from '@/lib/plans'
-import { displayName } from '@/lib/display-name'
+import { displayName, NAME_MAX, nameError } from '@/lib/display-name'
 import {
   updateDesigner,
   setDesignerVisible,
+  setDesignerProfilePublic,
   resetPassword,
   deleteDesigner,
   setDesignerPriceMax,
@@ -58,7 +59,7 @@ export function DesignerDetail({
             <p className="mt-2 text-xs text-neutral-400">
               {!d.visible
                 ? '계정이 비활성이라 공개 페이지가 열리지 않습니다.'
-                : '디자이너가 프로필을 숨겨 공개 페이지가 열리지 않습니다.'}
+                : '프로필이 숨김 상태라 공개 페이지가 열리지 않습니다.'}
             </p>
           )}
 
@@ -75,8 +76,8 @@ export function DesignerDetail({
             </button>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
-          {/* 두 상태는 축이 다르다 — 계정은 관리자가, 프로필은 디자이너 본인이 정한다 */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* 두 상태는 축이 다르다 — 계정은 관리자만, 프로필은 관리자와 디자이너 본인이 정한다 */}
           <span
             className={`rounded px-2 py-1 text-[11px] font-medium ${
               d.visible ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
@@ -90,10 +91,11 @@ export function DesignerDetail({
                 ? 'bg-emerald-100 text-emerald-800'
                 : 'bg-neutral-200 text-neutral-600'
             }`}
-            title="디자이너 본인이 설정합니다"
+            title="관리자와 디자이너 본인이 바꿀 수 있습니다"
           >
             프로필 {d.profile_public ? '노출' : '숨김'}
           </span>
+          <ProfilePublicButton designer={d} onNotice={setNotice} />
           <VisibleButton designer={d} onNotice={setNotice} />
         </div>
       </header>
@@ -387,6 +389,9 @@ function ProfileForm({
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     onNotice(null)
+    /* 바꿀 때만 본다 — 규칙 이전에 들어온 이름이 있어도 다른 칸은 고칠 수 있게 */
+    const bad = name !== (d.name ?? '') ? nameError(name) : null
+    if (bad) return onNotice({ kind: 'error', text: bad })
     start(async () => {
       const r = await updateDesigner({ id: d.id, email, name, oneLiner, bio, tags })
       if (!r.ok) return onNotice({ kind: 'error', text: r.error })
@@ -409,10 +414,11 @@ function ProfileForm({
             className={input}
           />
         </Field>
-        <Field label="이름" hint="선택">
+        <Field label="이름" hint="선택 · 한글 실명 2~6자">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
+            maxLength={NAME_MAX}
             placeholder="비워두면 디자이너가 직접 입력"
             className={input}
           />
@@ -576,6 +582,37 @@ function CopyButton({ text }: { text: string }) {
       className={ghostButton}
     >
       {copied ? '복사됨' : '복사'}
+    </button>
+  )
+}
+
+/* 프로필만 숨기거나 노출 — 로그인은 그대로다 */
+function ProfilePublicButton({
+  designer: d,
+  onNotice,
+}: {
+  designer: AdminDesigner
+  onNotice: (n: Notice) => void
+}) {
+  const [pending, start] = useTransition()
+  const router = useRouter()
+
+  return (
+    <button
+      onClick={() => {
+        onNotice(null)
+        start(async () => {
+          const r = await setDesignerProfilePublic(d.id, !d.profile_public)
+          if (!r.ok) return onNotice({ kind: 'error', text: r.error })
+          if (r.warning) onNotice({ kind: 'warn', text: r.warning })
+          router.refresh()
+        })
+      }}
+      disabled={pending}
+      title={d.profile_public ? '탐색·홈·상세에서 숨깁니다. 로그인은 막지 않습니다.' : '탐색·홈·상세에 다시 노출합니다.'}
+      className={ghostButton}
+    >
+      {pending ? '…' : d.profile_public ? '프로필 숨기기' : '프로필 노출하기'}
     </button>
   )
 }

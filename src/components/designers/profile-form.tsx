@@ -11,6 +11,7 @@ import {
   checkPublicReady,
 } from '@/lib/portfolio-limits'
 import { MAX_TAGS } from '@/lib/specialty-shape'
+import { NAME_MAX, nameError } from '@/lib/display-name'
 import { updateProfile, updateAvatar, setProfilePublic } from '@/app/studio/actions'
 import { Img } from '@/components/img'
 
@@ -54,6 +55,8 @@ export function ProfileForm({
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     setMsg(null)
+    const bad = locked ? null : nameError(name)
+    if (bad) return setMsg({ ok: false, text: bad })
     start(async () => {
       const r = await updateProfile({ name, oneLiner, bio, tags })
       if (!r.ok) {
@@ -92,13 +95,14 @@ export function ProfileForm({
             onChange={(e) => setName(e.target.value)}
             disabled={locked}
             required={!locked}
-            placeholder="공개 페이지에 표시할 이름"
+            maxLength={NAME_MAX}
+            placeholder="실명 (한글 2~6자)"
             className={`${input} disabled:bg-neutral-100 disabled:text-neutral-500`}
           />
           <span className="mt-1 block text-xs text-neutral-400">
             {locked
               ? '이름 변경이 필요하면 관리자에게 문의해 주세요.'
-              : '한 번 저장하면 이후 변경은 관리자에게 요청해야 합니다.'}
+              : '공개 화면에는 가운데를 가려 김*연 처럼 보입니다. 한 번 저장하면 이후 변경은 관리자에게 요청해야 합니다.'}
           </span>
         </label>
 

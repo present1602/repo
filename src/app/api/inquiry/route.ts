@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { sendAdminMail } from '@/lib/admin-mail'
 import { supabaseAdmin, supabaseConfigured, INQUIRY_FILES_BUCKET } from '@/lib/supabase-admin'
 import { allowedEmails } from '@/lib/admin-auth'
 import { isInquiryType } from '@/lib/inquiry-types'
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     const rawType = String(form.get('inquiryType') ?? '').trim()
     const inquiryType = isInquiryType(rawType) ? rawType : ''
     const designerId = String(form.get('designerId') ?? '').trim()
-    const designerName = String(form.get('designerName') ?? '').trim()
+    let designerName = String(form.get('designerName') ?? '').trim()
     const submitKey = String(form.get('submitKey') ?? '').trim()
 
     if (!name || !email || !phone || !message) {
@@ -113,6 +113,14 @@ export async function POST(req: Request) {
       return bad('서버 설정이 완료되지 않았습니다. 잠시 후 다시 시도해 주세요.', 503)
     }
     const db = supabaseAdmin
+
+    /* 공개 화면은 이름 가운데를 가려 보낸다(김*연) — 어드민 목록·메일에는
+       실명이 남도록 id 로 다시 찾는다. 못 찾으면 받은 값을 그대로 둔다. */
+    if (designerId) {
+      const { data: d } = await db.from('designers').select('name').eq('id', designerId).maybeSingle()
+      const real = (d?.name as string | null | undefined)?.trim()
+      if (real) designerName = real
+    }
 
     /* 이미 받은 접수면 파일도 메일도 다시 처리하지 않는다.
        보낸 쪽에는 성공으로 보여야 "또 눌러보는" 일이 없다. */
@@ -208,8 +216,7 @@ export async function POST(req: Request) {
 
     if (process.env.RESEND_API_KEY && to.length > 0) {
       try {
-        const resend = new Resend(process.env.RESEND_API_KEY)
-        const { error } = await resend.emails.send({
+        await sendAdminMail({
           from: `soom 문의 <${FROM}>`,
           to,
           /* 답장을 누르면 바로 문의한 사람에게 간다 */
@@ -228,7 +235,6 @@ export async function POST(req: Request) {
             uploaded,
           }),
         })
-        if (error) throw error
 
         mailed = true
         await db.from('inquiries').update({ mailed: true }).eq('id', row.id)

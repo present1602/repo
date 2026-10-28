@@ -32,7 +32,14 @@ export default async function DesignerLoginPage() {
           <DesignerLoginForm />
         </div>
 
-        <p className="mt-6 text-center text-xs text-neutral-400">
+        {/* 문구와 버튼을 한 줄에 — 좁은 화면에서도 둘로 갈라지지 않게 */}
+        <p className="mt-6 whitespace-nowrap text-center text-sm text-neutral-500">
+          초대코드를 전달받으셨나요?{' '}
+          <Link href="/studio/signup" className="font-semibold text-violet-600 hover:text-violet-700 hover:underline">
+            초대코드로 회원가입
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-xs text-neutral-400">
           계정이 없거나 메일을 받지 못했다면 관리자에게 문의해 주세요.
         </p>
 

@@ -1,14 +1,19 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   APPLICATION_FILE_KINDS,
   APPLICATION_FILE_LABELS,
   type ApplicationWithLinks,
 } from '@/lib/application-shape'
-import { shortDate } from '@/lib/format-date'
+import { dateTime } from '@/lib/format-date'
 import { setApplicationStatus } from '@/app/admin/applications/actions'
+
+/* 탭 순서 — 처리할 것(미확인)이 먼저다 */
+const TABS = ['unread', 'read', 'all'] as const
+type Tab = (typeof TABS)[number]
+const TAB_LABELS: Record<Tab, string> = { unread: '미확인', read: '확인', all: '전체' }
 
 function mb(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`
@@ -19,7 +24,8 @@ function mb(bytes: number) {
    펼칠 내용이 없다 — 이름·이메일·파일 두 개가 전부라 한 줄에 다 싣는다.
    파일을 내려받으면 확인한 것으로 본다: 열어 봤는데 '미확인'으로 남으면
    다음에 다시 열어 보게 된다. */
-export function ApplicationList({ applications }: { applications: ApplicationWithLinks[] }) {
+export function ApplicationList({ applications: all }: { applications: ApplicationWithLinks[] }) {
+  const [tab, setTab] = useState<Tab>('unread')
   const [error, setError] = useState<string | null>(null)
   const [pending, start] = useTransition()
   const router = useRouter()
@@ -36,105 +42,137 @@ export function ApplicationList({ applications }: { applications: ApplicationWit
     })
   }
 
-  if (applications.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed border-neutral-300 py-16 text-center text-sm text-neutral-500">
-        아직 들어온 지원서가 없습니다.
-      </p>
-    )
-  }
+  const counts = useMemo(
+    () => ({
+      unread: all.filter((a) => a.status === 'unread').length,
+      read: all.filter((a) => a.status === 'read').length,
+      all: all.length,
+    }),
+    [all],
+  )
+
+  const applications = tab === 'all' ? all : all.filter((a) => a.status === tab)
 
   return (
     <section className="min-w-0">
+      <nav className="mb-4 flex gap-1 border-b border-neutral-200">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            aria-current={tab === t ? 'page' : undefined}
+            /* 밑줄이 테두리 위에 겹치도록 -1px 내린다 */
+            className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-medium transition ${
+              tab === t
+                ? 'border-neutral-900 text-neutral-900'
+                : 'border-transparent text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            {TAB_LABELS[t]}{' '}
+            <span className={tab === t ? 'text-neutral-400' : 'text-neutral-300'}>{counts[t]}</span>
+          </button>
+        ))}
+      </nav>
+
       {error && <p className="mb-4 rounded-lg bg-red-50 px-3.5 py-3 text-sm text-red-700">{error}</p>}
 
-      <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl ring-1 ring-neutral-200">
-        {applications.map((a) => {
-          const unread = a.status === 'unread'
-          return (
-            <li key={a.id} className="flex flex-wrap items-center gap-x-5 gap-y-3 bg-white px-4 py-4 md:px-5">
-              <div className="min-w-0 flex-1 basis-56">
-                <div className="flex items-center gap-2">
-                  {unread && <span className="size-1.5 shrink-0 rounded-full bg-violet-600" />}
-                  <span className={`text-sm ${unread ? 'font-semibold' : 'font-medium'}`}>{a.name}</span>
-                  <span className="text-xs text-neutral-400">{shortDate(a.created_at)}</span>
-                </div>
-                <a
-                  href={`mailto:${a.email}`}
-                  className="mt-0.5 block truncate text-xs text-neutral-500 hover:text-violet-600"
-                >
-                  {a.email}
-                </a>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {/* 포트폴리오를 주소로 낸 지원서 — 파일 대신 그 주소로 연다 */}
-                {a.portfolio_url && (
+      {applications.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-neutral-300 py-16 text-center text-sm text-neutral-500">
+          {tab === 'all'
+            ? '아직 들어온 지원서가 없습니다.'
+            : tab === 'unread'
+              ? '확인하지 않은 지원서가 없습니다.'
+              : '확인한 지원서가 없습니다.'}
+        </p>
+      ) : (
+        <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl ring-1 ring-neutral-200">
+          {applications.map((a) => {
+            const unread = a.status === 'unread'
+            return (
+              <li key={a.id} className="flex flex-wrap items-center gap-x-5 gap-y-3 bg-white px-4 py-4 md:px-5">
+                <div className="min-w-0 flex-1 basis-56">
+                  <div className="flex items-center gap-2">
+                    {unread && <span className="size-1.5 shrink-0 rounded-full bg-violet-600" />}
+                    <span className={`text-sm ${unread ? 'font-semibold' : 'font-medium'}`}>{a.name}</span>
+                    <span className="text-xs text-neutral-400">{dateTime(a.created_at)}</span>
+                  </div>
                   <a
-                    href={a.portfolio_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => unread && mark(a.id, 'read')}
-                    title={a.portfolio_url}
-                    className="order-2 flex max-w-56 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition hover:border-violet-600 hover:text-violet-700"
+                    href={`mailto:${a.email}`}
+                    className="mt-0.5 block truncate text-xs text-neutral-500 hover:text-violet-600"
                   >
-                    <span className="shrink-0 font-semibold">포트폴리오</span>
-                    <span className="truncate text-neutral-500">
-                      {a.portfolio_url.replace(/^https?:\/\//, '')}
-                    </span>
+                    {a.email}
                   </a>
-                )}
-                {APPLICATION_FILE_KINDS.map((k) => {
-                  const href = a.links[k]
-                  const f = a[k]
-                  /* 파일 대신 글·주소로 낸 쪽 — 위아래에서 따로 보여준다 */
-                  if (!f) return null
-                  return href ? (
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {/* 포트폴리오를 주소로 낸 지원서 — 파일 대신 그 주소로 연다 */}
+                  {a.portfolio_url && (
                     <a
-                      key={k}
-                      href={href}
+                      href={a.portfolio_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      /* 내려받기 = 확인 — 미확인일 때만 바꾼다 */
                       onClick={() => unread && mark(a.id, 'read')}
-                      title={`${f.name} · ${mb(f.size)}`}
-                      className={`${k === 'resume' ? 'order-1' : 'order-2'} flex max-w-56 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition hover:border-violet-600 hover:text-violet-700`}
+                      title={a.portfolio_url}
+                      className="order-2 flex max-w-56 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition hover:border-violet-600 hover:text-violet-700"
                     >
-                      <span className="shrink-0 font-semibold">{APPLICATION_FILE_LABELS[k]}</span>
-                      <span className="truncate text-neutral-500">{f.name}</span>
+                      <span className="shrink-0 font-semibold">포트폴리오</span>
+                      <span className="truncate text-neutral-500">
+                        {a.portfolio_url.replace(/^https?:\/\//, '')}
+                      </span>
                     </a>
-                  ) : (
-                    <span
-                      key={k}
-                      className="rounded-lg border border-dashed border-neutral-300 px-3 py-1.5 text-xs text-neutral-400"
-                    >
-                      {APPLICATION_FILE_LABELS[k]} 링크 없음
-                    </span>
-                  )
-                })}
-              </div>
-
-              <button
-                onClick={() => mark(a.id, unread ? 'read' : 'unread')}
-                disabled={pending}
-                className="shrink-0 rounded-md px-2 py-1 text-xs text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-50"
-              >
-                {unread ? '확인함으로' : '미확인으로'}
-              </button>
-
-              {/* 이력서 대신 적은 짧은 자기소개 — 500자라 펼치지 않고 그대로 싣는다 */}
-              {a.intro && (
-                <div className="basis-full rounded-lg bg-neutral-50 px-3.5 py-3">
-                  <p className="text-[11px] font-semibold text-neutral-500">자기소개</p>
-                  <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-neutral-700">
-                    {a.intro}
-                  </p>
+                  )}
+                  {APPLICATION_FILE_KINDS.map((k) => {
+                    const href = a.links[k]
+                    const f = a[k]
+                    /* 파일 대신 글·주소로 낸 쪽 — 위아래에서 따로 보여준다 */
+                    if (!f) return null
+                    return href ? (
+                      <a
+                        key={k}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        /* 내려받기 = 확인 — 미확인일 때만 바꾼다 */
+                        onClick={() => unread && mark(a.id, 'read')}
+                        title={`${f.name} · ${mb(f.size)}`}
+                        className={`${k === 'resume' ? 'order-1' : 'order-2'} flex max-w-56 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition hover:border-violet-600 hover:text-violet-700`}
+                      >
+                        <span className="shrink-0 font-semibold">{APPLICATION_FILE_LABELS[k]}</span>
+                        <span className="truncate text-neutral-500">{f.name}</span>
+                      </a>
+                    ) : (
+                      <span
+                        key={k}
+                        className="rounded-lg border border-dashed border-neutral-300 px-3 py-1.5 text-xs text-neutral-400"
+                      >
+                        {APPLICATION_FILE_LABELS[k]} 링크 없음
+                      </span>
+                    )
+                  })}
                 </div>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+
+                <button
+                  onClick={() => mark(a.id, unread ? 'read' : 'unread')}
+                  disabled={pending}
+                  className="shrink-0 rounded-md px-2 py-1 text-xs text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-50"
+                >
+                  {unread ? '확인함으로' : '미확인으로'}
+                </button>
+
+                {/* 이력서 대신 적은 짧은 자기소개 — 500자라 펼치지 않고 그대로 싣는다 */}
+                {a.intro && (
+                  <div className="basis-full rounded-lg bg-neutral-50 px-3.5 py-3">
+                    <p className="text-[11px] font-semibold text-neutral-500">자기소개</p>
+                    <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-neutral-700">
+                      {a.intro}
+                    </p>
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
       <p className="mt-3 text-xs text-neutral-400">
         내려받기 링크는 1시간 동안 유효합니다. 지나면 새로고침해 주세요.
       </p>

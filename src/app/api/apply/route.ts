@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { sendAdminMail } from '@/lib/admin-mail'
 import { allowedEmails } from '@/lib/admin-auth'
 import {
   supabaseAdmin,
@@ -253,8 +253,7 @@ async function notifyAdmins(
       if (data?.signedUrl) links[kind] = data.signedUrl
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY)
-    const { error } = await resend.emails.send({
+    await sendAdminMail({
       from: `soom 디자이너 지원 <${FROM}>`,
       to,
       /* 답장을 누르면 바로 지원자에게 간다 */
@@ -262,7 +261,6 @@ async function notifyAdmins(
       subject: `[디자이너 지원] ${a.name}`,
       html: mailHtml(a, links),
     })
-    if (error) throw error
     return true
   } catch (err) {
     console.error('[apply] 메일 전송 실패 (접수는 저장됨):', a.id, err)

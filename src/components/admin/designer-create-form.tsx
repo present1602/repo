@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createDesigner } from '@/app/admin/designers/actions'
 import { Field, input } from './form-bits'
+import { NAME_MAX, nameError } from '@/lib/display-name'
 
 export function DesignerCreateForm() {
   const [email, setEmail] = useState('')
@@ -20,6 +21,8 @@ export function DesignerCreateForm() {
     e.preventDefault()
     setError(null)
     setMailWarning(null)
+    const bad = nameError(name)
+    if (bad) return setError(bad)
 
     start(async () => {
       const r = await createDesigner({ email, name, oneLiner, tags })
@@ -69,10 +72,11 @@ export function DesignerCreateForm() {
             className={input}
           />
         </Field>
-        <Field label="이름" hint="선택">
+        <Field label="이름" hint="선택 · 한글 실명 2~6자">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
+            maxLength={NAME_MAX}
             placeholder="비워두면 디자이너가 직접 입력"
             className={input}
           />

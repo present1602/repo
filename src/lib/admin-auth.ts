@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { connection } from 'next/server'
@@ -50,8 +51,12 @@ export async function createClient() {
 }
 
 /* 로그인 + 허용 목록을 모두 통과한 사용자만 돌려준다.
-   설정이 없거나 조회에 실패하면 null — 즉 접근 거부로 처리된다. */
-export async function getAdminUser() {
+   설정이 없거나 조회에 실패하면 null — 즉 접근 거부로 처리된다.
+
+   요청 하나에서 layout 과 page 가 함께 부른다. getUser 는 매번 Supabase 까지
+   다녀오므로 cache 로 묶어 요청당 한 번만 묻는다 — 요청이 끝나면 버려져서
+   다른 사람의 결과가 섞이지 않는다. */
+export const getAdminUser = cache(async () => {
   if (!authConfigured) return null
 
   /* Supabase auth-js 는 토큰 만료를 재려고 Date.now() 를 쓴다.
@@ -70,4 +75,4 @@ export async function getAdminUser() {
   } catch {
     return null
   }
-}
+})
