@@ -46,7 +46,9 @@ export function WorkModal({
     window.clearTimeout(slideTimer.current)
     slideTimer.current = window.setTimeout(() => {
       /* 전환이 끝난 자리에서 실제 index 를 옮기고 트랙을 제자리로.
-         jump 로 전환을 끈 채 되돌려야 되감기는 모습이 안 보인다. */
+         index 이동과 shift 되돌리기는 React 가 한 번에 묶어 처리하므로
+         중간 상태는 화면에 나오지 않는다. jump 로 전환만 꺼 두면
+         트랙이 되감기는 모습 없이 조용히 제자리로 간다. */
       setJump(true)
       setIndex(
         dir === 'left'
@@ -54,17 +56,36 @@ export function WorkModal({
           : (index - 1 + works.length) % works.length,
       )
       setShift(0)
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          setJump(false)
-          sliding.current = false
-        }),
-      )
     }, SLIDE_MS)
   }
 
   const next = () => go('left')
   const prev = () => go('right')
+
+  /* 제자리로 돌려놓은 화면이 한 번 그려진 뒤에 전환을 다시 켠다.
+     같은 렌더에서 켜면 그 전환이 방금의 되돌림에 걸려 트랙이 미끄러진다. */
+  useLayoutEffect(() => {
+    if (!jump) return
+    const id = requestAnimationFrame(() => {
+      setJump(false)
+      sliding.current = false
+    })
+    return () => cancelAnimationFrame(id)
+  }, [jump])
+
+  /* 양옆의 한 칸 더 바깥까지 미리 받아 둔다.
+
+     넘어간 직후에는 반대편 끝 칸이 처음 보는 그림이라 비어 있다 —
+     트랙이 제자리로 돌아간 그 순간 그 칸이 흰 채로 한 번 스친다.
+     브라우저 캐시에 올려 두면 교체되자마자 바로 그려진다. */
+  useEffect(() => {
+    if (works.length < 2) return
+    const n = works.length
+    for (const off of [-2, 2]) {
+      const img = new Image()
+      img.src = works[(((index + off) % n) + n) % n].image_url
+    }
+  }, [index, works])
 
   useEffect(() => () => window.clearTimeout(slideTimer.current), [])
 
@@ -92,8 +113,19 @@ export function WorkModal({
 
   /* 모바일에서 그림을 내려 보는 동안에는 아래 설명 칸을 접어 둔다 —
      좁은 화면에서 그 칸이 그림을 크게 깎아먹는다. 다시 올리면 돌아온다.
+     그림을 톡 쳐도 여닫힌다 — 스크롤이 없는 짧은 그림에서는 그게 유일한 길이다.
      데스크톱은 높이가 넉넉해 늘 펼쳐 둔다(CSS 에서 md: 로 되돌린다). */
   const [hideSheet, setHideSheet] = useState(false)
+
+  /* 작업을 넘기면 접어 둔 것들을 처음 상태로 되돌린다 —
+     앞 작업에서 숨겨 둔 채로 다음 그림이 열리면 설명이 사라진 것처럼 보인다.
+     effect 가 아니라 렌더 중에 맞춘다(React 의 "렌더 중 상태 조정"). */
+  const [seenId, setSeenId] = useState(w.id)
+  if (seenId !== w.id) {
+    setSeenId(w.id)
+    setHideSheet(false)
+    setOpen(false)
+  }
 
   return (
     <div
@@ -138,10 +170,14 @@ export function WorkModal({
             {[-1, 0, 1].map((off) => {
               const item = at(index + off)
               return (
-                <div key={`${item.id}-${off}`} className="relative h-full w-1/3 shrink-0">
+                /* key 는 그림이 아니라 '자리'로 잡는다 — 작업 id 로 두면 넘어간
+                   뒤 세 칸이 모두 새로 마운트되어 <img> 가 다시 로드되고,
+                   그 사이 빈 화면이 한 번 번쩍인다. 자리로 두면 같은 요소가
+                   src 만 바꿔 다는 데다, 이미 받아 둔 그림은 즉시 그려진다. */
+                <div key={off} className="relative h-full w-1/3 shrink-0">
                   <ZoomImage
-                    /* 가운데 칸만 조작을 받는다 — 양옆은 미리 깔아 둔 그림이다 */
-                    key={item.id}
+                    /* 가운데 칸만 조작을 받는다 — 양옆은 미리 깔아 둔 그림이다.
+                       src 가 바뀌면 배율·스크롤은 ZoomImage 안에서 되돌린다. */
                     src={item.image_url}
                     alt={item.title ?? ''}
                     active={off === 0}
@@ -152,6 +188,16 @@ export function WorkModal({
                     }
                     onDrag={off === 0 && works.length > 1 ? setDrag : undefined}
                     onScrollDown={off === 0 ? setHideSheet : undefined}
+                    onTap={
+                      off === 0
+                        ? () => {
+                            /* 펼쳐 둔 설명이 있으면 먼저 접고, 그다음 눌러야 숨는다 —
+                               한 번에 다 사라지면 무엇이 닫혔는지 알기 어렵다. */
+                            if (open) setOpen(false)
+                            else setHideSheet((v) => !v)
+                          }
+                        : undefined
+                    }
                   />
                 </div>
               )
@@ -182,60 +228,48 @@ export function WorkModal({
 
         {/* 모바일에서 그림을 내려 보는 동안에는 아래로 내려 숨긴다.
 
-            높이를 줄이지 않고 제자리에서 미끄러뜨린다 — 높이를 건드리면
-            그림 칸이 넓어지고, 그만큼 scrollTop 이 저절로 줄어 "위로 올림"
-            으로 읽힌다. 그러면 다시 펴지고 또 접히는 진동이 생긴다.
-            데스크톱(md:)은 높이가 넉넉해 늘 제자리에 둔다. */}
+            시트는 하나뿐이다 — 접힘·펼침이 같은 요소다. 예전에는 접힌 칸
+            위로 펼친 칸을 따로 덮었는데, 그러면 전환하는 동안 제목이 두 벌
+            보였다. 지금은 제목을 제자리에 둔 채 설명 칸의 높이만 늘린다.
+
+            모바일에서는 그림 위에 떠 있다(absolute) — 높이를 차지하면
+            접힐 때 그림 칸이 넓어지고, 그만큼 scrollTop 이 줄어 "위로 올림"
+            으로 읽혀 다시 펴지는 진동이 생긴다. 데스크톱(md:)은 높이가
+            넉넉해 흐름 안에 둔다. */}
         {hasSheet && (
-          <div
-            className={`absolute inset-x-0 bottom-0 border-t border-neutral-200 bg-white px-5 py-5 transition-transform duration-300 ease-out md:relative md:translate-y-0 md:px-8 ${
-              hideSheet ? 'translate-y-full' : 'translate-y-0'
-            }`}
-          >
-            <SheetHead meta={meta} title={w.title} />
-
-            {w.description && (
-              /* 여기는 늘 두 줄까지만 — 펼친 글은 아래 덮개 시트가 보여준다.
-                 이 칸이 자라면 이미지 칸이 줄어 그림이 작아진다. */
-              <Excerpt key={w.id} text={w.description} open={open} onOpen={() => setOpen(true)} />
-            )}
-          </div>
-        )}
-
-        {/* 펼친 설명 — 이미지 위로 덮어 올린다. 늘 그려 두고 위치만 바꿔
-            열고 닫힘이 부드럽게 이어지게 한다. 닫혀 있을 때는 inert 로
-            포커스·스크린리더에서 뺀다. */}
-        {hasSheet && w.description && (
           <>
-            {/* 바깥을 누르면 접힌다 — 그림은 가리지 않도록 투명하게 둔다 */}
             <div
-              aria-hidden
-              onClick={() => setOpen(false)}
-              className={`absolute inset-0 z-10 ${open ? '' : 'pointer-events-none'}`}
-            />
-            {/* 시트 바탕만 반투명하게 — 뒤 그림이 흐릿하게 비친다 */}
-            <div
-              inert={!open}
-              className={`absolute inset-x-0 bottom-0 z-20 flex max-h-[75%] flex-col bg-white/80 px-5 py-5 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-md transition-transform duration-300 ease-out md:px-8 ${
-                open ? 'translate-y-0' : 'translate-y-full'
+              className={`absolute inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white/95 px-5 pb-5 pt-3 backdrop-blur-md transition-transform duration-300 ease-out md:relative md:translate-y-0 md:bg-white md:px-8 md:pt-5 ${
+                hideSheet ? 'translate-y-full' : 'translate-y-0'
               }`}
             >
-              <SheetHead meta={meta} title={w.title} />
-              {/* pr — 오른쪽 아래 접기 버튼 자리를 비워 둔다 */}
-              <p className="mt-2.5 min-h-0 overflow-y-auto whitespace-pre-line pr-7 text-[15px] leading-relaxed text-neutral-600">
-                {w.description}
-              </p>
-              {/* 접기 — 접힌 칸의 V 와 같은 오른쪽 아래 자리에 둔다.
-                  자리는 그대로이고 화살표만 위로 돌아간다. */}
+              {/* 손잡이 — 만질 수 있는 칸이라는 표시. 눌러도 접힌다. */}
               <button
-                onClick={() => setOpen(false)}
-                aria-label="설명 접기"
-                aria-expanded={open}
-                className="absolute bottom-5 right-5 text-neutral-400 transition hover:text-neutral-900 md:right-8"
-              >
-                <Chevron up={open} />
-              </button>
+                onClick={() => setHideSheet(true)}
+                aria-label="설명 숨기기"
+                className="mx-auto mb-3 block h-1 w-9 rounded-full bg-neutral-300 transition hover:bg-neutral-400 md:hidden"
+              />
+
+              <SheetHead meta={meta} title={w.title} />
+
+              {w.description && (
+                <Excerpt text={w.description} open={open} onToggle={() => setOpen((v) => !v)} />
+              )}
             </div>
+
+            {/* 숨겨 둔 동안 바닥에 남겨 두는 손잡이 — 그림을 톡 쳐도 되지만,
+                되돌릴 수 있다는 것 자체가 보이지 않으면 사라진 줄 안다. */}
+            <button
+              onClick={() => setHideSheet(false)}
+              aria-label="설명 보기"
+              aria-hidden={!hideSheet}
+              tabIndex={hideSheet ? 0 : -1}
+              className={`absolute inset-x-0 bottom-0 z-10 flex h-9 items-end justify-center pb-2 transition-opacity duration-300 md:hidden ${
+                hideSheet ? 'opacity-100' : 'pointer-events-none opacity-0'
+              }`}
+            >
+              <span className="h-1 w-9 rounded-full bg-white/70 shadow-[0_0_8px_rgba(0,0,0,0.35)]" />
+            </button>
           </>
         )}
       </div>
@@ -308,6 +342,7 @@ function ZoomImage({
   onSwipe,
   onDrag,
   onScrollDown,
+  onTap,
 }: {
   src: string
   alt: string
@@ -318,6 +353,8 @@ function ZoomImage({
   onDrag?: (px: number) => void
   /* 내려 보는 중인지 — 아래 설명 칸을 접고 펴는 데 쓴다 */
   onScrollDown?: (down: boolean) => void
+  /* 그림을 가볍게 눌렀을 때 — 설명 칸을 숨기거나 되돌린다 */
+  onTap?: () => void
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const [boxSize, setBoxSize] = useState<{ w: number; h: number } | null>(null)
@@ -328,6 +365,12 @@ function ZoomImage({
   /* 배율을 바꾸기 직전에 보던 자리(칸 가운데가 그림의 어디였는지, 0~1).
      바꾼 뒤 같은 자리를 가운데로 되돌려, 키울 때 왼쪽 위로 튀지 않게 한다. */
   const focus = useRef<{ x: number; y: number } | null>(null)
+
+  /* 세로 스크롤 방향을 재는 값들 — 아래 onScroll 이 쓴다.
+     작업이 바뀔 때 함께 비워야 해서 여기서 선언한다. */
+  const lastTop = useRef(0)
+  const acc = useRef(0)
+  const down = useRef(false)
 
   useEffect(() => {
     const box = boxRef.current
@@ -360,6 +403,32 @@ function ZoomImage({
     box.scrollTop = f.y * box.scrollHeight - box.clientHeight / 2
   }, [step])
 
+  /* 다른 작업으로 바뀌면 처음 상태로 — 예전에는 key 로 통째로 새로 그려
+     저절로 됐지만, 이제 같은 요소가 src 만 바꿔 달기 때문에 직접 되돌린다.
+     배율·스크롤이 남아 있으면 다음 그림이 확대된 채 중간부터 보인다.
+
+     effect 가 아니라 렌더 중에 되돌린다 — effect 로 미루면 옛 배율로 한 번
+     그린 뒤 고쳐지는 게 보인다(React 의 "렌더 중 상태 조정" 패턴). */
+  const [seenSrc, setSeenSrc] = useState(src)
+  if (seenSrc !== src) {
+    setSeenSrc(src)
+    setStep(0)
+    setNatural(null)
+    setFlash(false)
+  }
+
+  /* ref 와 스크롤 위치는 렌더 중에 건드릴 수 없다 — 그려지기 직전에 되돌린다 */
+  useLayoutEffect(() => {
+    focus.current = null
+    acc.current = 0
+    down.current = false
+    lastTop.current = 0
+    const box = boxRef.current
+    if (!box) return
+    box.scrollTop = 0
+    box.scrollLeft = 0
+  }, [src])
+
   const go = (next: number) => {
     const box = boxRef.current
     if (!box || next < 0 || next >= ZOOMS.length) return
@@ -384,9 +453,6 @@ function ZoomImage({
      THRESHOLD 를 넘을 때만 바꾼다. 칸이 접히면 보이는 높이가 늘어 scrollTop
      이 저절로 줄어드는데, 그 변화를 "위로 올림"으로 읽으면 다시 펴지고 또
      접히는 진동이 생긴다. 반대 방향 신호가 조금 섞여도 버티게 한다. */
-  const lastTop = useRef(0)
-  const acc = useRef(0)
-  const down = useRef(false)
   const SCROLL_THRESHOLD = 28
 
   const onScroll = () => {
@@ -479,6 +545,9 @@ function ZoomImage({
   const touch = useRef<{
     x: number
     y: number
+    /* 탭인지 가리는 데 쓴다 — 짧게 눌렀다 뗀 것만 탭이다 */
+    at: number
+    moved: boolean
     multi: boolean
     /* 쓸기를 시작한 순간 좌·우 끝에 닿아 있었는지 */
     atStart: boolean
@@ -490,9 +559,12 @@ function ZoomImage({
   /* 확대 상태에서 넘길 때의 문턱 — 둘러보다 끝에 닿아 살짝 더 민 것을
      넘기기로 오해하지 않도록 평소보다 크게 잡는다. */
   const SWIPE_MIN_ZOOMED = 90
+  /* 탭으로 치는 한계 — 이보다 길게 누르거나 많이 움직이면 탭이 아니다 */
+  const TAP_MS = 400
+  const TAP_SLOP = 10
 
   const onTouchStart = (e: React.TouchEvent) => {
-    if (!onSwipe || e.touches.length !== 1) {
+    if (e.touches.length !== 1) {
       touch.current = null
       return
     }
@@ -502,6 +574,8 @@ function ZoomImage({
     touch.current = {
       x: t.clientX,
       y: t.clientY,
+      at: Date.now(),
+      moved: false,
       multi: false,
       wide,
       atStart: !box || box.scrollLeft <= 1,
@@ -518,7 +592,16 @@ function ZoomImage({
       onDrag?.(0)
       return
     }
-    if (s.multi || !onDrag) return
+    if (s.multi) return
+
+    /* 조금이라도 움직였으면 탭이 아니다 */
+    {
+      const t0 = e.touches[0]
+      if (Math.abs(t0.clientX - s.x) > TAP_SLOP || Math.abs(t0.clientY - s.y) > TAP_SLOP) {
+        s.moved = true
+      }
+    }
+    if (!onDrag) return
 
     const t = e.touches[0]
     const dx = t.clientX - s.x
@@ -534,7 +617,16 @@ function ZoomImage({
     const s = touch.current
     touch.current = null
     onDrag?.(0)
-    if (!s || !onSwipe || s.multi) return
+    if (!s || s.multi) return
+
+    /* 짧게 톡 친 것 — 설명 칸을 숨기거나 되돌린다.
+       스크롤이 없는 짧은 그림에서는 이것이 설명 칸을 치우는 유일한 길이다. */
+    if (!s.moved && Date.now() - s.at < TAP_MS) {
+      onTap?.()
+      return
+    }
+
+    if (!onSwipe) return
 
     const t = e.changedTouches[0]
     const dx = t.clientX - s.x
@@ -636,87 +728,90 @@ function ZoomImage({
   )
 }
 
-/* 접힌 설명 — 두 줄까지 보이고, 넘치면 둘째 줄 끝이 '…' 로 끊기며
-   그 오른쪽에 V 가 붙는다. 글 아무 데나 눌러도 펼쳐진다.
+/* 설명 — 접히면 두 줄 높이까지만 보이고, 누르면 전체가 펼쳐진다.
 
-   V 를 둘째 줄 끝에 앉히는 방법: 글 칸 안에 오른쪽으로 뜨는 빈 기둥
-   (::before, 높이 = 전체 - 한 줄)을 세우고, V 를 그 아래(clear)에 띄운다.
-   그러면 V 는 마지막 줄 오른쪽 끝에 자리를 잡고 글이 그 앞에서 '…' 로
-   끊긴다. 기둥 높이를 % 로 주려면 부모 높이가 정해져 있어야 해서
-   바깥을 flex 로 감싼다.
+   글자를 자르지 않는다. line-clamp 로 '…' 를 만들면 펼치는 순간 그 자리에
+   뒷 글자가 밀려 들어와 둘째 줄이 통째로 바뀐다 — 높이는 부드럽게 늘어나는데
+   글자만 한 프레임에 교체되어 더 눈에 띈다. 그래서 전문을 늘 그려 두고
+   칸의 높이(max-height)만 바꾼다. 글은 한 글자도 움직이지 않는다.
 
-   넘치는지는 글 수로 어림잡지 않고 숨은 사본의 실제 높이로 잰다 —
-   줄바꿈이 섞인 글에서 어림이 틀린다. */
+   잘린 아래쪽은 페이드로 덮어 "더 있다"를 알린다 — '…' 를 대신하는 신호다.
+
+   접힌 동안에는 줄바꿈을 공백으로 잇는다 — 살려 두면 첫 문단이 짧을 때
+   둘째 줄이 빈 줄이 되어 아무것도 안 보인다. 펼치면 문단이 되살아난다. */
 function Excerpt({
   text,
   open,
-  onOpen,
+  onToggle,
 }: {
   text: string
   open: boolean
-  onOpen: () => void
+  onToggle: () => void
 }) {
   const [overflows, setOverflows] = useState(false)
   const [el, setEl] = useState<HTMLParagraphElement | null>(null)
 
-  /* 접힌 칸에서는 줄바꿈을 공백으로 잇는다 — 살려 두면 첫 문단이 짧을 때
-     둘째 줄이 빈 줄이 되어 '… V' 만 남는다. 문단은 펼친 시트에서 보인다. */
   const flat = text.replace(/\s*\n+\s*/g, ' ').trim()
-  const textCls = 'line-clamp-2 text-[15px] leading-relaxed'
 
   useEffect(() => {
     if (!el) return
-
+    /* 두 줄 높이를 넘는 글만 펼칠 거리가 있다 */
     const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1)
     measure()
-
     /* 모달 폭이 바뀌면 줄 수도 바뀐다 */
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [el, flat])
+  }, [el, flat, open])
 
-  return (
-    /* relative — 숨은 사본이 이 칸을 기준으로 선다 */
-    <div className="relative mt-2.5">
-      {/* 높이를 재기 위한 숨은 사본 — V 가 없는 순수한 글이어야
-          "두 줄을 넘는지"를 바로 잴 수 있다. inset-x-0 으로 보이는 글과
-          같은 너비를 갖게 한다 — 너비가 다르면 줄 수가 달라진다. */}
+  const body = (
+    <div className="relative">
       <p
         ref={setEl}
-        aria-hidden
-        className={`pointer-events-none invisible absolute inset-x-0 top-0 ${textCls}`}
+        /* max-h 로만 여닫는다 — 접었을 때는 딱 두 줄(2lh), 펼치면 시트가
+           화면을 다 먹지 않도록 상한을 두고 그 안에서 스크롤한다. */
+        className={`overflow-y-auto text-[15px] leading-relaxed text-neutral-600 transition-[max-height] duration-300 ease-out ${
+          open ? 'max-h-[40vh] whitespace-pre-line' : 'max-h-[2lh] overflow-hidden'
+        }`}
       >
-        {flat}
+        {open ? text : flat}
       </p>
 
-      {overflows ? (
+      {/* 접혀 있고 넘칠 때만 아래를 흐린다 — 잘린 티를 내는 자리 */}
+      {!open && overflows && (
         <div
-          role="button"
-          tabIndex={0}
-          aria-label="설명 더 보기"
-          aria-expanded={open}
-          onClick={onOpen}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              onOpen()
-            }
-          }}
-          className="group flex cursor-pointer"
-        >
-          <p
-            className={`${textCls} text-neutral-600 transition group-hover:text-neutral-900 before:float-right before:h-[calc(100%-1lh)] before:content-['']`}
-          >
-            <span className="float-right clear-both ml-1 mt-[0.2em] text-neutral-400 transition group-hover:text-neutral-900">
-              <Chevron />
-            </span>
-            {flat}
-          </p>
-        </div>
-      ) : (
-        <p className={`${textCls} text-neutral-600`}>{flat}</p>
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-white to-transparent md:from-white"
+        />
       )}
+    </div>
+  )
+
+  /* 펼칠 것이 없으면 그냥 글만 둔다 — 눌러도 아무 일이 없는 칸을
+     누를 수 있는 것처럼 보이게 하지 않는다. */
+  if (!overflows && !open) return <div className="mt-2.5">{body}</div>
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={open ? '설명 접기' : '설명 더 보기'}
+      aria-expanded={open}
+      onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onToggle()
+        }
+      }}
+      className="group mt-2.5 cursor-pointer"
+    >
+      {body}
+      {/* 여닫는 표시 — 글 아래 오른쪽에 둔다. 글 흐름 밖이라
+          펼쳐도 글자가 밀리지 않는다. */}
+      <span className="mt-1 flex justify-end text-neutral-400 transition group-hover:text-neutral-900">
+        <Chevron up={open} />
+      </span>
     </div>
   )
 }
