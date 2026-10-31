@@ -3,10 +3,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PublicWork } from '@/lib/designer-shape'
 
-/* 작업을 넘길 때 그림이 옆으로 빠지는 시간(ms).
-   이만큼 지난 뒤 다음 장으로 바꾸고, 새 그림이 반대쪽에서 들어온다.
-   CSS 의 duration-200 과 같은 값이어야 중간에 끊기지 않는다. */
-const SLIDE_OUT = 200
+/* 좌우로 미끄러지는 시간(ms). 트랙에 거는 CSS 전환과 같은 값이어야
+   끝나는 순간에 맞춰 자리를 정리할 수 있다. */
+const SLIDE_MS = 280
 
 export function WorkModal({
   works,
@@ -22,30 +21,46 @@ export function WorkModal({
   const w = works[index]
   const [open, setOpen] = useState(false)
 
-  /* 넘어가는 중인 방향 — 'left' 는 다음 장(그림이 왼쪽으로 빠진다).
-     null 이면 멈춰 있는 상태다. 이 값으로 들어오는 쪽의 시작 위치와
-     나가는 쪽의 끝 위치를 함께 정한다. */
-  const [slide, setSlide] = useState<'left' | 'right' | null>(null)
+  /* 이어진 화면처럼 미끄러뜨리기 위해 이전·현재·다음 세 장을 나란히 깔고
+     트랙을 움직인다. shift 는 트랙이 밀려난 칸 수다:
+       -1 = 다음 장 쪽으로(왼쪽으로) 밀림, +1 = 이전 장 쪽으로.
+     전환이 끝나면 index 를 옮기고 트랙을 0 으로 되돌린다 — 그 순간에는
+     전환을 꺼야(jump) 되돌아가는 모습이 보이지 않는다. */
+  const [shift, setShift] = useState(0)
+  const [jump, setJump] = useState(false)
+  /* 손가락으로 끄는 중인 거리(px) — 놓기 전까지 그림이 손을 따라온다 */
+  const [drag, setDrag] = useState(0)
   const slideTimer = useRef<number | undefined>(undefined)
+  const sliding = useRef(false)
 
-  /* 작업물을 넘기면 펼쳐둔 설명은 접는다.
+  const at = (i: number) => works[(i % works.length + works.length) % works.length]
 
-     그림을 밀어내는 동안(SLIDE_OUT) 기다렸다가 다음 장으로 바꾼다 —
-     바꾸고 나면 새 그림이 반대쪽에서 들어온다(ZoomImage 의 enter).
-     연타해도 타이머가 겹치지 않게 이전 것을 지우고 건다. */
+  /* 작업물을 넘기면 펼쳐둔 설명은 접는다. */
   const go = (dir: 'left' | 'right') => {
-    if (works.length < 2) return
+    if (works.length < 2 || sliding.current) return
+    sliding.current = true
     setOpen(false)
-    setSlide(dir)
+    setDrag(0)
+    setShift(dir === 'left' ? -1 : 1)
+
     window.clearTimeout(slideTimer.current)
     slideTimer.current = window.setTimeout(() => {
+      /* 전환이 끝난 자리에서 실제 index 를 옮기고 트랙을 제자리로.
+         jump 로 전환을 끈 채 되돌려야 되감기는 모습이 안 보인다. */
+      setJump(true)
       setIndex(
         dir === 'left'
           ? (index + 1) % works.length
           : (index - 1 + works.length) % works.length,
       )
-      setSlide(null)
-    }, SLIDE_OUT)
+      setShift(0)
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          setJump(false)
+          sliding.current = false
+        }),
+      )
+    }, SLIDE_MS)
   }
 
   const next = () => go('left')
@@ -72,10 +87,13 @@ export function WorkModal({
 
      AI 사용 표기는 true 일 때만 붙인다 — null(묻기 전에 올라간 작업)과
      false 를 구분해 보여주지 않는다. */
-  const meta = [w.client, w.ai_used ? 'AI 활용' : null, w.soom_work ? 'SOOM 의뢰' : null]
-    .filter(Boolean)
-    .join(' · ')
+  const meta = metaOf(w)
   const hasSheet = Boolean(w.title || meta || w.description)
+
+  /* 모바일에서 그림을 내려 보는 동안에는 아래 설명 칸을 접어 둔다 —
+     좁은 화면에서 그 칸이 그림을 크게 깎아먹는다. 다시 올리면 돌아온다.
+     데스크톱은 높이가 넉넉해 늘 펼쳐 둔다(CSS 에서 md: 로 되돌린다). */
+  const [hideSheet, setHideSheet] = useState(false)
 
   return (
     <div
@@ -106,14 +124,40 @@ export function WorkModal({
             예전처럼 설명을 띄워(absolute) 두면 제목만 있을 때 아래 여백이
             사라져 글자가 바닥에 붙는다.
 
-            key 로 작업마다 새로 그린다 — 넘기면 확대 배율이 처음으로 돌아간다. */}
-        <ZoomImage
-          key={w.id}
-          src={w.image_url}
-          alt={w.title ?? ''}
-          slide={slide}
-          onSwipe={works.length > 1 ? (dir) => (dir === 'left' ? next() : prev()) : undefined}
-        />
+            이전·현재·다음 세 장을 나란히 깔아 둔 트랙을 좌우로 민다 —
+            한 장만 두고 바꿔치면 넘어가는 동안 빈 화면이 보인다.
+            양옆은 미리 깔려 있어 미는 만큼 따라 들어온다. */}
+        <div className="relative min-h-0 flex-1 overflow-hidden bg-white">
+          <div
+            className={`flex h-full ${jump ? '' : 'transition-transform duration-[280ms] ease-out'}`}
+            style={{
+              width: '300%',
+              transform: `translateX(calc(${(-1 + shift) * (100 / 3)}% + ${drag}px))`,
+            }}
+          >
+            {[-1, 0, 1].map((off) => {
+              const item = at(index + off)
+              return (
+                <div key={`${item.id}-${off}`} className="relative h-full w-1/3 shrink-0">
+                  <ZoomImage
+                    /* 가운데 칸만 조작을 받는다 — 양옆은 미리 깔아 둔 그림이다 */
+                    key={item.id}
+                    src={item.image_url}
+                    alt={item.title ?? ''}
+                    active={off === 0}
+                    onSwipe={
+                      off === 0 && works.length > 1
+                        ? (dir) => (dir === 'left' ? next() : prev())
+                        : undefined
+                    }
+                    onDrag={off === 0 && works.length > 1 ? setDrag : undefined}
+                    onScrollDown={off === 0 ? setHideSheet : undefined}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
 
         {/* 한 장뿐이면 넘길 곳이 없다.
             화살표는 데스크톱에만 — 모바일은 옆으로 쓸어 넘긴다. */}
@@ -136,8 +180,18 @@ export function WorkModal({
           </>
         )}
 
+        {/* 모바일에서 그림을 내려 보는 동안에는 아래로 내려 숨긴다.
+
+            높이를 줄이지 않고 제자리에서 미끄러뜨린다 — 높이를 건드리면
+            그림 칸이 넓어지고, 그만큼 scrollTop 이 저절로 줄어 "위로 올림"
+            으로 읽힌다. 그러면 다시 펴지고 또 접히는 진동이 생긴다.
+            데스크톱(md:)은 높이가 넉넉해 늘 제자리에 둔다. */}
         {hasSheet && (
-          <div className="shrink-0 border-t border-neutral-200 px-5 py-5 md:px-8">
+          <div
+            className={`absolute inset-x-0 bottom-0 border-t border-neutral-200 bg-white px-5 py-5 transition-transform duration-300 ease-out md:relative md:translate-y-0 md:px-8 ${
+              hideSheet ? 'translate-y-full' : 'translate-y-0'
+            }`}
+          >
             <SheetHead meta={meta} title={w.title} />
 
             {w.description && (
@@ -187,6 +241,16 @@ export function WorkModal({
       </div>
     </div>
   )
+}
+
+/* 표기 줄 — 클라이언트·AI·SOOM 중 있는 것만 이어 붙인다.
+
+   AI 사용 표기는 true 일 때만 붙인다 — null(묻기 전에 올라간 작업)과
+   false 를 구분해 보여주지 않는다. */
+function metaOf(w: PublicWork): string {
+  return [w.client, w.ai_used ? 'AI 활용' : null, w.soom_work ? 'SOOM 의뢰' : null]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 /* 설명 칸 머리 — 접힌 칸과 펼친 시트가 같이 쓴다 */
@@ -240,14 +304,20 @@ const TALL_RATIO = 1.6
 function ZoomImage({
   src,
   alt,
-  slide,
+  active,
   onSwipe,
+  onDrag,
+  onScrollDown,
 }: {
   src: string
   alt: string
-  /* 넘어가는 중인 방향 — 이 값이 있으면 그림을 그쪽으로 밀어낸다 */
-  slide?: 'left' | 'right' | null
+  /* 트랙 가운데 칸인지 — 양옆은 미리 깔아 둔 그림이라 조작을 받지 않는다 */
+  active?: boolean
   onSwipe?: (dir: 'left' | 'right') => void
+  /* 끄는 중인 거리(px) — 손을 따라 트랙이 움직이게 한다 */
+  onDrag?: (px: number) => void
+  /* 내려 보는 중인지 — 아래 설명 칸을 접고 펴는 데 쓴다 */
+  onScrollDown?: (down: boolean) => void
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const [boxSize, setBoxSize] = useState<{ w: number; h: number } | null>(null)
@@ -307,36 +377,48 @@ function ZoomImage({
 
   useEffect(() => () => window.clearTimeout(flashTimer.current), [])
 
-  /* 들어오는 애니메이션 — key 로 새로 그려지므로 마운트가 곧 "새 장"이다.
-     첫 프레임만 반대쪽에 비껴 두었다가 제자리로 돌려보낸다.
+  /* 내려 보는 중인지 알린다 — 아래로 내리면 설명 칸을 접고, 위로 올리면 편다.
+     맨 위 근처(<24px)에서는 늘 펴 둔다.
 
-     slide 값은 바뀌는 순간 null 이 되므로, 어느 쪽에서 들어올지는
-     마운트 시점에 한 번만 읽어 고정한다(useState 초기값). */
-  const [from] = useState(slide ?? null)
-  const [entered, setEntered] = useState(false)
+     한 번의 움직임으로 바로 뒤집지 않고 같은 방향으로 쌓인 양(acc)이
+     THRESHOLD 를 넘을 때만 바꾼다. 칸이 접히면 보이는 높이가 늘어 scrollTop
+     이 저절로 줄어드는데, 그 변화를 "위로 올림"으로 읽으면 다시 펴지고 또
+     접히는 진동이 생긴다. 반대 방향 신호가 조금 섞여도 버티게 한다. */
+  const lastTop = useRef(0)
+  const acc = useRef(0)
+  const down = useRef(false)
+  const SCROLL_THRESHOLD = 28
 
-  useLayoutEffect(() => {
-    if (!from) return
-    /* 두 겹의 rAF — 첫 프레임에 비껴 둔 상태를 브라우저가 그린 뒤에
-       제자리로 보내야 전환이 생긴다. 한 겹이면 같은 프레임에 묶여
-       그냥 제자리에 나타난다. */
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)))
-    return () => cancelAnimationFrame(id)
-  }, [from])
+  const onScroll = () => {
+    const box = boxRef.current
+    if (!box || !onScrollDown) return
+    const top = box.scrollTop
+    const dy = top - lastTop.current
+    lastTop.current = top
 
-  /* 나갈 때는 slide 방향으로, 들어올 때는 그 반대쪽에서.
-     'left'(다음 장)면 나가는 그림은 왼쪽으로 빠지고 새 그림은
-     오른쪽에서 들어온다. */
-  const shift = slide
-    ? slide === 'left'
-      ? '-12%'
-      : '12%'
-    : from && !entered
-      ? from === 'left'
-        ? '12%'
-        : '-12%'
-      : '0%'
-  const faded = Boolean(slide) || Boolean(from && !entered)
+    if (top < 24) {
+      acc.current = 0
+      if (down.current) {
+        down.current = false
+        onScrollDown(false)
+      }
+      return
+    }
+
+    /* 방향이 바뀌면 쌓아 둔 양을 버리고 새로 센다 */
+    if ((dy > 0) !== (acc.current > 0)) acc.current = 0
+    acc.current += dy
+
+    if (acc.current > SCROLL_THRESHOLD && !down.current) {
+      down.current = true
+      acc.current = 0
+      onScrollDown(true)
+    } else if (acc.current < -SCROLL_THRESHOLD && down.current) {
+      down.current = false
+      acc.current = 0
+      onScrollDown(false)
+    }
+  }
 
   /* 확대했을 때 마우스로 끌어 옮긴다 — 손 모양 커서로 잡고 끄는 만큼
      스크롤을 반대로 움직인다. 터치는 브라우저 기본 스크롤이 이미 같은 일을
@@ -367,8 +449,11 @@ function ZoomImage({
     setDragging(false)
   }
 
-  /* 화살표 키는 작업 넘기기가 쓴다 — 확대는 +/− 키로 */
+  /* 화살표 키는 작업 넘기기가 쓴다 — 확대는 +/− 키로.
+     트랙에 세 장이 깔려 있으므로 가운데 칸만 듣는다 — 셋 다 들으면
+     한 번 눌러도 배율이 세 단계씩 뛴다. */
   useEffect(() => {
+    if (!active) return
     const h = (e: KeyboardEvent) => {
       if (e.key === '+' || e.key === '=') go(step + 1)
       if (e.key === '-' || e.key === '_') go(step - 1)
@@ -380,58 +465,95 @@ function ZoomImage({
   /* 옆으로 쓸어 다음·이전 작업으로 — 모바일에서 화살표 버튼을 대신한다.
 
      브라우저 기본 동작(세로 스크롤·핀치 줌)을 막지 않으려고 touch 이벤트를
-     수동으로 듣고 preventDefault 는 하지 않는다. 넘길지 말지는 손을 뗄 때
-     한 번만 판단한다.
+     수동으로 듣고 preventDefault 는 하지 않는다.
+
+     확대해서 그림이 칸보다 넓을 때는, 먼저 그림 안을 둘러보게 둔다.
+     좌우 끝에 닿은 채로 시작한 쓸기만 넘기기로 친다 — 사진 앱들과 같다.
+     중간에서 끝까지 밀어붙인 그 동작은 넘기지 않고, 다음 쓸기부터 유효하다.
+     끝에서 시작했을 때는 실수로 넘어가지 않게 문턱을 더 높인다.
 
      넘기지 않는 경우:
        · 두 손가락 이상 — 집어서 키우는 중이다
-       · 확대된 상태(step>0) — 그때 가로로 쓰는 건 그림을 끌어 보는 동작이다
+       · 그림이 칸보다 넓은데 그쪽 끝이 아님 — 둘러보는 중이다
        · 세로로 더 많이 움직임 — 설명을 읽으려 위아래로 쓴 것이다 */
-  const touch = useRef<{ x: number; y: number; multi: boolean } | null>(null)
+  const touch = useRef<{
+    x: number
+    y: number
+    multi: boolean
+    /* 쓸기를 시작한 순간 좌·우 끝에 닿아 있었는지 */
+    atStart: boolean
+    atEnd: boolean
+    /* 확대되어 가로로 둘러볼 여지가 있는 상태인지 */
+    wide: boolean
+  } | null>(null)
   const SWIPE_MIN = 50
+  /* 확대 상태에서 넘길 때의 문턱 — 둘러보다 끝에 닿아 살짝 더 민 것을
+     넘기기로 오해하지 않도록 평소보다 크게 잡는다. */
+  const SWIPE_MIN_ZOOMED = 90
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (!onSwipe || e.touches.length !== 1) {
       touch.current = null
       return
     }
+    const box = boxRef.current
     const t = e.touches[0]
-    touch.current = { x: t.clientX, y: t.clientY, multi: false }
+    const wide = Boolean(box && box.scrollWidth > box.clientWidth + 1)
+    touch.current = {
+      x: t.clientX,
+      y: t.clientY,
+      multi: false,
+      wide,
+      atStart: !box || box.scrollLeft <= 1,
+      atEnd: !box || box.scrollLeft >= box.scrollWidth - box.clientWidth - 1,
+    }
   }
 
   const onTouchMove = (e: React.TouchEvent) => {
+    const s = touch.current
+    if (!s) return
     /* 중간에 손가락이 늘면 핀치로 본다 — 그 제스처는 넘기지 않는다 */
-    if (e.touches.length > 1 && touch.current) touch.current.multi = true
+    if (e.touches.length > 1) {
+      s.multi = true
+      onDrag?.(0)
+      return
+    }
+    if (s.multi || !onDrag) return
+
+    const t = e.touches[0]
+    const dx = t.clientX - s.x
+    const dy = t.clientY - s.y
+    if (Math.abs(dx) <= Math.abs(dy)) return
+    /* 넘길 수 있는 방향으로만 손을 따라간다 */
+    if (s.wide && ((dx < 0 && !s.atEnd) || (dx > 0 && !s.atStart))) return
+    /* 끝에서 더 끌면 뻑뻑하게 — 넘길 수 있다는 느낌만 준다 */
+    onDrag(dx * 0.55)
   }
 
   const onTouchEnd = (e: React.TouchEvent) => {
     const s = touch.current
     touch.current = null
-    if (!s || !onSwipe || s.multi || step > 0) return
-
-    /* 핀치로 키워 둔 상태 — 버튼을 안 거쳤으니 step 은 0 이지만 그림이
-       칸보다 넓다. 이때 가로로 쓰는 건 그림을 끌어 보는 동작이다. */
-    const box = boxRef.current
-    if (box && box.scrollWidth > box.clientWidth + 1) return
+    onDrag?.(0)
+    if (!s || !onSwipe || s.multi) return
 
     const t = e.changedTouches[0]
     const dx = t.clientX - s.x
     const dy = t.clientY - s.y
-    if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) <= Math.abs(dy)) return
+    const min = s.wide ? SWIPE_MIN_ZOOMED : SWIPE_MIN
+    if (Math.abs(dx) < min || Math.abs(dx) <= Math.abs(dy)) return
+
+    /* 확대 중이면 그 방향 끝에서 시작한 쓸기만 넘긴다 */
+    if (s.wide && ((dx < 0 && !s.atEnd) || (dx > 0 && !s.atStart))) return
 
     /* 왼쪽으로 쓸면 다음 장 — 종이를 넘기는 방향과 같다 */
     onSwipe(dx < 0 ? 'left' : 'right')
   }
 
   return (
-    /* overflow-hidden — 옆으로 밀려난 그림이 모달 밖으로 비어져 나오지 않게.
-       transform 은 스크롤 칸 바깥에 건다: 스크롤되는 요소 자체를 움직이면
-       긴 그림에서 스크롤 위치가 어긋난다. */
-    <div className="relative min-h-0 flex-1 overflow-hidden bg-white">
+    <div className="relative h-full w-full bg-white">
       {/* 두 손가락으로 집어 키우는 동작(pinch-zoom)과 세로 스크롤(pan-y)은
-          브라우저에 맡기고, 가로만 비워 둔다 — 가로 제스처는 위 onTouch*
-          가 받아 작업을 넘기는 데 쓴다. pan-x 까지 주면 긴 그림에서
-          가로로 쓸 때 스크롤과 넘기기가 서로 걸린다. */}
+          브라우저에 맡긴다. 확대돼 가로로 둘러볼 수 있을 때만 pan-x 를 열어
+          그림 안을 훑게 하고, 끝에 닿은 뒤의 쓸기는 위 onTouch* 가 받는다. */}
       <div
         ref={boxRef}
         onPointerDown={onPointerDown}
@@ -441,16 +563,11 @@ function ZoomImage({
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        style={{
-          touchAction: pannable ? 'pan-x pan-y pinch-zoom' : 'pan-y pinch-zoom',
-          transform: `translateX(${shift})`,
-          opacity: faded ? 0 : 1,
-        }}
-        /* 들어오기 직전 한 프레임은 전환을 끈다 — 켜 두면 비껴 두는
-           동작까지 애니메이션이 되어 그림이 좌우로 한 번 흔들린다. */
-        className={`absolute inset-0 overflow-auto ease-out ${
-          from && !entered ? '' : 'transition-[transform,opacity] duration-200'
-        } ${pannable ? (dragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''}`}
+        onScroll={onScroll}
+        style={{ touchAction: pannable ? 'pan-x pan-y pinch-zoom' : 'pan-y pinch-zoom' }}
+        className={`absolute inset-0 overflow-auto ${
+          pannable ? (dragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''
+        }`}
       >
         {/* 그림보다 칸이 크면 가운데에, 그림이 크면 그림만큼 넓어져 스크롤된다.
             길쭉한 그림만 위에서 시작한다 — 가운데로 두면 첫 화면이 그림
@@ -485,7 +602,11 @@ function ZoomImage({
 
           모바일에서는 띄우지 않는다 — 두 손가락으로 집어 키우는 쪽이
           훨씬 빠르고, 버튼이 그림 위 자리만 차지한다. */}
-      <div className="absolute bottom-3 right-3 hidden items-center gap-1.5 md:flex">
+      <div
+        className={`absolute bottom-3 right-3 hidden items-center gap-1.5 ${
+          active ? 'md:flex' : ''
+        }`}
+      >
         <span
           aria-live="polite"
           className={`pointer-events-none mr-1 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs tabular-nums text-white transition-opacity duration-300 ${
