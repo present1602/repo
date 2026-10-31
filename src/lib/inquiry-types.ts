@@ -8,7 +8,7 @@
    코드값으로 두면 화면·메일·어드민에서 매번 한글로 옮겨야 하고,
    그 표가 여러 곳에 흩어져 어긋난다. */
 
-export const INQUIRY_TYPES = ['디자인 + 개발', '디자인', '메인화면 시안 먼저 의뢰'] as const
+export const INQUIRY_TYPES = ['디자인', '메인화면 시안 먼저 의뢰', '디자인 + 개발'] as const
 
 export type InquiryType = (typeof INQUIRY_TYPES)[number]
 

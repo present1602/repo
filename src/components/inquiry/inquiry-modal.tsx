@@ -164,7 +164,7 @@ export function InquiryModal({
                   name="message"
                   rows={6}
                   maxLength={5000}
-                  placeholder="예) 다음 달 시작 가능한지, 앱 리뉴얼 작업 경험이 있는지 궁금합니다."
+                  placeholder="어떤 서비스에 대한 의뢰인지 알려주세요. 소개 자료를 첨부해주시면 더욱 좋습니다. 원하는 스타일의 레퍼런스 서비스 url 혹은 앱 이름을 알려주세요."
                   /* 여기만 테두리를 두른다 — 여러 줄이라 밑줄만으로는
                      어디까지가 입력칸인지 알 수 없다 */
                   className={`${inputCls} resize-y rounded-lg border border-neutral-300 bg-white px-3 leading-relaxed focus:border-neutral-900`}
