@@ -357,6 +357,7 @@ function ZoomImage({
   onTap?: () => void
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
   const [boxSize, setBoxSize] = useState<{ w: number; h: number } | null>(null)
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null)
   const [step, setStep] = useState(0)
@@ -413,20 +414,30 @@ function ZoomImage({
   if (seenSrc !== src) {
     setSeenSrc(src)
     setStep(0)
-    setNatural(null)
     setFlash(false)
+    /* natural 은 비우지 않는다 — 비우면 fit 이 null 이 되어 그 한 프레임
+       동안 <img> 에 크기가 안 붙고 원본 크기(1600px 등)로 그려진다.
+       그게 넘긴 직후 화면이 번쩍이는 원인이었다. 새 치수는 아래
+       useLayoutEffect 가 즉시(캐시된 그림) 또는 onLoad 가 채운다. */
   }
 
-  /* ref 와 스크롤 위치는 렌더 중에 건드릴 수 없다 — 그려지기 직전에 되돌린다 */
+  /* ref 와 스크롤 위치는 렌더 중에 건드릴 수 없다 — 그려지기 직전에 되돌린다.
+     이미 받아 둔 그림이면 여기서 바로 치수를 읽어 둔다. onLoad 는 캐시된
+     이미지에서 늦게 오거나 아예 오지 않을 수 있다. */
   useLayoutEffect(() => {
     focus.current = null
     acc.current = 0
     down.current = false
     lastTop.current = 0
     const box = boxRef.current
-    if (!box) return
-    box.scrollTop = 0
-    box.scrollLeft = 0
+    if (box) {
+      box.scrollTop = 0
+      box.scrollLeft = 0
+    }
+    const img = imgRef.current
+    if (img?.complete && img.naturalWidth > 0) {
+      setNatural({ w: img.naturalWidth, h: img.naturalHeight })
+    }
   }, [src])
 
   const go = (next: number) => {
@@ -671,6 +682,7 @@ function ZoomImage({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
+            ref={imgRef}
             src={src}
             alt={alt}
             /* 브라우저 기본 이미지 끌기(유령 이미지)가 끌어 옮기기를 가로챈다 */
