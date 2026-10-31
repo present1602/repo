@@ -81,22 +81,28 @@ export function WorkModal({
             사라져 글자가 바닥에 붙는다.
 
             key 로 작업마다 새로 그린다 — 넘기면 확대 배율이 처음으로 돌아간다. */}
-        <ZoomImage key={w.id} src={w.image_url} alt={w.title ?? ''} />
+        <ZoomImage
+          key={w.id}
+          src={w.image_url}
+          alt={w.title ?? ''}
+          onSwipe={works.length > 1 ? (dir) => (dir === 'left' ? next() : prev()) : undefined}
+        />
 
-        {/* 한 장뿐이면 넘길 곳이 없다 */}
+        {/* 한 장뿐이면 넘길 곳이 없다.
+            화살표는 데스크톱에만 — 모바일은 옆으로 쓸어 넘긴다. */}
         {works.length > 1 && (
           <>
             <button
               onClick={prev}
               aria-label="이전"
-              className="absolute left-3 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:bg-white"
+              className="absolute left-3 top-1/2 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:bg-white md:flex"
             >
               ←
             </button>
             <button
               onClick={next}
               aria-label="다음"
-              className="absolute right-3 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:bg-white"
+              className="absolute right-3 top-1/2 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:bg-white md:flex"
             >
               →
             </button>
@@ -186,6 +192,7 @@ function Chevron({ up }: { up?: boolean }) {
 const ZOOMS = [1, 1.5, 2, 3, 4]
 
 /* 원본 비율 그대로 칸 안에 맞춰 보여주고, 우측 하단 −/+ 로 키워 본다.
+   모바일에서는 버튼 없이 두 손가락으로 집어 키운다(touch-action: pinch-zoom).
 
    처음에는 잘리지도 늘어나지도 않게 칸에 맞춘다 — 세로로 긴 그림은
    높이에 맞춰 좌우에 흰 여백이 남는다. 글자가 작아 안 보이면 키워서
@@ -193,7 +200,15 @@ const ZOOMS = [1, 1.5, 2, 3, 4]
 
    크기는 CSS 로 맡기지 않고 직접 잰다 — 칸에 맞춘 크기(fit)에 배율을
    곱한 픽셀 값을 줘야 키웠을 때 칸을 넘쳐 스크롤이 생긴다. */
-function ZoomImage({ src, alt }: { src: string; alt: string }) {
+function ZoomImage({
+  src,
+  alt,
+  onSwipe,
+}: {
+  src: string
+  alt: string
+  onSwipe?: (dir: 'left' | 'right') => void
+}) {
   const boxRef = useRef<HTMLDivElement>(null)
   const [boxSize, setBoxSize] = useState<{ w: number; h: number } | null>(null)
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null)
@@ -286,14 +301,68 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
     return () => window.removeEventListener('keydown', h)
   })
 
+  /* 옆으로 쓸어 다음·이전 작업으로 — 모바일에서 화살표 버튼을 대신한다.
+
+     브라우저 기본 동작(세로 스크롤·핀치 줌)을 막지 않으려고 touch 이벤트를
+     수동으로 듣고 preventDefault 는 하지 않는다. 넘길지 말지는 손을 뗄 때
+     한 번만 판단한다.
+
+     넘기지 않는 경우:
+       · 두 손가락 이상 — 집어서 키우는 중이다
+       · 확대된 상태(step>0) — 그때 가로로 쓰는 건 그림을 끌어 보는 동작이다
+       · 세로로 더 많이 움직임 — 설명을 읽으려 위아래로 쓴 것이다 */
+  const touch = useRef<{ x: number; y: number; multi: boolean } | null>(null)
+  const SWIPE_MIN = 50
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (!onSwipe || e.touches.length !== 1) {
+      touch.current = null
+      return
+    }
+    const t = e.touches[0]
+    touch.current = { x: t.clientX, y: t.clientY, multi: false }
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    /* 중간에 손가락이 늘면 핀치로 본다 — 그 제스처는 넘기지 않는다 */
+    if (e.touches.length > 1 && touch.current) touch.current.multi = true
+  }
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const s = touch.current
+    touch.current = null
+    if (!s || !onSwipe || s.multi || step > 0) return
+
+    /* 핀치로 키워 둔 상태 — 버튼을 안 거쳤으니 step 은 0 이지만 그림이
+       칸보다 넓다. 이때 가로로 쓰는 건 그림을 끌어 보는 동작이다. */
+    const box = boxRef.current
+    if (box && box.scrollWidth > box.clientWidth + 1) return
+
+    const t = e.changedTouches[0]
+    const dx = t.clientX - s.x
+    const dy = t.clientY - s.y
+    if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) <= Math.abs(dy)) return
+
+    /* 왼쪽으로 쓸면 다음 장 — 종이를 넘기는 방향과 같다 */
+    onSwipe(dx < 0 ? 'left' : 'right')
+  }
+
   return (
     <div className="relative min-h-0 flex-1 bg-white">
+      {/* 두 손가락으로 집어 키우는 동작(pinch-zoom)과 세로 스크롤(pan-y)은
+          브라우저에 맡기고, 가로만 비워 둔다 — 가로 제스처는 위 onTouch*
+          가 받아 작업을 넘기는 데 쓴다. pan-x 까지 주면 긴 그림에서
+          가로로 쓸 때 스크롤과 넘기기가 서로 걸린다. */}
       <div
         ref={boxRef}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{ touchAction: pannable ? 'pan-x pan-y pinch-zoom' : 'pan-y pinch-zoom' }}
         className={`absolute inset-0 overflow-auto ${
           pannable ? (dragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''
         }`}
@@ -321,8 +390,11 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
       </div>
 
       {/* 테두리·바탕 없이 버튼 둘만 띄운다. 흰 그림 위에서도 보이도록
-          반투명한 어두운 원으로 두고, 배율 숫자는 바꿀 때만 왼쪽에 잠깐 뜬다. */}
-      <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+          반투명한 어두운 원으로 두고, 배율 숫자는 바꿀 때만 왼쪽에 잠깐 뜬다.
+
+          모바일에서는 띄우지 않는다 — 두 손가락으로 집어 키우는 쪽이
+          훨씬 빠르고, 버튼이 그림 위 자리만 차지한다. */}
+      <div className="absolute bottom-3 right-3 hidden items-center gap-1.5 md:flex">
         <span
           aria-live="polite"
           className={`pointer-events-none mr-1 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs tabular-nums text-white transition-opacity duration-300 ${

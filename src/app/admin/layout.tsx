@@ -1,4 +1,6 @@
+import { Suspense } from 'react'
 import { getAdminUser } from '@/lib/admin-auth'
+import { NavProgress } from '@/components/nav-progress'
 import { countUnreadInquiries } from '@/lib/inquiries-db'
 import { countUnreadApplications } from '@/lib/applications-db'
 import { AdminMobileMenu, AdminSidebar } from '@/components/admin/sidebar'
@@ -25,6 +27,9 @@ export default async function AdminLayout({ children }: LayoutProps<'/admin'>) {
 
   return (
     <div className="flex flex-1 bg-white">
+      <Suspense fallback={null}>
+        <NavProgress />
+      </Suspense>
       <AdminSidebar {...menu} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex h-12 shrink-0 items-center border-b border-neutral-200 px-5">

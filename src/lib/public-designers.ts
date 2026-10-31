@@ -85,6 +85,13 @@ async function selectWorks<T>(
    어느 것이 "고른 작업"인지 코드에서 구분해야 해서 같이 들고 온다. */
 const FEED_WORK_COLS = `${WORK_COLS}, featured, featured_at`
 
+/* 홈 피드가 한 번에 받아 올 최신 작업 수.
+
+   피드는 같은 그림을 한 번만 싣는다(listRecentWorks). 겹치는 만큼 줄어드니
+   보여줄 장수보다 넉넉히 받아야 벽이 중간에 끊기지 않는다. 디자이너들이
+   같은 샘플을 나눠 쓰는 상황에서는 받은 수의 1/5 도 안 남을 수 있다. */
+const FEED_FETCH_MAX = 300
+
 /* 카드에 미리 보여줄 썸네일 장수. 값은 portfolio-limits.ts 에 있다 —
    어드민 미리보기(클라이언트 컴포넌트)도 같은 값을 써야 하는데, 이 모듈은
    server-only 라 거기서 가져갈 수 없다. 기존 import 경로를 지키려고
@@ -367,7 +374,9 @@ export async function listRecentWorks(limit: number): Promise<FeedWork[]> {
         정렬은 작업의 created_at 으로 한다 — sort_order 는 디자이너가
         자기 포트폴리오 안에서 매긴 순서라 디자이너끼리 비교할 수 없다.
         featured 를 읽지 않으므로 007 마이그레이션 전에도 홈이 평소대로 뜬다.
-        고른 것이 최대 limit 장 섞여 들어오므로 두 배를 받아 둔다. */
+        고른 것이 최대 limit 장 섞여 들어오고, 같은 그림이 겹치면 아래에서
+        걸러져 더 줄어든다 — 넉넉히 받아 둔다. 안 쓰면 버리면 그만이지만
+        모자라면 홈이 중간에 끊긴다. */
   const [{ data: picked, error: pickError }, { data: workRows, error: workError }] =
     await Promise.all([
       selectWorks<WorkWithOwner>(
@@ -390,7 +399,7 @@ export async function listRecentWorks(limit: number): Promise<FeedWork[]> {
           .eq('visible', true)
           .in('designer_id', ids)
           .order('created_at', { ascending: false })
-          .limit(limit * 2)
+          .limit(FEED_FETCH_MAX)
           .overrideTypes<WorkWithOwner[]>(),
       ),
     ])
@@ -399,10 +408,25 @@ export async function listRecentWorks(limit: number): Promise<FeedWork[]> {
     console.error('[public] 홈 피드 선택 작업 조회 실패:', pickError.message)
   }
 
-  const feed = ((picked ?? []) as WorkWithOwner[]).map(withOwner)
-  if (feed.length >= limit) return feed.slice(0, limit)
+  /* 같은 그림은 한 번만 — 디자이너가 달라도 벽에 같은 장면이 두 번 깔리면
+     피드가 고장난 것처럼 보인다. 작업 id 가 아니라 이미지 주소로 거른다:
+     id 는 행마다 다르지만 그림은 같을 수 있다(샘플 이미지를 여러 디자이너가
+     나눠 쓰는 경우). 여기서만 걸러 두면 디자이너 상세에는 영향이 없다 —
+     그 화면은 한 사람의 포트폴리오라 본인 작업이 빠지면 안 된다. */
+  const seen = new Set<string>()
+  const feed: FeedWork[] = []
 
-  const chosen = new Set(feed.map((w) => w.id))
+  const add = (row: WorkWithOwner) => {
+    if (seen.has(row.image_url)) return
+    seen.add(row.image_url)
+    feed.push(withOwner(row))
+  }
+
+  for (const row of (picked ?? []) as WorkWithOwner[]) {
+    if (feed.length >= limit) break
+    add(row)
+  }
+  if (feed.length >= limit) return feed
 
   if (workError) {
     console.error('[public] 홈 피드 작업 조회 실패:', workError.message)
@@ -411,8 +435,7 @@ export async function listRecentWorks(limit: number): Promise<FeedWork[]> {
 
   for (const row of (workRows ?? []) as WorkWithOwner[]) {
     if (feed.length >= limit) break
-    if (chosen.has(row.id)) continue
-    feed.push(withOwner(row))
+    add(row)
   }
 
   return feed

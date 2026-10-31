@@ -53,13 +53,11 @@ export function DesignerTable({ designers }: { designers: AdminDesignerListRow[]
                     프로필 {d.profile_public ? '노출' : '숨김'}
                   </span>
                 )}
-                {d.temp_password ? (
+                {/* 비밀번호를 직접 정한 경우는 정상 상태라 뱃지를 달지 않는다 —
+                    손이 가야 하는 임시 비밀번호만 눈에 띄게 둔다 */}
+                {d.temp_password && (
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-800">
                     임시 비밀번호 사용 중
-                  </span>
-                ) : (
-                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] text-emerald-800">
-                    비밀번호 설정 완료
                   </span>
                 )}
               </div>
