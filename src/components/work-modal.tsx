@@ -3,6 +3,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PublicWork } from '@/lib/designer-shape'
 
+/* 작업을 넘길 때 그림이 옆으로 빠지는 시간(ms).
+   이만큼 지난 뒤 다음 장으로 바꾸고, 새 그림이 반대쪽에서 들어온다.
+   CSS 의 duration-200 과 같은 값이어야 중간에 끊기지 않는다. */
+const SLIDE_OUT = 200
+
 export function WorkModal({
   works,
   index,
@@ -17,15 +22,36 @@ export function WorkModal({
   const w = works[index]
   const [open, setOpen] = useState(false)
 
-  // 작업물을 넘기면 펼쳐둔 설명은 접는다
-  const next = () => {
+  /* 넘어가는 중인 방향 — 'left' 는 다음 장(그림이 왼쪽으로 빠진다).
+     null 이면 멈춰 있는 상태다. 이 값으로 들어오는 쪽의 시작 위치와
+     나가는 쪽의 끝 위치를 함께 정한다. */
+  const [slide, setSlide] = useState<'left' | 'right' | null>(null)
+  const slideTimer = useRef<number | undefined>(undefined)
+
+  /* 작업물을 넘기면 펼쳐둔 설명은 접는다.
+
+     그림을 밀어내는 동안(SLIDE_OUT) 기다렸다가 다음 장으로 바꾼다 —
+     바꾸고 나면 새 그림이 반대쪽에서 들어온다(ZoomImage 의 enter).
+     연타해도 타이머가 겹치지 않게 이전 것을 지우고 건다. */
+  const go = (dir: 'left' | 'right') => {
+    if (works.length < 2) return
     setOpen(false)
-    setIndex((index + 1) % works.length)
+    setSlide(dir)
+    window.clearTimeout(slideTimer.current)
+    slideTimer.current = window.setTimeout(() => {
+      setIndex(
+        dir === 'left'
+          ? (index + 1) % works.length
+          : (index - 1 + works.length) % works.length,
+      )
+      setSlide(null)
+    }, SLIDE_OUT)
   }
-  const prev = () => {
-    setOpen(false)
-    setIndex((index - 1 + works.length) % works.length)
-  }
+
+  const next = () => go('left')
+  const prev = () => go('right')
+
+  useEffect(() => () => window.clearTimeout(slideTimer.current), [])
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -85,6 +111,7 @@ export function WorkModal({
           key={w.id}
           src={w.image_url}
           alt={w.title ?? ''}
+          slide={slide}
           onSwipe={works.length > 1 ? (dir) => (dir === 'left' ? next() : prev()) : undefined}
         />
 
@@ -191,6 +218,16 @@ function Chevron({ up }: { up?: boolean }) {
 /* 확대 단계 — 1 은 칸 안에 통째로 들어오는 크기 */
 const ZOOMS = [1, 1.5, 2, 3, 4]
 
+/* 이 비율(세로/가로)보다 긴 그림은 높이를 포기하고 너비에 맞춘다.
+
+   상세 페이지 캡처처럼 길쭉한 작업을 통째로 칸에 넣으면, 높이에 맞추느라
+   가로가 손톱만 해져 아무것도 읽을 수 없다. 그런 그림은 너비를 꽉 채워
+   윗부분부터 보여주고 나머지는 스크롤로 내려 보게 한다.
+
+   1.6 — 4:5(1.25)나 2:3(1.5) 같은 흔한 세로 사진은 그대로 한 화면에 담기고,
+   그보다 긴 화면 캡처부터 걸린다. */
+const TALL_RATIO = 1.6
+
 /* 원본 비율 그대로 칸 안에 맞춰 보여주고, 우측 하단 −/+ 로 키워 본다.
    모바일에서는 버튼 없이 두 손가락으로 집어 키운다(touch-action: pinch-zoom).
 
@@ -203,10 +240,13 @@ const ZOOMS = [1, 1.5, 2, 3, 4]
 function ZoomImage({
   src,
   alt,
+  slide,
   onSwipe,
 }: {
   src: string
   alt: string
+  /* 넘어가는 중인 방향 — 이 값이 있으면 그림을 그쪽으로 밀어낸다 */
+  slide?: 'left' | 'right' | null
   onSwipe?: (dir: 'left' | 'right') => void
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -231,9 +271,14 @@ function ZoomImage({
   }, [])
 
   const zoom = ZOOMS[step]
+
+  /* 길쭉한 그림은 너비에 맞춰 잘리게 두고, 나머지는 칸 안에 통째로 넣는다 */
+  const tall = natural ? natural.h / natural.w > TALL_RATIO : false
   const fit =
     boxSize && natural
-      ? Math.min(boxSize.w / natural.w, boxSize.h / natural.h)
+      ? tall
+        ? boxSize.w / natural.w
+        : Math.min(boxSize.w / natural.w, boxSize.h / natural.h)
       : null
 
   useLayoutEffect(() => {
@@ -261,6 +306,37 @@ function ZoomImage({
   }
 
   useEffect(() => () => window.clearTimeout(flashTimer.current), [])
+
+  /* 들어오는 애니메이션 — key 로 새로 그려지므로 마운트가 곧 "새 장"이다.
+     첫 프레임만 반대쪽에 비껴 두었다가 제자리로 돌려보낸다.
+
+     slide 값은 바뀌는 순간 null 이 되므로, 어느 쪽에서 들어올지는
+     마운트 시점에 한 번만 읽어 고정한다(useState 초기값). */
+  const [from] = useState(slide ?? null)
+  const [entered, setEntered] = useState(false)
+
+  useLayoutEffect(() => {
+    if (!from) return
+    /* 두 겹의 rAF — 첫 프레임에 비껴 둔 상태를 브라우저가 그린 뒤에
+       제자리로 보내야 전환이 생긴다. 한 겹이면 같은 프레임에 묶여
+       그냥 제자리에 나타난다. */
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)))
+    return () => cancelAnimationFrame(id)
+  }, [from])
+
+  /* 나갈 때는 slide 방향으로, 들어올 때는 그 반대쪽에서.
+     'left'(다음 장)면 나가는 그림은 왼쪽으로 빠지고 새 그림은
+     오른쪽에서 들어온다. */
+  const shift = slide
+    ? slide === 'left'
+      ? '-12%'
+      : '12%'
+    : from && !entered
+      ? from === 'left'
+        ? '12%'
+        : '-12%'
+      : '0%'
+  const faded = Boolean(slide) || Boolean(from && !entered)
 
   /* 확대했을 때 마우스로 끌어 옮긴다 — 손 모양 커서로 잡고 끄는 만큼
      스크롤을 반대로 움직인다. 터치는 브라우저 기본 스크롤이 이미 같은 일을
@@ -348,7 +424,10 @@ function ZoomImage({
   }
 
   return (
-    <div className="relative min-h-0 flex-1 bg-white">
+    /* overflow-hidden — 옆으로 밀려난 그림이 모달 밖으로 비어져 나오지 않게.
+       transform 은 스크롤 칸 바깥에 건다: 스크롤되는 요소 자체를 움직이면
+       긴 그림에서 스크롤 위치가 어긋난다. */
+    <div className="relative min-h-0 flex-1 overflow-hidden bg-white">
       {/* 두 손가락으로 집어 키우는 동작(pinch-zoom)과 세로 스크롤(pan-y)은
           브라우저에 맡기고, 가로만 비워 둔다 — 가로 제스처는 위 onTouch*
           가 받아 작업을 넘기는 데 쓴다. pan-x 까지 주면 긴 그림에서
@@ -362,13 +441,25 @@ function ZoomImage({
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        style={{ touchAction: pannable ? 'pan-x pan-y pinch-zoom' : 'pan-y pinch-zoom' }}
-        className={`absolute inset-0 overflow-auto ${
-          pannable ? (dragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''
-        }`}
+        style={{
+          touchAction: pannable ? 'pan-x pan-y pinch-zoom' : 'pan-y pinch-zoom',
+          transform: `translateX(${shift})`,
+          opacity: faded ? 0 : 1,
+        }}
+        /* 들어오기 직전 한 프레임은 전환을 끈다 — 켜 두면 비껴 두는
+           동작까지 애니메이션이 되어 그림이 좌우로 한 번 흔들린다. */
+        className={`absolute inset-0 overflow-auto ease-out ${
+          from && !entered ? '' : 'transition-[transform,opacity] duration-200'
+        } ${pannable ? (dragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''}`}
       >
-        {/* 그림보다 칸이 크면 가운데에, 그림이 크면 그림만큼 넓어져 스크롤된다 */}
-        <div className="grid min-h-full w-max min-w-full place-items-center">
+        {/* 그림보다 칸이 크면 가운데에, 그림이 크면 그림만큼 넓어져 스크롤된다.
+            길쭉한 그림만 위에서 시작한다 — 가운데로 두면 첫 화면이 그림
+            중간부터라 윗부분(제목·히어로)을 놓친다. */}
+        <div
+          className={`grid min-h-full w-max min-w-full justify-items-center ${
+            tall ? 'items-start' : 'items-center'
+          }`}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
