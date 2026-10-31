@@ -119,6 +119,37 @@ export function WorkModal({
   /* 설명이 두 줄을 넘어 펼칠 거리가 있는지 — Excerpt 가 재서 알려준다 */
   const [canExpand, setCanExpand] = useState(false)
 
+  /* 모바일에서 시트가 그림 위를 덮는 높이(px).
+
+     시트는 absolute 라 그림 칸의 높이 계산에 잡히지 않는다. 그대로 두면
+     그림은 바닥까지 있는 셈 치고 가운데를 잡는데, 실제로 보이는 곳은
+     시트 위까지라 가로로 긴 그림이 위로 치우쳐 보인다 — 위 여백이 아래보다
+     넓어지는 그 증상이다. 덮는 만큼을 재서 그림 칸 아래 여백으로 준다.
+     데스크톱은 시트가 흐름 안(md:relative)에 있어 0 이다. */
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const [sheetH, setSheetH] = useState(0)
+
+  useLayoutEffect(() => {
+    const el = sheetRef.current
+    if (!el) {
+      setSheetH(0)
+      return
+    }
+    const measure = () => {
+      /* 흐름 안에 있으면(데스크톱) 그림 칸을 밀어낼 필요가 없다 */
+      const floating = getComputedStyle(el).position === 'absolute'
+      setSheetH(floating && !hideSheet ? el.offsetHeight : 0)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [hasSheet, hideSheet, open])
+
   /* 손잡이를 잡아 내리는 중인 거리(px). 손을 따라 시트가 내려가고,
      충분히 내렸으면 그대로 숨긴다. 덜 내렸으면 제자리로 돌아온다. */
   const [sheetDrag, setSheetDrag] = useState(0)
@@ -205,7 +236,14 @@ export function WorkModal({
                    뒤 세 칸이 모두 새로 마운트되어 <img> 가 다시 로드되고,
                    그 사이 빈 화면이 한 번 번쩍인다. 자리로 두면 같은 요소가
                    src 만 바꿔 다는 데다, 이미 받아 둔 그림은 즉시 그려진다. */
-                <div key={off} className="relative h-full w-1/3 shrink-0">
+                /* 시트가 덮는 만큼 아래를 비워 둔다 — 그래야 실제로 보이는
+                   영역의 한가운데에 그림이 놓인다. 긴 그림(tall)은 위에서부터
+                   채우므로 영향이 없고, 가로로 긴 그림에서 차이가 난다. */
+                <div
+                  key={off}
+                  style={sheetH ? { paddingBottom: sheetH } : undefined}
+                  className="relative h-full w-1/3 shrink-0"
+                >
                   <ZoomImage
                     /* 가운데 칸만 조작을 받는다 — 양옆은 미리 깔아 둔 그림이다.
                        src 가 바뀌면 배율·스크롤은 ZoomImage 안에서 되돌린다. */
@@ -270,6 +308,7 @@ export function WorkModal({
         {hasSheet && (
           <>
             <div
+              ref={sheetRef}
               /* 끄는 동안에는 손을 그대로 따라가야 하므로 전환을 끈다 */
               style={sheetDrag ? { transform: `translateY(${sheetDrag}px)` } : undefined}
               className={`absolute inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white/95 px-5 pb-5 pt-3 backdrop-blur-md ease-out md:relative md:translate-y-0 md:bg-white md:px-8 md:pt-5 ${
