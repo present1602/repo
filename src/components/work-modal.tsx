@@ -116,6 +116,37 @@ export function WorkModal({
      그림을 톡 쳐도 여닫힌다 — 스크롤이 없는 짧은 그림에서는 그게 유일한 길이다.
      데스크톱은 높이가 넉넉해 늘 펼쳐 둔다(CSS 에서 md: 로 되돌린다). */
   const [hideSheet, setHideSheet] = useState(false)
+  /* 설명이 두 줄을 넘어 펼칠 거리가 있는지 — Excerpt 가 재서 알려준다 */
+  const [canExpand, setCanExpand] = useState(false)
+
+  /* 손잡이를 잡아 내리는 중인 거리(px). 손을 따라 시트가 내려가고,
+     충분히 내렸으면 그대로 숨긴다. 덜 내렸으면 제자리로 돌아온다. */
+  const [sheetDrag, setSheetDrag] = useState(0)
+  const HIDE_AT = 44
+
+  const startHandleDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const el = e.currentTarget
+    const y0 = e.clientY
+    el.setPointerCapture(e.pointerId)
+
+    const move = (ev: PointerEvent) => {
+      /* 위로는 끌리지 않는다 — 올려 봐야 더 보여 줄 것이 없다 */
+      setSheetDrag(Math.max(0, ev.clientY - y0))
+    }
+    const end = (ev: PointerEvent) => {
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', end)
+      el.removeEventListener('pointercancel', end)
+      const dy = Math.max(0, ev.clientY - y0)
+      setSheetDrag(0)
+      /* 끌어내린 거리가 문턱을 넘으면 숨긴다. 짧게 톡 친 경우는
+         onClick 이 받아 처리하므로 여기서는 아무것도 하지 않는다. */
+      if (dy > HIDE_AT) setHideSheet(true)
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', end)
+    el.addEventListener('pointercancel', end)
+  }
 
   /* 작업을 넘기면 접어 둔 것들을 처음 상태로 되돌린다 —
      앞 작업에서 숨겨 둔 채로 다음 그림이 열리면 설명이 사라진 것처럼 보인다.
@@ -239,21 +270,40 @@ export function WorkModal({
         {hasSheet && (
           <>
             <div
-              className={`absolute inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white/95 px-5 pb-5 pt-3 backdrop-blur-md transition-transform duration-300 ease-out md:relative md:translate-y-0 md:bg-white md:px-8 md:pt-5 ${
-                hideSheet ? 'translate-y-full' : 'translate-y-0'
-              }`}
+              /* 끄는 동안에는 손을 그대로 따라가야 하므로 전환을 끈다 */
+              style={sheetDrag ? { transform: `translateY(${sheetDrag}px)` } : undefined}
+              className={`absolute inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white/95 px-5 pb-5 pt-3 backdrop-blur-md ease-out md:relative md:translate-y-0 md:bg-white md:px-8 md:pt-5 ${
+                sheetDrag ? '' : 'transition-transform duration-300'
+              } ${hideSheet ? 'translate-y-full' : 'translate-y-0'}`}
             >
-              {/* 손잡이 — 만질 수 있는 칸이라는 표시. 눌러도 접힌다. */}
+              {/* 손잡이 — 잡아 내려도, 그냥 눌러도 시트가 내려간다.
+                  모양이 끌 수 있게 생겼으니 실제로 끌려야 한다. */}
               <button
                 onClick={() => setHideSheet(true)}
+                onPointerDown={startHandleDrag}
                 aria-label="설명 숨기기"
-                className="mx-auto mb-3 block h-1 w-9 rounded-full bg-neutral-300 transition hover:bg-neutral-400 md:hidden"
+                className="mx-auto mb-3 flex h-5 w-16 touch-none items-center justify-center md:hidden"
+              >
+                <span className="block h-1 w-9 rounded-full bg-neutral-300 transition hover:bg-neutral-400" />
+              </button>
+
+              <SheetHead
+                meta={meta}
+                title={w.title}
+                toggle={
+                  w.description && canExpand
+                    ? { open, onToggle: () => setOpen((v) => !v) }
+                    : undefined
+                }
               />
 
-              <SheetHead meta={meta} title={w.title} />
-
               {w.description && (
-                <Excerpt text={w.description} open={open} onToggle={() => setOpen((v) => !v)} />
+                <Excerpt
+                  text={w.description}
+                  open={open}
+                  onToggle={() => setOpen((v) => !v)}
+                  onOverflowChange={setCanExpand}
+                />
               )}
             </div>
 
@@ -287,12 +337,41 @@ function metaOf(w: PublicWork): string {
     .join(' · ')
 }
 
-/* 설명 칸 머리 — 접힌 칸과 펼친 시트가 같이 쓴다 */
-function SheetHead({ meta, title }: { meta: string; title: string | null }) {
+/* 시트 머리 — 표기 줄과 제목, 그리고 설명을 여닫는 화살표 */
+function SheetHead({
+  meta,
+  title,
+  toggle,
+}: {
+  meta: string
+  title: string | null
+  /* 펼칠 거리가 있는 설명이 있을 때만 넘어온다 */
+  toggle?: { open: boolean; onToggle: () => void }
+}) {
   return (
     <>
       {meta && <p className="text-[11px] tracking-widest text-neutral-500">{meta}</p>}
-      {title && <h3 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">{title}</h3>}
+      <div className="mt-1 flex items-start gap-3">
+        {title && (
+          <h3 className="min-w-0 flex-1 text-xl font-semibold tracking-tight md:text-2xl">
+            {title}
+          </h3>
+        )}
+        {/* 여닫는 표시 — 제목 줄 오른쪽에 둔다.
+            설명 위에 겹쳐 두면 글자를 가리고, 설명 아래에 두면 글이 짧을 때와
+            길 때 시트 높이가 달라져 넘길 때마다 제목이 튄다. */}
+        {toggle && (
+          <button
+            type="button"
+            onClick={toggle.onToggle}
+            aria-label={toggle.open ? '설명 접기' : '설명 더 보기'}
+            aria-expanded={toggle.open}
+            className="-mr-1 mt-1 shrink-0 p-1 text-neutral-400 transition hover:text-neutral-900"
+          >
+            <Chevron up={toggle.open} />
+          </button>
+        )}
+      </div>
     </>
   )
 }
@@ -755,10 +834,13 @@ function Excerpt({
   text,
   open,
   onToggle,
+  onOverflowChange,
 }: {
   text: string
   open: boolean
   onToggle: () => void
+  /* 두 줄을 넘는 글인지 — 제목 줄의 화살표를 띄울지 부모가 정한다 */
+  onOverflowChange?: (v: boolean) => void
 }) {
   const [overflows, setOverflows] = useState(false)
   const [el, setEl] = useState<HTMLParagraphElement | null>(null)
@@ -767,23 +849,32 @@ function Excerpt({
 
   useEffect(() => {
     if (!el) return
-    /* 두 줄 높이를 넘는 글만 펼칠 거리가 있다 */
-    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1)
+    /* 두 줄 높이를 넘는 글만 펼칠 거리가 있다.
+       펼친 동안에는 잴 수 없으므로(이미 다 보인다) 그때는 건드리지 않는다. */
+    const measure = () => {
+      if (open) return
+      const v = el.scrollHeight > el.clientHeight + 1
+      setOverflows(v)
+      onOverflowChange?.(v)
+    }
     measure()
     /* 모달 폭이 바뀌면 줄 수도 바뀐다 */
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [el, flat, open])
+  }, [el, flat, open, onOverflowChange])
 
   const body = (
     <div className="relative">
       <p
         ref={setEl}
-        /* max-h 로만 여닫는다 — 접었을 때는 딱 두 줄(2lh), 펼치면 시트가
-           화면을 다 먹지 않도록 상한을 두고 그 안에서 스크롤한다. */
-        className={`overflow-y-auto text-[15px] leading-relaxed text-neutral-600 transition-[max-height] duration-300 ease-out ${
-          open ? 'max-h-[40vh] whitespace-pre-line' : 'max-h-[2lh] overflow-hidden'
+        /* 접었을 때는 글이 한 줄이든 다섯 줄이든 늘 두 줄 자리를 차지한다
+           (min-h = max-h = 2lh). 작업을 넘길 때마다 시트 높이가 달라지면
+           제목이 위아래로 튀어 화면이 불안해 보인다. */
+        className={`text-[15px] leading-relaxed text-neutral-600 transition-[max-height] duration-300 ease-out ${
+          open
+            ? 'max-h-[40vh] overflow-y-auto whitespace-pre-line'
+            : 'max-h-[2lh] min-h-[2lh] overflow-hidden'
         }`}
       >
         {open ? text : flat}
@@ -799,8 +890,8 @@ function Excerpt({
     </div>
   )
 
-  /* 펼칠 것이 없으면 그냥 글만 둔다 — 눌러도 아무 일이 없는 칸을
-     누를 수 있는 것처럼 보이게 하지 않는다. */
+  /* 펼칠 것이 없으면 누를 수 없는 칸으로 둔다 — 자리는 그대로라
+     넘겨도 제목 높이가 바뀌지 않는다. */
   if (!overflows && !open) return <div className="mt-2.5">{body}</div>
 
   return (
@@ -819,11 +910,6 @@ function Excerpt({
       className="group mt-2.5 cursor-pointer"
     >
       {body}
-      {/* 여닫는 표시 — 글 아래 오른쪽에 둔다. 글 흐름 밖이라
-          펼쳐도 글자가 밀리지 않는다. */}
-      <span className="mt-1 flex justify-end text-neutral-400 transition group-hover:text-neutral-900">
-        <Chevron up={open} />
-      </span>
     </div>
   )
 }
