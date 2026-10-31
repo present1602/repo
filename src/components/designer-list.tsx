@@ -289,6 +289,7 @@ export function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) 
           index={openIndex}
           setIndex={setOpenIndex}
           onClose={() => setOpenIndex(null)}
+          nameOf={() => displayNameOf(d)}
         />
       )}
     </article>

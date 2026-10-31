@@ -7,16 +7,20 @@ import type { PublicWork } from '@/lib/designer-shape'
    끝나는 순간에 맞춰 자리를 정리할 수 있다. */
 const SLIDE_MS = 280
 
-export function WorkModal({
+export function WorkModal<W extends PublicWork>({
   works,
   index,
   setIndex,
   onClose,
+  nameOf,
 }: {
-  works: PublicWork[]
+  works: W[]
   index: number
   setIndex: (i: number) => void
   onClose: () => void
+  /* 헤더 번호 왼쪽에 붙일 디자이너 이름(가린 이름).
+     넘기는 동안 같은 사람의 작업인지 알아보게 한다 — 없으면 번호만 둔다. */
+  nameOf?: (w: W) => string
 }) {
   const w = works[index]
   const [open, setOpen] = useState(false)
@@ -210,8 +214,13 @@ export function WorkModal({
         className="relative flex h-full w-full flex-col overflow-hidden bg-white md:h-[92vh] md:max-w-4xl md:rounded-2xl"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-5 py-3">
-          <span className="text-xs tracking-widest text-neutral-500">
-            {String(index + 1).padStart(2, '0')} / {String(works.length).padStart(2, '0')}
+          <span className="flex min-w-0 items-baseline gap-2.5 text-xs text-neutral-500">
+            {nameOf && (
+              <span className="truncate text-sm font-semibold text-neutral-900">{nameOf(w)}</span>
+            )}
+            <span className="shrink-0 tracking-widest">
+              {String(index + 1).padStart(2, '0')} / {String(works.length).padStart(2, '0')}
+            </span>
           </span>
           <button
             onClick={onClose}

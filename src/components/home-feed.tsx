@@ -48,7 +48,13 @@ export function HomeFeed({ works }: { works: FeedWork[] }) {
       </div>
 
       {index !== null && (
-        <WorkModal works={works} index={index} setIndex={setIndex} onClose={() => setIndex(null)} />
+        <WorkModal
+          works={works}
+          index={index}
+          setIndex={setIndex}
+          onClose={() => setIndex(null)}
+          nameOf={(w) => displayNameOf(w.designer)}
+        />
       )}
     </>
   )
