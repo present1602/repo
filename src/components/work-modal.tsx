@@ -150,42 +150,50 @@ export function WorkModal({
     }
   }, [hasSheet, hideSheet, open])
 
-  /* 손잡이를 잡아 내리는 중인 거리(px). 손을 따라 시트가 내려가고,
-     충분히 내렸으면 그대로 숨긴다. 덜 내렸으면 제자리로 돌아온다. */
+  /* 손잡이를 잡아 끄는 중인 거리(px). 손을 따라 시트가 움직이고,
+     충분히 끌었으면 그대로 숨기거나 올린다. 덜 끌었으면 제자리로 돌아온다.
+       펼친 상태: 0 이상 — 아래로 내린 거리
+       숨긴 상태: 0 이하 — 바닥에서 위로 끌어올린 거리 */
   const [sheetDrag, setSheetDrag] = useState(0)
   const HIDE_AT = 44
 
   const startHandleDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
     const el = e.currentTarget
     const y0 = e.clientY
+    /* 누른 순간의 상태로 방향을 정한다 — 펼쳐져 있으면 내리기, 숨겨져 있으면 올리기 */
+    const raising = hideSheet
+    /* 시트 높이보다 더 올려 봐야 더 보여 줄 것이 없다 */
+    const maxUp = sheetRef.current?.offsetHeight ?? 0
+    const clamp = (dy: number) =>
+      raising ? Math.max(-maxUp, Math.min(0, dy)) : Math.max(0, dy)
     el.setPointerCapture(e.pointerId)
 
     const move = (ev: PointerEvent) => {
-      /* 위로는 끌리지 않는다 — 올려 봐야 더 보여 줄 것이 없다 */
-      setSheetDrag(Math.max(0, ev.clientY - y0))
+      setSheetDrag(clamp(ev.clientY - y0))
     }
     const end = (ev: PointerEvent) => {
       el.removeEventListener('pointermove', move)
       el.removeEventListener('pointerup', end)
       el.removeEventListener('pointercancel', end)
-      const dy = Math.max(0, ev.clientY - y0)
+      const dy = clamp(ev.clientY - y0)
       setSheetDrag(0)
-      /* 끌어내린 거리가 문턱을 넘으면 숨긴다. 짧게 톡 친 경우는
+      /* 끈 거리가 문턱을 넘으면 숨기거나 올린다. 짧게 톡 친 경우는
          onClick 이 받아 처리하므로 여기서는 아무것도 하지 않는다. */
-      if (dy > HIDE_AT) setHideSheet(true)
+      if (raising && dy < -HIDE_AT) setHideSheet(false)
+      if (!raising && dy > HIDE_AT) setHideSheet(true)
     }
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', end)
     el.addEventListener('pointercancel', end)
   }
 
-  /* 작업을 넘기면 접어 둔 것들을 처음 상태로 되돌린다 —
-     앞 작업에서 숨겨 둔 채로 다음 그림이 열리면 설명이 사라진 것처럼 보인다.
+  /* 작업을 넘기면 펼쳐 둔 설명은 접는다.
+     시트를 내려 둔 상태는 그대로 이어 간다 — 그림만 넘겨 보려고 내린 것이니
+     넘길 때마다 다시 올라오면 매번 도로 내려야 한다.
      effect 가 아니라 렌더 중에 맞춘다(React 의 "렌더 중 상태 조정"). */
   const [seenId, setSeenId] = useState(w.id)
   if (seenId !== w.id) {
     setSeenId(w.id)
-    setHideSheet(false)
     setOpen(false)
   }
 
@@ -310,7 +318,15 @@ export function WorkModal({
             <div
               ref={sheetRef}
               /* 끄는 동안에는 손을 그대로 따라가야 하므로 전환을 끈다 */
-              style={sheetDrag ? { transform: `translateY(${sheetDrag}px)` } : undefined}
+              style={
+                sheetDrag
+                  ? {
+                      transform: hideSheet
+                        ? `translateY(calc(100% + ${sheetDrag}px))`
+                        : `translateY(${sheetDrag}px)`,
+                    }
+                  : undefined
+              }
               className={`absolute inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white/95 px-5 pb-5 pt-3 backdrop-blur-md ease-out md:relative md:translate-y-0 md:bg-white md:px-8 md:pt-5 ${
                 sheetDrag ? '' : 'transition-transform duration-300'
               } ${hideSheet ? 'translate-y-full' : 'translate-y-0'}`}
@@ -347,15 +363,19 @@ export function WorkModal({
             </div>
 
             {/* 숨겨 둔 동안 바닥에 남겨 두는 손잡이 — 그림을 톡 쳐도 되지만,
-                되돌릴 수 있다는 것 자체가 보이지 않으면 사라진 줄 안다. */}
+                되돌릴 수 있다는 것 자체가 보이지 않으면 사라진 줄 안다.
+                눌러도, 잡아 끌어올려도 시트가 올라온다. 손가락으로 잡기 쉽게
+                닿는 칸은 막대보다 넉넉히 둔다. */}
             <button
               onClick={() => setHideSheet(false)}
+              onPointerDown={hideSheet ? startHandleDrag : undefined}
               aria-label="설명 보기"
               aria-hidden={!hideSheet}
               tabIndex={hideSheet ? 0 : -1}
-              className={`absolute inset-x-0 bottom-0 z-10 flex h-9 items-end justify-center pb-2 transition-opacity duration-300 md:hidden ${
-                hideSheet ? 'opacity-100' : 'pointer-events-none opacity-0'
-              }`}
+              /* 바닥 전체를 덮으면 그 띠에서 옆으로 쓸어 넘기기가 막힌다 — 가운데만 */
+              className={`absolute bottom-0 left-1/2 z-10 flex h-14 w-40 -translate-x-1/2 touch-none items-end justify-center pb-2 transition-opacity duration-300 md:hidden ${
+                hideSheet ? '' : 'pointer-events-none'
+              } ${hideSheet && !sheetDrag ? 'opacity-100' : 'opacity-0'}`}
             >
               <span className="h-1 w-9 rounded-full bg-white/70 shadow-[0_0_8px_rgba(0,0,0,0.35)]" />
             </button>
