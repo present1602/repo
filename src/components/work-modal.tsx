@@ -237,7 +237,7 @@ export function WorkModal<W extends PublicWork>({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative flex h-full w-full flex-col overflow-hidden bg-white md:h-[92vh] md:max-w-4xl md:rounded-2xl"
+        className="relative flex h-full w-full flex-col overflow-hidden bg-white md:h-[92vh] md:max-w-5xl md:rounded-2xl"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-5 py-3">
           <span className="flex min-w-0 items-baseline gap-2.5 text-xs text-neutral-500">

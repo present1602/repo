@@ -121,13 +121,14 @@ export function DesignerList({
         </ul>
       </aside>
 
-      {/* 1920px 화면에서 꼭 차는 폭(1920 - 사이드바 240)까지만 넓어진다.
-          그보다 큰 화면에서는 오른쪽이 빈 바탕으로 남는다 — 카드가 끝없이
-          늘어나면 썸네일 줄이 납작해지고 눈이 좌우로 너무 멀리 오간다. */}
-      {/* 가운데 맞춤은 사이드바를 뺀 나머지가 아니라 화면 전체 기준이다.
-          왼쪽 여백 = (화면 폭 - 본문 폭) / 2 - 사이드바 폭. 화면이 좁아
-          음수가 되면 0 으로 — 사이드바 바로 옆에 붙어 남는 폭을 다 쓴다. */}
-      <main className="mx-auto min-w-0 max-w-[1680px] flex-1 px-2 py-6 sm:px-4 md:px-8 md:py-8 lg:mx-0 lg:ml-[max(0px,calc((100vw_-_min(1680px,100vw_-_15rem))_/_2_-_15rem))]">
+      {/* 본문 폭은 네비바와 같다(max-w-7xl, 좌우 안쪽 여백 md:px-8) — 카드의
+          왼쪽 끝이 SOOM 로고에, 오른쪽 끝이 '의뢰하기' 버튼에 맞는다. 더 넓히면
+          카드가 늘어나 글 오른쪽이 빈 바탕으로 남는다. */}
+      {/* 가운데 맞춤은 사이드바를 뺀 나머지가 아니라 화면 전체 기준이다 — 네비바와
+          같은 줄에 서려면. 왼쪽 여백 = (전체 폭 - 본문 폭) / 2 - 사이드바 폭.
+          100vw 가 아니라 100% 로 잰다 — 스크롤바 폭이 들어가면 네비바와 어긋난다.
+          화면이 좁아 음수가 되면 0 으로 — 사이드바 바로 옆에 붙어 남는 폭을 다 쓴다. */}
+      <main className="mx-auto min-w-0 max-w-7xl flex-1 px-2 py-6 sm:px-4 md:px-8 md:py-8 lg:mx-0 lg:ml-[max(0px,calc((100%_-_80rem)_/_2_-_15rem))]">
         {/* 타이틀 영역 우측 끝에 키워드 검색 */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-start gap-3">
@@ -417,7 +418,9 @@ function DesignerSpotlight({
 
   return (
     <article className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm ring-1 ring-neutral-200/70 md:p-4">
-      <div className="grid gap-5 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-center md:gap-10">
+      {/* 그림 칸은 넓은 화면에서 680px 까지만 — 더 키우면 크게 보기(작업 모달)보다
+          목록의 그림이 커져 눌러 볼 이유가 없어진다 */}
+      <div className="grid gap-5 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] md:items-center md:gap-10 xl:grid-cols-[minmax(0,680px)_minmax(0,1fr)]">
         <div className="min-w-0">
           <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-neutral-100">
             {w ? (
