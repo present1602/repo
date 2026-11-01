@@ -49,6 +49,21 @@ export function DesignerList({
     })
   }, [shown, tag, q])
 
+  /* 썸네일 다이얼로그는 목록 순서대로 디자이너들의 작업을 한 줄로 잇는다 —
+     한 사람의 끝에서 넘기면 그 사람의 처음이 아니라 다음 디자이너의 첫 작업이 나온다.
+     맨 처음과 맨 끝에서는 더 넘어가지 않는다(loop={false}).
+     카드에 담겨 온 몇 장만 잇는다 — 카드의 썸네일 줄과 같은 범위다. */
+  const { flat, starts } = useMemo(() => {
+    const flat: (PublicWork & { designer: PublicDesignerCard; nth: number })[] = []
+    const starts = new Map<string, number>()
+    for (const d of list) {
+      starts.set(d.id, flat.length)
+      d.works.forEach((w, i) => flat.push({ ...w, designer: d, nth: i + 1 }))
+    }
+    return { flat, starts }
+  }, [list])
+  const [openAt, setOpenAt] = useState<number | null>(null)
+
   /* 분야를 바꾸면 목록이 통째로 바뀐다 — 내려가 있던 자리에 남으면
      새 목록의 중간부터 보이므로 맨 위로 올린다 */
   const pickTag = (t: string | null) => {
@@ -151,7 +166,11 @@ export function DesignerList({
 
         <div className="grid grid-cols-1 gap-4">
           {list.map((d) => (
-            <DesignerCard key={d.id} designer={d} />
+            <DesignerCard
+              key={d.id}
+              designer={d}
+              onOpenWork={(i) => setOpenAt(starts.get(d.id)! + i)}
+            />
           ))}
         </div>
 
@@ -163,6 +182,18 @@ export function DesignerList({
           </p>
         )}
       </main>
+
+      {openAt !== null && (
+        <WorkModal
+          works={flat}
+          index={openAt}
+          setIndex={setOpenAt}
+          onClose={() => setOpenAt(null)}
+          nameOf={(w) => displayNameOf(w.designer)}
+          counterOf={(w) => [w.nth, w.designer.works.length]}
+          loop={false}
+        />
+      )}
 
       {/* 목록 위에 덮는다 — 뒤가 비쳐야 무엇을 고르는 자리인지 읽힌다 */}
       {!asked && (
@@ -188,7 +219,15 @@ export function DesignerList({
 
    어드민 미리보기(designer-detail.tsx)도 이것을 그대로 쓴다 —
    베껴 두면 한쪽만 고쳐져 "실제로 이렇게 보인다"가 거짓이 된다. */
-export function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) {
+export function DesignerCard({
+  designer: d,
+  onOpenWork,
+}: {
+  designer: PublicDesignerCard
+  /* 넘겨 주면 다이얼로그를 목록이 띄운다 — 다음 디자이너까지 이어 넘기려면
+     모달이 카드 하나보다 위에 있어야 한다. 없으면(어드민 미리보기) 카드가 띄운다. */
+  onOpenWork?: (i: number) => void
+}) {
   const href = `/designers/${d.id}`
   const name = displayNameOf(d)
 
@@ -249,7 +288,7 @@ export function DesignerCard({ designer: d }: { designer: PublicDesignerCard }) 
           {d.works.map((w, i) => (
             <button
               key={w.id}
-              onClick={() => setOpenIndex(i)}
+              onClick={() => (onOpenWork ? onOpenWork(i) : setOpenIndex(i))}
               aria-label={w.title ? `${w.title} 크게 보기` : '작업 크게 보기'}
               className={`group relative w-full shrink-0 overflow-hidden rounded-lg sm:h-full sm:w-auto ${
                 i > 0 ? 'hidden sm:block' : ''

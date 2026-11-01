@@ -13,6 +13,8 @@ export function WorkModal<W extends PublicWork>({
   setIndex,
   onClose,
   nameOf,
+  counterOf,
+  loop = true,
 }: {
   works: W[]
   index: number
@@ -21,8 +23,16 @@ export function WorkModal<W extends PublicWork>({
   /* 헤더 번호 왼쪽에 붙일 디자이너 이름(가린 이름).
      넘기는 동안 같은 사람의 작업인지 알아보게 한다 — 없으면 번호만 둔다. */
   nameOf?: (w: W) => string
+  /* 헤더 번호를 전체가 아닌 다른 기준으로 셀 때 — [몇 번째, 모두].
+     여러 디자이너를 이어 넘기는 탐색에서는 그 디자이너 안에서 센다. */
+  counterOf?: (w: W) => [number, number]
+  /* 끝에서 처음으로 돌아갈지. 끄면 양 끝에서 더 넘어가지 않는다. */
+  loop?: boolean
 }) {
   const w = works[index]
+  const [num, total] = counterOf?.(w) ?? [index + 1, works.length]
+  const hasPrev = works.length > 1 && (loop || index > 0)
+  const hasNext = works.length > 1 && (loop || index < works.length - 1)
   const [open, setOpen] = useState(false)
 
   /* 이어진 화면처럼 미끄러뜨리기 위해 이전·현재·다음 세 장을 나란히 깔고
@@ -37,11 +47,22 @@ export function WorkModal<W extends PublicWork>({
   const slideTimer = useRef<number | undefined>(undefined)
   const sliding = useRef(false)
 
-  const at = (i: number) => works[(i % works.length + works.length) % works.length]
+  /* 돌지 않을 때 범위를 벗어난 자리는 비워 둔다 */
+  const at = (i: number): W | undefined =>
+    loop ? works[((i % works.length) + works.length) % works.length] : works[i]
+
+  /* 끝에서 더 끌면 고무줄처럼 조금만 따라온다 — 넘어갈 곳이 없다는 걸 손으로 알린다.
+     양수가 오른쪽(이전 쪽)으로 끄는 방향이다. */
+  const dragTo = (px: number) =>
+    setDrag((px > 0 && !hasPrev) || (px < 0 && !hasNext) ? px * 0.3 : px)
 
   /* 작업물을 넘기면 펼쳐둔 설명은 접는다. */
   const go = (dir: 'left' | 'right') => {
-    if (works.length < 2 || sliding.current) return
+    if (sliding.current) return
+    if (dir === 'left' ? !hasNext : !hasPrev) {
+      setDrag(0)
+      return
+    }
     sliding.current = true
     setOpen(false)
     setDrag(0)
@@ -86,10 +107,12 @@ export function WorkModal<W extends PublicWork>({
     if (works.length < 2) return
     const n = works.length
     for (const off of [-2, 2]) {
+      const item = loop ? works[(((index + off) % n) + n) % n] : works[index + off]
+      if (!item) continue
       const img = new Image()
-      img.src = works[(((index + off) % n) + n) % n].image_url
+      img.src = item.image_url
     }
-  }, [index, works])
+  }, [index, works, loop])
 
   useEffect(() => () => window.clearTimeout(slideTimer.current), [])
 
@@ -168,8 +191,7 @@ export function WorkModal<W extends PublicWork>({
     const raising = hideSheet
     /* 시트 높이보다 더 올려 봐야 더 보여 줄 것이 없다 */
     const maxUp = sheetRef.current?.offsetHeight ?? 0
-    const clamp = (dy: number) =>
-      raising ? Math.max(-maxUp, Math.min(0, dy)) : Math.max(0, dy)
+    const clamp = (dy: number) => (raising ? Math.max(-maxUp, Math.min(0, dy)) : Math.max(0, dy))
     el.setPointerCapture(e.pointerId)
 
     const move = (ev: PointerEvent) => {
@@ -219,7 +241,7 @@ export function WorkModal<W extends PublicWork>({
               <span className="truncate text-sm font-semibold text-neutral-900">{nameOf(w)}</span>
             )}
             <span className="shrink-0 tracking-widest">
-              {String(index + 1).padStart(2, '0')} / {String(works.length).padStart(2, '0')}
+              {String(num).padStart(2, '0')} / {String(total).padStart(2, '0')}
             </span>
           </span>
           <button
@@ -261,55 +283,57 @@ export function WorkModal<W extends PublicWork>({
                   style={sheetH ? { paddingBottom: sheetH } : undefined}
                   className="relative h-full w-1/3 shrink-0"
                 >
-                  <ZoomImage
-                    /* 가운데 칸만 조작을 받는다 — 양옆은 미리 깔아 둔 그림이다.
+                  {item && (
+                    <ZoomImage
+                      /* 가운데 칸만 조작을 받는다 — 양옆은 미리 깔아 둔 그림이다.
                        src 가 바뀌면 배율·스크롤은 ZoomImage 안에서 되돌린다. */
-                    src={item.image_url}
-                    alt={item.title ?? ''}
-                    active={off === 0}
-                    onSwipe={
-                      off === 0 && works.length > 1
-                        ? (dir) => (dir === 'left' ? next() : prev())
-                        : undefined
-                    }
-                    onDrag={off === 0 && works.length > 1 ? setDrag : undefined}
-                    onScrollDown={off === 0 ? setHideSheet : undefined}
-                    onTap={
-                      off === 0
-                        ? () => {
-                            /* 펼쳐 둔 설명이 있으면 먼저 접고, 그다음 눌러야 숨는다 —
+                      src={item.image_url}
+                      alt={item.title ?? ''}
+                      active={off === 0}
+                      onSwipe={
+                        off === 0 && works.length > 1
+                          ? (dir) => (dir === 'left' ? next() : prev())
+                          : undefined
+                      }
+                      onDrag={off === 0 && works.length > 1 ? dragTo : undefined}
+                      onScrollDown={off === 0 ? setHideSheet : undefined}
+                      onTap={
+                        off === 0
+                          ? () => {
+                              /* 펼쳐 둔 설명이 있으면 먼저 접고, 그다음 눌러야 숨는다 —
                                한 번에 다 사라지면 무엇이 닫혔는지 알기 어렵다. */
-                            if (open) setOpen(false)
-                            else setHideSheet((v) => !v)
-                          }
-                        : undefined
-                    }
-                  />
+                              if (open) setOpen(false)
+                              else setHideSheet((v) => !v)
+                            }
+                          : undefined
+                      }
+                    />
+                  )}
                 </div>
               )
             })}
           </div>
         </div>
 
-        {/* 한 장뿐이면 넘길 곳이 없다.
+        {/* 넘길 곳이 없는 쪽은 화살표를 감춘다(한 장뿐이거나, 돌지 않는 끝).
             화살표는 데스크톱에만 — 모바일은 옆으로 쓸어 넘긴다. */}
-        {works.length > 1 && (
-          <>
-            <button
-              onClick={prev}
-              aria-label="이전"
-              className="absolute left-3 top-1/2 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:bg-white md:flex"
-            >
-              ←
-            </button>
-            <button
-              onClick={next}
-              aria-label="다음"
-              className="absolute right-3 top-1/2 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:bg-white md:flex"
-            >
-              →
-            </button>
-          </>
+        {hasPrev && (
+          <button
+            onClick={prev}
+            aria-label="이전"
+            className="absolute left-3 top-1/2 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:bg-white md:flex"
+          >
+            ←
+          </button>
+        )}
+        {hasNext && (
+          <button
+            onClick={next}
+            aria-label="다음"
+            className="absolute right-3 top-1/2 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:bg-white md:flex"
+          >
+            →
+          </button>
         )}
 
         {/* 모바일에서 그림을 내려 보는 동안에는 아래로 내려 숨긴다.
