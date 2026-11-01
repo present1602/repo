@@ -68,6 +68,25 @@ export async function updatePlanCopy(input: PlanCopyInput): Promise<Result> {
   return { ok: true }
 }
 
+/* 탐색에서 의뢰유형을 묻는지 — 끄면 묻는 창과 제목 옆 표시가 모두 빠진다 */
+export async function setScopePrompt(enabled: boolean): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db
+    .from('site_settings')
+    .update({ scope_prompt: enabled })
+    .eq('id', true)
+
+  if (error) {
+    console.error('[settings] 의뢰유형 묻기 변경 실패:', error.message)
+    return fail('변경에 실패했습니다.')
+  }
+
+  revalidatePath('/admin/settings')
+  revalidatePath('/explore')
+  return { ok: true }
+}
+
 /* ─────────── 전문 분야 ───────────
 
    탐색 사이드바의 필터이자 디자이너가 고르는 선택지다(011_specialties.sql).

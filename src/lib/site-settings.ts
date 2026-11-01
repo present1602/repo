@@ -22,3 +22,22 @@ export async function getPlanCopy(): Promise<PlanCopy> {
 
   return (data as PlanCopy) ?? FALLBACK_COPY
 }
+
+/* 탐색에서 의뢰유형을 묻는지(034_scope_prompt_toggle.sql).
+   읽지 못하면 켜진 것으로 본다 — 마이그레이션 전의 동작 그대로다. */
+export async function getScopePrompt(): Promise<boolean> {
+  if (!supabaseAdmin) return true
+
+  const { data, error } = await supabaseAdmin
+    .from('site_settings')
+    .select('scope_prompt')
+    .eq('id', true)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[settings] 의뢰유형 묻기 조회 실패:', error.message)
+    return true
+  }
+
+  return (data?.scope_prompt as boolean | undefined) ?? true
+}

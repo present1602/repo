@@ -276,7 +276,7 @@ export function RadioCard({
                 <s className="no-underline">{was}</s>
                 <span
                   aria-hidden
-                  className="absolute inset-x-0 top-1/2 h-px -rotate-[12deg] bg-neutral-400"
+                  className="absolute inset-x-0 top-1/2 h-px rotate-[6deg] bg-neutral-400"
                 />
               </span>
             )}

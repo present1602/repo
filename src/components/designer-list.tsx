@@ -17,12 +17,16 @@ export function DesignerList({
   designers,
   tags: allTags,
   featureIds = [],
+  scopePrompt = true,
 }: {
   designers: PublicDesignerCard[]
   tags: string[]
   /* 어드민이 위쪽에 썸네일 줄 카드(feature1)로 올린 디자이너, 차례대로.
      나머지는 기본 카드(대표 작업 한 장)로 그 아래에 선다(032_explore_features.sql). */
   featureIds?: string[]
+  /* 의뢰유형을 묻는지 — 어드민 설정에서 끄면 묻는 창도, 제목 옆 표시도
+     나오지 않는다(034_scope_prompt_toggle.sql) */
+  scopePrompt?: boolean
 }) {
   const featureRank = useMemo(
     () => new Map(featureIds.map((id, i) => [id, i])),
@@ -133,7 +137,7 @@ export function DesignerList({
                     '전체'로 띄운다 — 유형을 고르는 자리가 있다는 걸 알려야 한다.
                     제목을 가리지 않게 테두리 없는 작은 글자로 두고, 눌러서 처음의
                     물음을 다시 연다 — 바꿀 수 있다는 걸 꺾쇠로 알린다. */}
-                {asked && (
+                {scopePrompt && asked && (
                   <button
                     type="button"
                     onClick={() => setAsked(false)}
@@ -227,7 +231,7 @@ export function DesignerList({
       )}
 
       {/* 목록 위에 덮는다 — 뒤가 비쳐야 무엇을 고르는 자리인지 읽힌다 */}
-      {!asked && (
+      {scopePrompt && !asked && (
         <ScopePrompt
           current={scope}
           onPick={(s) => {
