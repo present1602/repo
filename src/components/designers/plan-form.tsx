@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import {
   designPriceOptions,
+  LOGO_PRICES,
+  DEFAULT_LOGO_PRICE,
+  LOGO_PRICE_MAX,
   formatPrice,
   formatPriceRange,
   type PlanCopy,
@@ -28,6 +31,11 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
   const initialSample = d.scope_sample ?? true
   const [sample, setSample] = useState(initialSample)
   const [fullDesign, setFullDesign] = useState(d.scope_full_design)
+  /* 033 전 DB 에는 scope_logo 가 없어 undefined 로 온다 — 꺼짐으로 본다 */
+  const initialLogo = d.scope_logo ?? false
+  const [logo, setLogo] = useState(initialLogo)
+  const initialLogoPrice = d.logo_price ?? DEFAULT_LOGO_PRICE
+  const [logoPrice, setLogoPrice] = useState(initialLogoPrice)
   /* 어드민이 정하는 값이라 상태로 들지 않는다 — 서버가 준 것을 그대로 보여준다 */
   const withDev = d.scope_with_dev
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -43,7 +51,9 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
     premiumPrice !== d.premium_price ||
     premiumEnabled !== d.premium_enabled ||
     sample !== initialSample ||
-    fullDesign !== d.scope_full_design
+    fullDesign !== d.scope_full_design ||
+    logo !== initialLogo ||
+    logoPrice !== initialLogoPrice
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,6 +65,8 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
         premiumEnabled,
         scopeSample: sample,
         scopeFullDesign: fullDesign,
+        scopeLogo: logo,
+        logoPrice,
       })
       if (!r.ok) {
         setMsg({ ok: false, text: r.error })
@@ -135,6 +147,54 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
         </p>
       </section>
 
+      {/* 로고 디자인 — 시작가만 고른다. 상한은 모두 같은 99,000원.
+          아래 '받을 의뢰 유형'에서 로고를 켠 경우에만 공개 프로필에 나간다. */}
+      <section>
+        <h3 className="text-sm font-semibold">로고 디자인</h3>
+
+        <div className="mt-3.5 flex flex-wrap items-end gap-3">
+          <label className="min-w-0">
+            <span className="mb-1.5 block text-xs font-medium text-neutral-600">시작가</span>
+            <select
+              value={logoPrice}
+              onChange={(e) => setLogoPrice(Number(e.target.value))}
+              className="h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+            >
+              {LOGO_PRICES.map((p) => (
+                <option key={p} value={p}>
+                  {formatPrice(p)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <span className="pb-2.5 text-neutral-400">~</span>
+
+          <div className="min-w-0">
+            <span className="mb-1.5 block text-xs font-medium text-neutral-600">
+              상한 <span className="font-normal text-neutral-400">(고정)</span>
+            </span>
+            <p className="flex h-10 items-center rounded-lg bg-neutral-100 px-3 text-sm font-medium text-neutral-500">
+              {formatPrice(LOGO_PRICE_MAX)}
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-2.5 text-xs leading-relaxed text-neutral-400">
+          {logo ? (
+            <>
+              공개 프로필에는{' '}
+              <b className="font-medium text-neutral-600">
+                {formatPriceRange(logoPrice, LOGO_PRICE_MAX)}
+              </b>{' '}
+              으로 보입니다.
+            </>
+          ) : (
+            '아래 받을 의뢰 유형에서 로고 디자인을 켜야 공개 프로필에 보입니다.'
+          )}
+        </p>
+      </section>
+
       <hr className="border-neutral-200" />
 
       {/* 받을 의뢰 유형 — 탐색 화면이 이 체크로 디자이너를 거른다.
@@ -145,7 +205,7 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
           체크한 유형의 의뢰만 연결됩니다. 맡기 어려운 유형은 꺼 두세요. 소액 의뢰 없이 본계약
           건만 받으려면 메인 시안 의뢰를 끄면 됩니다.
         </p>
-        {!sample && !fullDesign && !withDev && (
+        {!sample && !logo && !fullDesign && !withDev && (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
             모든 유형을 끄면 탐색 목록에 노출되지 않습니다. 프로필 링크를 직접 받은 사람만 볼 수
             있습니다.
@@ -154,12 +214,14 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
 
         <div className="mt-3.5 space-y-2">
           {SCOPES.map((s) => {
-            /* 세 유형의 주인이 다르다 —
+            /* 유형마다 주인이 다르다 —
                  sample      본인이 켜고 끈다. 기본 켜짐.
+                 logo        본인이 켜고 끈다.
                  full_design 본인이 켜고 끈다.
                  with_dev    어드민이 열어 준다. 본인은 보기만 한다. */
             const locked = s === 'with_dev'
-            const on = s === 'sample' ? sample : s === 'full_design' ? fullDesign : withDev
+            const on = { sample, logo, full_design: fullDesign, with_dev: withDev }[s]
+            const set = { sample: setSample, logo: setLogo, full_design: setFullDesign, with_dev: null }[s]
 
             return (
               <label
@@ -195,9 +257,7 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
                     type="checkbox"
                     checked={on}
                     disabled={locked}
-                    onChange={(e) =>
-                      (s === 'sample' ? setSample : setFullDesign)(e.target.checked)
-                    }
+                    onChange={(e) => set?.(e.target.checked)}
                     className="mt-0.5 shrink-0 accent-violet-600"
                   />
                 )}

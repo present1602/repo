@@ -114,7 +114,7 @@ export function InquiryModal({
             <legend className="mb-2 text-xs font-medium text-neutral-700">
               의뢰 유형 <span className="text-red-600">*</span>
             </legend>
-            <div className="grid gap-2 md:grid-cols-3">
+            <div className="grid gap-2 md:grid-cols-2">
               {INQUIRY_TYPES.map((t) => (
                 <RadioCard
                   key={t}

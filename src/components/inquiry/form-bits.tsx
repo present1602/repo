@@ -249,7 +249,7 @@ export function RadioCard({
   defaultChecked?: boolean
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 p-3 transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50">
+    <label className="group flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 p-3 transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50">
       <input
         required
         type="radio"
@@ -266,17 +266,20 @@ export function RadioCard({
         {/* 설명 안의 \n 은 줄바꿈으로 보인다 — 글자에 <br/> 을 넣으면 그대로 찍힌다 */}
         {hint && (
           <span className="mt-0.5 block whitespace-pre-line text-xs leading-relaxed text-neutral-500">
-            {/* 할인 전 금액 — 가로줄(line-through) 대신 사선을 긋는다 */}
+            {/* 판매가 — 고르기 전에도 눈에 띄게 진하게, 고르면 보라색으로 */}
+            <span className="font-semibold text-neutral-700 group-has-[:checked]:text-violet-600">
+              {hint}
+            </span>
+            {/* 할인 전 금액 — 판매가 뒤에 둔다. 가로줄(line-through) 대신 사선을 긋는다 */}
             {was && (
-              <span className="relative mr-1.5 inline-block text-[11px] text-neutral-400">
+              <span className="relative ml-1.5 inline-block text-[11px] text-neutral-400">
                 <s className="no-underline">{was}</s>
                 <span
                   aria-hidden
-                  className="absolute inset-x-0 top-1/2 h-px rotate-[8deg] bg-neutral-400"
+                  className="absolute inset-x-0 top-1/2 h-px -rotate-[12deg] bg-neutral-400"
                 />
               </span>
             )}
-            {hint}
           </span>
         )}
       </span>

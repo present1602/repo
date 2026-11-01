@@ -4,13 +4,15 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createDesigner } from '@/app/admin/designers/actions'
 import { Field, input } from './form-bits'
+import { SpecialtyPicker } from './specialty-picker'
 import { NAME_MAX, nameError } from '@/lib/display-name'
 
-export function DesignerCreateForm() {
+/* specialties — 전문 분야 선택지. 설정에서 켜 둔 것(011_specialties.sql) */
+export function DesignerCreateForm({ specialties }: { specialties: string[] }) {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [oneLiner, setOneLiner] = useState('')
-  const [tags, setTags] = useState('')
+  const [tags, setTags] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   /* 메일이 실패하면 임시 비밀번호를 직접 전달해야 하므로 화면에 남겨둔다 */
   const [mailWarning, setMailWarning] = useState<string | null>(null)
@@ -25,7 +27,7 @@ export function DesignerCreateForm() {
     if (bad) return setError(bad)
 
     start(async () => {
-      const r = await createDesigner({ email, name, oneLiner, tags })
+      const r = await createDesigner({ email, name, oneLiner, tags: tags.join(', ') })
       if (!r.ok) {
         setError(r.error)
         return
@@ -89,14 +91,10 @@ export function DesignerCreateForm() {
             className={input}
           />
         </Field>
-        <Field label="전문 분야" hint="선택 · 쉼표로 구분">
-          <input
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            placeholder="UX/UI, 브랜딩"
-            className={input}
-          />
-        </Field>
+      </div>
+
+      <div className="mt-4">
+        <SpecialtyPicker options={specialties} value={tags} onChange={setTags} />
       </div>
 
       <button

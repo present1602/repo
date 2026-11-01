@@ -14,12 +14,28 @@ export const metadata: Metadata = {
    cacheComponents 아래에서 요청마다 새로 읽는다.
 
    대신 Suspense 로 감싸 정적 셸이 먼저 나가게 한다 —
-   없으면 DB 응답을 기다리는 동안 화면이 빈 채로 멈춘다. */
+   없으면 DB 응답을 기다리는 동안 화면이 빈 채로 멈춘다.
+
+   기다리는 동안은 로딩 표시만 띄운다. ExploreSkeleton 은 썸네일 줄 카드
+   시절의 골격이라 지금 목록과 모양이 달라, 잠깐 비쳤다 사라지면 옛 화면이
+   번쩍인 것처럼 보인다. feature 섹션을 다시 살리면 fallback 을 되돌린다. */
 export default function ExplorePage() {
   return (
-    <Suspense fallback={<ExploreSkeleton />}>
+    <Suspense fallback={<ExploreLoading />}>
       <ExploreContent />
     </Suspense>
+  )
+}
+
+function ExploreLoading() {
+  return (
+    <div className="grid min-h-[calc(100vh-3.5rem)] place-items-center bg-neutral-100">
+      <div
+        role="status"
+        aria-label="불러오는 중"
+        className="size-7 animate-spin rounded-full border-[3px] border-neutral-300 border-t-violet-600"
+      />
+    </div>
   )
 }
 
@@ -38,7 +54,9 @@ async function ExploreContent() {
   return <DesignerList designers={designers} tags={tags} featureIds={featureIds} />
 }
 
-/* 실제 화면과 같은 골격으로 둔다 — 목록이 들어올 때 레이아웃이 튀지 않게 */
+/* 실제 화면과 같은 골격으로 둔다 — 목록이 들어올 때 레이아웃이 튀지 않게.
+   지금은 쓰지 않는다(위 ExploreLoading 참고) — feature 섹션을 살릴 때 다시 쓴다. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ExploreSkeleton() {
   return (
     <div className="flex min-h-full bg-neutral-100">

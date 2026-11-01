@@ -129,18 +129,21 @@ export function DesignerList({
                   {tag ?? 'Designers'}
                 </h1>
                 {/* 고른 유형을 제목 옆에 늘 보이게 — 왜 목록이 짧은지 모르면
-                    디자이너가 없는 줄 알고 되돌아간다. 고르지 않았으면 띄우지 않는다.
+                    디자이너가 없는 줄 알고 되돌아간다. '모르겠어요'로 닫았으면
+                    '전체'로 띄운다 — 유형을 고르는 자리가 있다는 걸 알려야 한다.
                     제목을 가리지 않게 테두리 없는 작은 글자로 두고, 눌러서 처음의
                     물음을 다시 연다 — 바꿀 수 있다는 걸 꺾쇠로 알린다. */}
-                {scope && (
+                {asked && (
                   <button
                     type="button"
                     onClick={() => setAsked(false)}
-                    aria-label={`의뢰유형 변경 (지금: ${SCOPE_LABELS[scope]})`}
+                    aria-label={`의뢰유형 변경 (지금: ${scope ? SCOPE_LABELS[scope] : '전체'})`}
                     className="inline-flex max-w-full items-center gap-1 text-xs text-violet-800 transition hover:text-violet-600"
                   >
                     <span className="shrink-0 text-violet-500">의뢰유형 :</span>
-                    <span className="truncate font-semibold">{SCOPE_LABELS[scope]}</span>
+                    <span className="truncate font-semibold">
+                      {scope ? SCOPE_LABELS[scope] : '전체'}
+                    </span>
                     <svg
                       viewBox="0 0 16 16"
                       fill="none"

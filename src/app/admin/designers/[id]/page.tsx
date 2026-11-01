@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
 import { getDesignerById, listWorks } from '@/lib/designers-db'
 import { getDesignerCardPreview } from '@/lib/public-designers'
+import { listVisibleSpecialties } from '@/lib/specialties'
 import { displayName } from '@/lib/display-name'
 import { DesignerDetail } from '@/components/admin/designer-detail'
 import { AdminPortfolio } from '@/components/admin/admin-portfolio'
@@ -29,8 +30,12 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
   const designer = await getDesignerById(id)
   if (!designer) notFound()
 
-  /* 포트폴리오와 목록 미리보기는 서로 기다릴 이유가 없다 */
-  const [works, cardPreview] = await Promise.all([listWorks(id), getDesignerCardPreview(id)])
+  /* 포트폴리오·목록 미리보기·분야 목록은 서로 기다릴 이유가 없다 */
+  const [works, cardPreview, specialties] = await Promise.all([
+    listWorks(id),
+    getDesignerCardPreview(id),
+    listVisibleSpecialties(),
+  ])
 
   /* 비밀번호 해시는 화면으로 내려보내지 않는다 */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -47,7 +52,7 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
       {/* 좌측 디자이너 정보 · 우측 포트폴리오.
           정보 칸은 폭을 고정해 입력칸이 늘어지지 않게 한다. */}
       <div className="grid gap-8 xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <DesignerDetail designer={safe} cardPreview={cardPreview} />
+        <DesignerDetail designer={safe} cardPreview={cardPreview} specialties={specialties} />
         <AdminPortfolio designerId={id} works={works} />
       </div>
     </main>

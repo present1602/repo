@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { getPublicDesigner } from '@/lib/public-designers'
 import { displayNameOf } from '@/lib/display-name'
 import { getPlanCopy } from '@/lib/site-settings'
-import { formatPrice, formatPriceRange } from '@/lib/plans'
+import { formatPrice, formatPriceRange, LOGO_PRICE_MAX } from '@/lib/plans'
 import { Img } from '@/components/img'
 import { WorkGallery } from '@/components/work-gallery'
 import { InquiryButton } from '@/components/inquiry/inquiry-button'
@@ -116,9 +116,11 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
 
         <section className="border-t border-neutral-200 pt-10">
           {/* 금액은 디자이너가 정하고, 이름·설명은 전역 설정에서 온다.
-              프리미엄은 디자이너가 끌 수 있어 한 장만 나올 수 있다 —
+              프리미엄·로고는 디자이너가 끌 수 있어 한 장만 나올 수 있다 —
               그때는 한 칸을 비우지 않고 폭을 채운다. */}
-          <div className={`grid gap-3 ${d.premium_enabled ? 'md:grid-cols-2' : ''}`}>
+          <div
+            className={`grid gap-3 ${d.premium_enabled || d.scope_logo ? 'md:grid-cols-2' : ''}`}
+          >
             <PlanCard
               badge="메인시안"
               name={copy.design_plan_name}
@@ -127,6 +129,16 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
               priceTo={d.price_max}
               // note={`본 계약 의뢰는 전부 ${formatPrice(d.contract_price)}~`}
             />
+            {/* 로고는 받겠다고 켠 디자이너만(033_logo_design.sql) */}
+            {d.scope_logo && (
+              <PlanCard
+                badge="로고"
+                name="로고 디자인"
+                desc="로고 디자인을 의뢰합니다."
+                price={d.logo_price}
+                priceTo={LOGO_PRICE_MAX}
+              />
+            )}
             {d.premium_enabled && (
               <PlanCard
                 name={copy.premium_plan_name}

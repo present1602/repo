@@ -10,6 +10,8 @@ import {
   formatPrice,
   formatPriceRange,
   DESIGN_PRICES,
+  DEFAULT_LOGO_PRICE,
+  LOGO_PRICE_MAX,
   DEFAULT_PRICE_MAX,
   MIN_PRICE_MAX,
   MAX_PRICE_MAX,
@@ -28,14 +30,18 @@ import {
   setDesignerWithDev,
 } from '@/app/admin/designers/actions'
 import { Field, input, ghostButton } from './form-bits'
+import { SpecialtyPicker } from './specialty-picker'
 
 type Notice = { kind: 'ok' | 'warn' | 'error'; text: string } | null
 
 export function DesignerDetail({
   designer: d,
   cardPreview,
+  specialties,
 }: {
   designer: AdminDesigner
+  /* 전문 분야 선택지 — 설정에서 켜 둔 것(011_specialties.sql) */
+  specialties: string[]
   /* 목록에 어떻게 실릴지 — 공개 전이라 아직 안 보이는 경우에도 받는다 */
   cardPreview: PublicDesignerCard | null
 }) {
@@ -118,7 +124,7 @@ export function DesignerDetail({
         </p>
       )}
 
-      <ProfileForm designer={d} onNotice={setNotice} />
+      <ProfileForm designer={d} specialties={specialties} onNotice={setNotice} />
 
       <PlanSummary designer={d} onNotice={setNotice} />
 
@@ -280,6 +286,19 @@ function PlanSummary({
           <dd className="font-medium">{formatPriceRange(d.design_price, d.price_max)}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-neutral-500">로고</dt>
+          <dd className="flex items-center gap-1.5">
+            {!d.scope_logo && (
+              <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-600">
+                안 받음
+              </span>
+            )}
+            <span className={d.scope_logo ? 'font-medium' : 'text-neutral-400'}>
+              {formatPriceRange(d.logo_price ?? DEFAULT_LOGO_PRICE, LOGO_PRICE_MAX)}
+            </span>
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
           <dt className="text-neutral-500">본 계약</dt>
           <dd className="font-medium">{formatPrice(contractNow)}~</dd>
         </div>
@@ -420,16 +439,18 @@ function PlanSummary({
 
 function ProfileForm({
   designer: d,
+  specialties,
   onNotice,
 }: {
   designer: AdminDesigner
+  specialties: string[]
   onNotice: (n: Notice) => void
 }) {
   const [email, setEmail] = useState(d.email)
   const [name, setName] = useState(d.name ?? '')
   const [oneLiner, setOneLiner] = useState(d.one_liner ?? '')
   const [bio, setBio] = useState(d.bio ?? '')
-  const [tags, setTags] = useState(d.tags.join(', '))
+  const [tags, setTags] = useState(d.tags)
   const [pending, start] = useTransition()
   const router = useRouter()
 
@@ -439,7 +460,7 @@ function ProfileForm({
     name !== (d.name ?? '') ||
     oneLiner !== (d.one_liner ?? '') ||
     bio !== (d.bio ?? '') ||
-    tags !== d.tags.join(', ')
+    tags.join(', ') !== d.tags.join(', ')
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -448,7 +469,15 @@ function ProfileForm({
     const bad = name !== (d.name ?? '') ? nameError(name) : null
     if (bad) return onNotice({ kind: 'error', text: bad })
     start(async () => {
-      const r = await updateDesigner({ id: d.id, email, name, oneLiner, bio, tags })
+      const r = await updateDesigner({
+        id: d.id,
+        email,
+        name,
+        oneLiner,
+        bio,
+        /* 서버에는 지금까지처럼 쉼표 문자열로 보낸다 — 화면만 체크박스로 바뀌었다 */
+        tags: tags.join(', '),
+      })
       if (!r.ok) return onNotice({ kind: 'error', text: r.error })
       onNotice({ kind: 'ok', text: '저장했습니다.' })
       router.refresh()
@@ -490,9 +519,7 @@ function ProfileForm({
             className="w-full resize-y rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none ring-violet-500 focus:ring-2"
           />
         </Field>
-        <Field label="전문 분야" hint="선택 · 쉼표로 구분">
-          <input value={tags} onChange={(e) => setTags(e.target.value)} className={input} />
-        </Field>
+        <SpecialtyPicker options={specialties} value={tags} onChange={setTags} />
       </div>
 
       <div className="mt-5 flex items-center gap-2">

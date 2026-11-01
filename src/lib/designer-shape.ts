@@ -41,8 +41,12 @@ export type DesignerRow = {
      030 전에는 select('*') 에 없어 undefined 로 온다. */
   contract_price?: number
   /* 받을 의뢰 유형(017_designer_scopes.sql, 019_scope_sample_optional.sql).
-     메인 시안·디자인 전체는 본인이, 디자인 + 개발은 어드민이 켜고 끈다. */
+     메인 시안·디자인 전체는 본인이, 디자인 + 개발은 어드민이 켜고 끈다.
+     로고(033_logo_design.sql)도 본인이 — 033 전에는 select('*') 에 없어 undefined 로 온다. */
   scope_sample: boolean
+  scope_logo?: boolean
+  /* 로고 시작가(033_logo_design.sql) — 상한은 99,000원 고정. 033 전에는 undefined. */
+  logo_price?: number
   scope_full_design: boolean
   scope_with_dev: boolean
 }
@@ -95,8 +99,11 @@ export type PublicDesigner = {
   price_max: number
   premium_price: number
   premium_enabled: boolean
-  /* 탐색 화면이 이 셋으로 거른다(scopes.ts) */
+  /* 로고 시작가 ~ LOGO_PRICE_MAX — scope_logo 를 켠 디자이너만 보여준다 */
+  logo_price: number
+  /* 탐색 화면이 이 넷으로 거른다(scopes.ts) */
   scope_sample: boolean
+  scope_logo: boolean
   scope_full_design: boolean
   scope_with_dev: boolean
 }

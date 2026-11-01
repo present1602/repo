@@ -17,6 +17,12 @@ export const PREMIUM_PRICES = [79000, 109000, 169000] as const
 export const DEFAULT_DESIGN_PRICE = DESIGN_PRICES[0]
 export const DEFAULT_PREMIUM_PRICE = PREMIUM_PRICES[0]
 
+/* 로고 디자인 시작가 — 디자이너가 고르고, 상한은 모두 99,000원으로 고정이다.
+   033_logo_design.sql 의 check 제약과 같은 값이다 — 함께 고쳐야 한다. */
+export const LOGO_PRICES = [19900, 29000, 39000, 49000, 59000, 79000, 99000] as const
+export const DEFAULT_LOGO_PRICE = LOGO_PRICES[0]
+export const LOGO_PRICE_MAX = 99000
+
 /* 상한의 기본값과 한계(016_price_range.sql 의 check 제약과 같은 값) */
 export const DEFAULT_PRICE_MAX = 99000
 export const MIN_PRICE_MAX = 29000
@@ -36,6 +42,10 @@ export function isContractPrice(n: number): boolean {
    DB check 제약이 최종 방어하지만, 거부되면 뭉뚱그린 에러만 남는다. */
 export function isDesignPrice(n: number): boolean {
   return (DESIGN_PRICES as readonly number[]).includes(n)
+}
+
+export function isLogoPrice(n: number): boolean {
+  return (LOGO_PRICES as readonly number[]).includes(n)
 }
 
 export function isPremiumPrice(n: number): boolean {

@@ -14,7 +14,7 @@ import {
   MAX_BIO,
   checkPublicReady,
 } from '@/lib/portfolio-limits'
-import { isDesignPrice, isPremiumPrice, formatPrice } from '@/lib/plans'
+import { isDesignPrice, isPremiumPrice, isLogoPrice, formatPrice } from '@/lib/plans'
 import { listVisibleSpecialties } from '@/lib/specialties'
 import { MAX_TAGS } from '@/lib/specialty-shape'
 
@@ -202,6 +202,10 @@ export type PlanInput = {
      받지 않는 값을 여기 두면 화면이 보내는 대로 덮어쓰게 된다. */
   scopeSample: boolean
   scopeFullDesign: boolean
+  /* 로고 디자인(033_logo_design.sql) — 본인이 켜고 끈다 */
+  scopeLogo: boolean
+  /* 로고 시작가 — 보기 중에서 고른다. 상한은 99,000원 고정 */
+  logoPrice: number
 }
 
 /* 금액은 정해진 보기 중에서만 고를 수 있다.
@@ -214,6 +218,9 @@ export async function updatePlans(input: PlanInput): Promise<Result> {
     return fail('선택할 수 없는 금액입니다.')
   }
   if (!isPremiumPrice(input.premiumPrice)) {
+    return fail('선택할 수 없는 금액입니다.')
+  }
+  if (!isLogoPrice(input.logoPrice)) {
     return fail('선택할 수 없는 금액입니다.')
   }
 
@@ -247,6 +254,8 @@ export async function updatePlans(input: PlanInput): Promise<Result> {
       /* scope_with_dev 는 건드리지 않는다 — 어드민이 정하는 값이다 */
       scope_sample: input.scopeSample,
       scope_full_design: input.scopeFullDesign,
+      scope_logo: input.scopeLogo,
+      logo_price: input.logoPrice,
     })
     .eq('id', id)
 
