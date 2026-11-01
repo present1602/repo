@@ -2,7 +2,12 @@ import 'server-only'
 import { cache } from 'react'
 import { supabaseAdmin } from './supabase-admin'
 import { MAX_WORKS, CARD_THUMBS } from './portfolio-limits'
-import { DEFAULT_CONTRACT_PRICE, DEFAULT_LOGO_PRICE } from './plans'
+import {
+  DEFAULT_CONTRACT_PRICE,
+  DEFAULT_FULL_DESIGN_PRICE,
+  DEFAULT_LOGO_PRICE,
+  DEFAULT_PROJECT_PRICE,
+} from './plans'
 import type {
   PublicWork,
   PublicDesignerCard,
@@ -32,12 +37,15 @@ import type {
    019 만 빠졌으면 scope_sample 만 뺀다 — 017 까지 한꺼번에 빼면
    '디자인 전체'를 켜 둔 디자이너가 그동안 필터에서 사라진다.
    033(scope_logo·logo_price)도 같다 — 그것만 빠졌으면 그것만 뺀다.
-   017·019·033 을 적용하고 나면 이 분기는 지워도 된다. */
+   035(full_design_price·project_price)도 같다.
+   017·019·033·035 를 적용하고 나면 이 분기는 지워도 된다. */
 const DESIGNER_BASE =
   'id, name, avatar_url, one_liner, bio, tags, design_price, price_max, premium_price, premium_enabled'
 const SCOPE_017 = ', scope_full_design, scope_with_dev'
 const SCOPE_019 = ', scope_sample'
-const DESIGNER_COLS = DESIGNER_BASE + SCOPE_017 + SCOPE_019 + ', scope_logo, logo_price'
+const LOGO_033 = ', scope_logo, logo_price'
+const PRICE_035 = ', full_design_price, project_price'
+const DESIGNER_COLS = DESIGNER_BASE + SCOPE_017 + SCOPE_019 + LOGO_033 + PRICE_035
 
 /* 빠진 컬럼의 기본값 — 마이그레이션의 default 와 같다.
    메인 시안은 019 전까지 모두가 받았고, 큰 건과 로고는 켜야 받는다. */
@@ -47,11 +55,17 @@ const SCOPE_DEFAULTS = {
   logo_price: DEFAULT_LOGO_PRICE,
   scope_full_design: false,
   scope_with_dev: false,
+  full_design_price: DEFAULT_FULL_DESIGN_PRICE,
+  project_price: DEFAULT_PROJECT_PRICE,
 }
 
-/* 실패 메시지에 따라 다시 물을 컬럼 목록 — 원인이 scope_* 가 아니면 null */
+/* 실패 메시지에 따라 다시 물을 컬럼 목록 — 원인이 scope_*·가격 칸이 아니면 null */
 function scopeFallback(msg: string | undefined): string | null {
-  if (!msg || !(msg.includes('scope_') || msg.includes('logo_price'))) return null
+  if (!msg) return null
+  if (msg.includes('full_design_price') || msg.includes('project_price')) {
+    return DESIGNER_BASE + SCOPE_017 + SCOPE_019 + LOGO_033
+  }
+  if (!(msg.includes('scope_') || msg.includes('logo_price'))) return null
   if (msg.includes('scope_logo') || msg.includes('logo_price')) return DESIGNER_BASE + SCOPE_017 + SCOPE_019
   return msg.includes('scope_sample') ? DESIGNER_BASE + SCOPE_017 : DESIGNER_BASE
 }

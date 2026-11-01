@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { AdminDesigner } from '@/lib/designer-shape'
-import type { PlanCopy } from '@/lib/plans'
+import type { PlanCopies } from '@/lib/plans'
 import { PlanForm } from './plan-form'
 import { ChangePasswordDialog } from './change-password-dialog'
 
@@ -14,7 +14,7 @@ export function SettingsPanel({
   openPasswordAtFirst,
 }: {
   designer: AdminDesigner
-  copy: PlanCopy
+  copy: PlanCopies
   /* 임시 비밀번호로 들어온 경우 — 먼저 바꾸도록 다이얼로그를 띄워 둔다 */
   openPasswordAtFirst?: boolean
 }) {

@@ -3,8 +3,10 @@ import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { getPublicDesigner } from '@/lib/public-designers'
 import { displayNameOf } from '@/lib/display-name'
-import { getPlanCopy } from '@/lib/site-settings'
-import { formatPrice, formatPriceRange, LOGO_PRICE_MAX } from '@/lib/plans'
+import { getDesignerPremiums, getPlanCopies } from '@/lib/site-settings'
+import { formatPrice, formatPriceRange, livePremium, LOGO_PRICE_MAX, type PlanText } from '@/lib/plans'
+import { acceptsScope, SCOPES, type Scope } from '@/lib/scopes'
+import { offersOf } from '@/lib/inquiry-types'
 import { Img } from '@/components/img'
 import { WorkGallery } from '@/components/work-gallery'
 import { InquiryButton } from '@/components/inquiry/inquiry-button'
@@ -36,11 +38,24 @@ export default function DesignerDetailPage(props: PageProps<'/designers/[id]'>) 
 
 async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>['params'] }) {
   const { id } = await params
-  /* 플랜 문구는 전역 설정 — 디자이너 조회를 기다릴 필요가 없어 동시에 받는다 */
-  const [d, copy] = await Promise.all([getPublicDesigner(id), getPlanCopy()])
+  /* 플랜 문구·프리미엄은 디자이너 조회를 기다릴 필요가 없어 동시에 받는다 */
+  const [d, copies, premiums] = await Promise.all([
+    getPublicDesigner(id),
+    getPlanCopies(),
+    getDesignerPremiums(id),
+  ])
   if (!d) notFound()
 
   const name = displayNameOf(d)
+  const plans = SCOPES.filter((s) => acceptsScope(d, s))
+
+  /* 유형마다 기본 금액 — 메인 시안·로고는 "시작가 ~ 상한", 디자인 전체·프로젝트는 "N원~" */
+  const basePrice: Record<Scope, { price: number; priceTo?: number }> = {
+    sample: { price: d.design_price, priceTo: d.price_max },
+    logo: { price: d.logo_price, priceTo: LOGO_PRICE_MAX },
+    full_design: { price: d.full_design_price },
+    with_dev: { price: d.project_price },
+  }
 
 
   return (
@@ -99,7 +114,11 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
             )}
 
             <div className="mt-10">
-              <InquiryButton designerId={d.id} designerName={name} />
+              <InquiryButton
+                designerId={d.id}
+                designerName={name}
+                offers={offersOf(d, { copies, premiums })}
+              />
             </div>
           </div>
         </section>
@@ -114,44 +133,41 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
           <WorkGallery works={d.works} />
         </section>
 
-        <section className="border-t border-neutral-200 pt-10">
-          {/* 금액은 디자이너가 정하고, 이름·설명은 전역 설정에서 온다.
-              프리미엄·로고는 디자이너가 끌 수 있어 한 장만 나올 수 있다 —
-              그때는 한 칸을 비우지 않고 폭을 채운다. */}
-          <div
-            className={`grid gap-3 ${d.premium_enabled || d.scope_logo ? 'md:grid-cols-2' : ''}`}
-          >
-            <PlanCard
-              badge="메인시안"
-              name={copy.design_plan_name}
-              desc={copy.design_plan_desc}
-              price={d.design_price}
-              priceTo={d.price_max}
-              // note={`본 계약 의뢰는 전부 ${formatPrice(d.contract_price)}~`}
-            />
-            {/* 로고는 받겠다고 켠 디자이너만(033_logo_design.sql) */}
-            {d.scope_logo && (
-              <PlanCard
-                badge="로고"
-                name="로고 디자인"
-                desc="로고 디자인을 의뢰합니다."
-                price={d.logo_price}
-                priceTo={LOGO_PRICE_MAX}
-              />
-            )}
-            {d.premium_enabled && (
-              <PlanCard
-                name={copy.premium_plan_name}
-                desc={copy.premium_plan_desc}
-                price={d.premium_price}
-              />
-            )}
-          </div>
-        </section>
+        {plans.length > 0 && (
+          <section className="border-t border-neutral-200 pt-10">
+            {/* 디자이너가 받는 유형만, 의뢰 폼과 같은 차례로 한 줄에 두 장씩
+                왼쪽부터 채운다 — 한 장뿐이어도 폭을 늘리지 않는다.
+                이름·설명은 어드민 설정(036_plan_copy_premium.sql), 금액은
+                메인 시안·로고는 디자이너가, 디자인 전체·프로젝트는 어드민이 정한다.
+                프리미엄은 유형 전체·디자이너별 스위치가 모두 켜졌을 때만 붙는다. */}
+            <div className="grid gap-3 md:grid-cols-2">
+              {plans.map((s) => (
+                <PlanCard
+                  key={s}
+                  badge={PLAN_BADGES[s]}
+                  name={copies[s].basic.name}
+                  desc={copies[s].basic.desc}
+                  price={basePrice[s].price}
+                  priceTo={basePrice[s].priceTo}
+                  from={basePrice[s].priceTo == null}
+                  premium={livePremium(copies, premiums, s) ?? undefined}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
     </div>
   )
+}
+
+/* 카드 이름 앞의 작은 표시 — 이 금액이 어느 유형의 것인지 */
+const PLAN_BADGES: Record<Scope, string> = {
+  sample: '메인시안',
+  logo: '로고',
+  full_design: '디자인',
+  with_dev: '프로젝트',
 }
 
 /* 실제 화면과 같은 골격 — 프로필이 들어올 때 레이아웃이 튀지 않게 */
@@ -199,7 +215,9 @@ function PlanCard({
   desc,
   price,
   priceTo,
+  from,
   note,
+  premium,
 }: {
   /* 이름 앞에 붙는 작은 표시 — 이 금액이 무엇에 대한 값인지 */
   badge?: string
@@ -207,8 +225,12 @@ function PlanCard({
   desc: string
   price: number
   priceTo?: number
+  /* 상한 없이 "N원~" 으로 적는다 — 디자인 전체·프로젝트 */
+  from?: boolean
   /* 금액 아래 덧붙이는 안내 — 시안 다음 단계의 금액 */
   note?: string
+  /* 같은 유형의 프리미엄 — 기본 아래에 따로 묶어 보여준다 */
+  premium?: PlanText & { price: number }
 }) {
   return (
     <div className="rounded-xl bg-neutral-50 p-6 ring-1 ring-neutral-200">
@@ -221,7 +243,9 @@ function PlanCard({
         {name}
       </p>
       <p className="mt-2 text-2xl font-bold tracking-tight">
-        {priceTo == null ? formatPrice(price) : formatPriceRange(price, priceTo)}
+        {priceTo != null
+          ? formatPriceRange(price, priceTo)
+          : `${formatPrice(price)}${from ? '~' : ''}`}
       </p>
       {note && (
         <p className="mt-2">
@@ -231,6 +255,23 @@ function PlanCard({
         </p>
       )}
       <p className="mt-3 text-sm leading-relaxed text-neutral-600">{desc}</p>
+
+      {premium && (
+        <div className="mt-5 rounded-lg bg-white px-4 py-3.5 ring-1 ring-violet-200">
+          <div className="flex items-center justify-between gap-3">
+            <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+              <span className="shrink-0 rounded-full bg-violet-700 px-2 py-0.5 text-[11px] font-bold tracking-wide text-white">
+                PREMIUM
+              </span>
+              <span className="truncate">{premium.name}</span>
+            </p>
+            <p className="shrink-0 font-bold">{formatPrice(premium.price)}~</p>
+          </div>
+          {premium.desc && (
+            <p className="mt-1.5 text-[13px] leading-relaxed text-neutral-600">{premium.desc}</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

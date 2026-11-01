@@ -8,6 +8,7 @@ import { Img } from './img'
 import { WorkModal } from './work-modal'
 import { ScopePrompt } from './scope-prompt'
 import { InquiryButton } from './inquiry/inquiry-button'
+import { offersOf, type InquiryOffers } from '@/lib/inquiry-types'
 
 /* 기본 카드가 보여주는 작업 수 — 썸네일 줄과 다이얼로그 모두 이만큼만 */
 const SPOTLIGHT_MAX = 4
@@ -18,6 +19,7 @@ export function DesignerList({
   tags: allTags,
   featureIds = [],
   scopePrompt = true,
+  offers,
 }: {
   designers: PublicDesignerCard[]
   tags: string[]
@@ -27,6 +29,8 @@ export function DesignerList({
   /* 의뢰유형을 묻는지 — 어드민 설정에서 끄면 묻는 창도, 제목 옆 표시도
      나오지 않는다(034_scope_prompt_toggle.sql) */
   scopePrompt?: boolean
+  /* 디자이너 id → 의뢰 폼의 유형·금액(offersOf). 프리미엄까지 담으려고 서버에서 만들어 온다 */
+  offers?: Record<string, InquiryOffers>
 }) {
   const featureRank = useMemo(
     () => new Map(featureIds.map((id, i) => [id, i])),
@@ -196,12 +200,14 @@ export function DesignerList({
               <DesignerCard
                 key={d.id}
                 designer={d}
+                offers={offers?.[d.id]}
                 onOpenWork={(i) => setOpenAt(starts.get(d.id)! + i)}
               />
             ) : (
               <DesignerSpotlight
                 key={d.id}
                 designer={d}
+                offers={offers?.[d.id]}
                 onOpenWork={(i) => setOpenAt(starts.get(d.id)! + i)}
               />
             ),
@@ -256,9 +262,12 @@ export function DesignerList({
    베껴 두면 한쪽만 고쳐져 "실제로 이렇게 보인다"가 거짓이 된다. */
 export function DesignerCard({
   designer: d,
+  offers,
   onOpenWork,
 }: {
   designer: PublicDesignerCard
+  /* 의뢰 폼의 유형·금액 — 없으면(어드민 미리보기) 프리미엄 없이 여기서 만든다 */
+  offers?: InquiryOffers
   /* 넘겨 주면 다이얼로그를 목록이 띄운다 — 다음 디자이너까지 이어 넘기려면
      모달이 카드 하나보다 위에 있어야 한다. 없으면(어드민 미리보기) 카드가 띄운다. */
   onOpenWork?: (i: number) => void
@@ -316,6 +325,7 @@ export function DesignerCard({
           <InquiryButton
             designerId={d.id}
             designerName={name}
+            offers={offers ?? offersOf(d)}
             className="rounded-lg bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-violet-600"
           />
         </div>
@@ -389,9 +399,11 @@ export function DesignerCard({
    그보다 많으면 끝에 "+N" 을 두어 프로필에서 마저 보게 한다. */
 function DesignerSpotlight({
   designer: d,
+  offers,
   onOpenWork,
 }: {
   designer: PublicDesignerCard
+  offers?: InquiryOffers
   onOpenWork: (i: number) => void
 }) {
   const href = `/designers/${d.id}`
@@ -508,6 +520,7 @@ function DesignerSpotlight({
             <InquiryButton
               designerId={d.id}
               designerName={name}
+              offers={offers ?? offersOf(d)}
               className="rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
             />
           </div>

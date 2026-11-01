@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { sendAdminMail } from '@/lib/admin-mail'
 import { supabaseAdmin, supabaseConfigured, INQUIRY_FILES_BUCKET } from '@/lib/supabase-admin'
 import { allowedEmails } from '@/lib/admin-auth'
-import { isInquiryType } from '@/lib/inquiry-types'
+import { isInquiryPlanTier, isInquiryType } from '@/lib/inquiry-types'
 
 /* 의뢰 문의 접수.
 
@@ -83,6 +83,9 @@ export async function POST(req: Request) {
        어드민 목록의 유형 칸이 쓸모없어진다(inquiry-types.ts) */
     const rawType = String(form.get('inquiryType') ?? '').trim()
     const inquiryType = isInquiryType(rawType) ? rawType : ''
+    /* 기본·프리미엄 — 프리미엄이 있는 유형을 골랐을 때만 온다. 그 밖에는 null */
+    const rawTier = String(form.get('planTier') ?? '').trim()
+    const planTier = isInquiryPlanTier(rawTier) ? rawTier : null
     const designerId = String(form.get('designerId') ?? '').trim()
     let designerName = String(form.get('designerName') ?? '').trim()
     const submitKey = String(form.get('submitKey') ?? '').trim()
@@ -185,6 +188,8 @@ export async function POST(req: Request) {
         phone,
         message,
         inquiry_type: inquiryType,
+        /* 036 전 DB 에는 칸이 없다 — 그때는 프리미엄이 공개되지 않아 값도 오지 않는다 */
+        ...(planTier ? { plan_tier: planTier } : {}),
         designer_id: designerId || null,
         designer_name: designerName || null,
         files: uploaded,
@@ -214,6 +219,9 @@ export async function POST(req: Request) {
     const to = allowedEmails()
     let mailed = false
 
+    /* 프리미엄을 골랐으면 유형 옆에 붙인다 — 메일 제목만 보고도 견적이 갈린다 */
+    const typeLabel = planTier === 'premium' ? `${inquiryType} · 프리미엄` : inquiryType
+
     if (process.env.RESEND_API_KEY && to.length > 0) {
       try {
         await sendAdminMail({
@@ -222,15 +230,15 @@ export async function POST(req: Request) {
           /* 답장을 누르면 바로 문의한 사람에게 간다 */
           replyTo: email,
           subject: designerName
-            ? `[${inquiryType}] ${name} → ${designerName}`
-            : `[${inquiryType}] ${name}`,
+            ? `[${typeLabel}] ${name} → ${designerName}`
+            : `[${typeLabel}] ${name}`,
           html: mailHtml({
             id: row.id as string,
             name,
             email,
             phone,
             message,
-            inquiryType,
+            inquiryType: typeLabel,
             designerName,
             uploaded,
           }),

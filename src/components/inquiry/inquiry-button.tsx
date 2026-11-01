@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { InquiryModal } from './inquiry-modal'
+import type { InquiryOffers } from '@/lib/inquiry-types'
 
 /* 디자이너 상세의 의뢰 버튼.
 
@@ -10,10 +11,13 @@ import { InquiryModal } from './inquiry-modal'
 export function InquiryButton({
   designerId,
   designerName,
+  offers,
   className,
 }: {
   designerId: string
   designerName: string
+  /* 이 디자이너가 받는 유형과 시작가 — 폼의 유형·금액이 이것으로 바뀐다 */
+  offers?: InquiryOffers
   className?: string
 }) {
   const [open, setOpen] = useState(false)
@@ -35,6 +39,7 @@ export function InquiryButton({
         <InquiryModal
           designerId={designerId}
           designerName={designerName}
+          offers={offers}
           onClose={() => setOpen(false)}
         />
       )}

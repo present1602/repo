@@ -148,6 +148,11 @@ function InquiryItem({
                 {q.inquiry_type}
               </span>
             )}
+            {q.plan_tier === 'premium' && (
+              <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-semibold text-violet-700">
+                프리미엄
+              </span>
+            )}
             <span className={`text-sm ${unread ? 'font-semibold' : 'font-medium'}`}>{q.name}</span>
             {q.designer_name && (
               <span className="text-xs text-neutral-500">→ {q.designer_name}</span>

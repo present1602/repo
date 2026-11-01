@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner, PublicDesignerCard } from '@/lib/designer-shape'
@@ -15,10 +15,13 @@ import {
   DEFAULT_PRICE_MAX,
   MIN_PRICE_MAX,
   MAX_PRICE_MAX,
-  DEFAULT_CONTRACT_PRICE,
   MIN_CONTRACT_PRICE,
   MAX_CONTRACT_PRICE,
+  DEFAULT_FULL_DESIGN_PRICE,
+  DEFAULT_PROJECT_PRICE,
+  type DesignerPremiums,
 } from '@/lib/plans'
+import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
 import { displayName, NAME_MAX, nameError } from '@/lib/display-name'
 import {
   updateDesigner,
@@ -27,21 +30,41 @@ import {
   resetPassword,
   deleteDesigner,
   setDesignerPrices,
-  setDesignerWithDev,
+  setDesignerPremiums,
+  setDesignerScope,
 } from '@/app/admin/designers/actions'
 import { Field, input, ghostButton } from './form-bits'
 import { SpecialtyPicker } from './specialty-picker'
+import { DESIGNER_TABS, type DesignerTab } from './designer-tabs'
 
 type Notice = { kind: 'ok' | 'warn' | 'error'; text: string } | null
 
+/* 받침에 따라 '을'/'를' — '상한을', '최소가를'. 한글이 아니면 '를' */
+function eulReul(word: string) {
+  const c = word.charCodeAt(word.length - 1) - 0xac00
+  return c >= 0 && c <= 11171 && c % 28 !== 0 ? '을' : '를'
+}
+
 export function DesignerDetail({
+  tab,
   designer: d,
   cardPreview,
   specialties,
+  premiums,
+  premiumOn,
+  portfolio,
 }: {
+  /* 지금 탭 — 주소의 ?tab= 에서 온다(designer-tabs.ts) */
+  tab: DesignerTab
+  /* 포트폴리오 탭 내용 — 서버에서 그린 것(AdminPortfolio)을 그대로 끼운다 */
+  portfolio: ReactNode
   designer: AdminDesigner
   /* 전문 분야 선택지 — 설정에서 켜 둔 것(011_specialties.sql) */
   specialties: string[]
+  /* 유형별 프리미엄 — 디자이너마다 켜짐과 금액, 어드민만 정한다(036_plan_copy_premium.sql) */
+  premiums: DesignerPremiums
+  /* 설정에서 프리미엄을 켠 유형 — 켜진 유형만 디자이너별로 켤 수 있다 */
+  premiumOn: Record<Scope, boolean>
   /* 목록에 어떻게 실릴지 — 공개 전이라 아직 안 보이는 경우에도 받는다 */
   cardPreview: PublicDesignerCard | null
 }) {
@@ -124,11 +147,51 @@ export function DesignerDetail({
         </p>
       )}
 
-      <ProfileForm designer={d} specialties={specialties} onNotice={setNotice} />
+      {/* 탭 줄 — 링크라서 주소가 바뀐다. 페이지가 탭마다 key 를 바꿔 새로 그리므로
+          알림 문구는 다음 탭으로 넘어가지 않는다 */}
+      <nav aria-label="디자이너 관리" className="flex gap-1 border-b border-neutral-200">
+        {DESIGNER_TABS.map((t) => {
+          const on = t.key === tab
+          return (
+            <Link
+              key={t.key}
+              href={t.key === 'profile' ? `/admin/designers/${d.id}` : `?tab=${t.key}`}
+              aria-current={on ? 'page' : undefined}
+              scroll={false}
+              className={`-mb-px border-b-2 px-3.5 py-2.5 text-sm font-medium transition ${
+                on
+                  ? 'border-violet-600 text-violet-700'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              {t.label}
+            </Link>
+          )
+        })}
+      </nav>
 
-      <PlanSummary designer={d} onNotice={setNotice} />
+      {tab === 'profile' && (
+        <div className="max-w-2xl space-y-6">
+          <ProfileForm designer={d} specialties={specialties} onNotice={setNotice} />
+          <AccountSection designer={d} onNotice={setNotice} />
+        </div>
+      )}
 
-      <AccountSection designer={d} onNotice={setNotice} />
+      {tab === 'portfolio' && portfolio}
+
+      {/* 설정 — 왼쪽 가격 플랜(기본·프리미엄), 오른쪽 받을 의뢰 유형.
+          좁은 화면에서는 의뢰 유형이 아래로 내려간다 */}
+      {tab === 'settings' && (
+        <div className="grid max-w-5xl items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <PlanSummary
+            designer={d}
+            premiums={premiums}
+            premiumOn={premiumOn}
+            onNotice={setNotice}
+          />
+          <ScopeSection designer={d} onNotice={setNotice} />
+        </div>
+      )}
 
       {previewOpen && cardPreview && (
         <ListPreviewDialog designer={cardPreview} onClose={() => setPreviewOpen(false)} />
@@ -223,50 +286,172 @@ function ListPreviewDialog({
 
 /* ─────────── 가격 ─────────── */
 
-/* 금액 — 시작가는 디자이너가 고르고 어드민도 바꿀 수 있다. 상한·본 계약은 어드민만.
-   문구를 바꾸려면 설정 화면으로 간다. */
+/* 금액 — 의뢰 유형 넷이 같은 모양으로 한 줄씩. 받을 유형은 옆의 ScopeSection.
+   메인 시안·로고 시작가는 디자이너가 고르고(시안은 어드민도 바꿀 수 있다),
+   시안 상한·디자인 전체·프로젝트 최소가·프리미엄 금액은 어드민만 정한다.
+   이름·설명은 설정 화면에서 고친다.
+
+   저장 버튼이 없다 — 칸마다 바꾸고 벗어나면(선택 상자는 고르면) 확인을 받고
+   바로 저장한다. 취소하면 저장된 값으로 되돌린다. 여러 칸을 고쳐 놓고
+   저장을 잊는 일이 없게. */
 function PlanSummary({
   designer: d,
+  premiums,
+  premiumOn,
   onNotice,
 }: {
   designer: AdminDesigner
+  premiums: DesignerPremiums
+  premiumOn: Record<Scope, boolean>
   onNotice: (n: Notice) => void
 }) {
-  /* 상한·본 계약 시작가는 어드민이 직접 적는다 — 금액을 올려 줄 만한 디자이너를
-     가려내는 일은 사람이 판단한다(016_price_range.sql, 030_contract_price.sql).
-     시작가는 디자이너가 고르지만 여기서도 바꿀 수 있다. */
-  const contractNow = d.contract_price ?? DEFAULT_CONTRACT_PRICE
-  const [designPrice, setDesignPrice] = useState(d.design_price)
+  /* 035 전에는 칸이 없어 undefined 로 온다 — 기본값으로 보여준다 */
+  const fullNow = d.full_design_price ?? DEFAULT_FULL_DESIGN_PRICE
+  const projectNow = d.project_price ?? DEFAULT_PROJECT_PRICE
+
   const [priceMax, setPriceMax] = useState(String(d.price_max))
-  const [contractPrice, setContractPrice] = useState(String(contractNow))
+  const [fullPrice, setFullPrice] = useState(String(fullNow))
+  const [projectPrice, setProjectPrice] = useState(String(projectNow))
+  /* 프리미엄 — 유형마다 켜짐과 금액. 꺼도 금액은 남겨 둔다(다시 켤 때 다시 적지 않게) */
+  const premiumNow = (s: Scope) => ({
+    on: premiums[s]?.enabled ?? false,
+    price: premiums[s] ? String(premiums[s].price) : '',
+  })
+  const [premium, setPremium] = useState<Record<Scope, { on: boolean; price: string }>>(() => ({
+    sample: premiumNow('sample'),
+    logo: premiumNow('logo'),
+    full_design: premiumNow('full_design'),
+    with_dev: premiumNow('with_dev'),
+  }))
+  const setPremiumOf = (s: Scope, patch: Partial<{ on: boolean; price: string }>) =>
+    setPremium((p) => ({ ...p, [s]: { ...p[s], ...patch } }))
   const [pending, start] = useTransition()
-  /* 의뢰 유형은 저장 버튼 없이 바로 반영된다 — 가격과 따로 둔다 */
-  const [pendingScope, startScope] = useTransition()
   const router = useRouter()
 
-  const dirty =
-    designPrice !== d.design_price ||
-    priceMax !== String(d.price_max) ||
-    contractPrice !== String(contractNow)
-
-  const save = (e: React.FormEvent) => {
-    e.preventDefault()
+  /* 한 칸 저장 — 실패하면 화면 값을 저장된 값으로 되돌린다 */
+  const commit = (
+    run: () => Promise<{ ok: true } | { ok: false; error: string }>,
+    done: string,
+    revert: () => void,
+  ) => {
     onNotice(null)
     start(async () => {
-      /* 바뀐 칸만 보낸다 — 030 전에도 시작가·상한은 저장되게 */
-      const r = await setDesignerPrices(d.id, {
-        designPrice: designPrice !== d.design_price ? designPrice : undefined,
-        priceMax: priceMax !== String(d.price_max) ? Number(priceMax) : undefined,
-        contractPrice: contractPrice !== String(contractNow) ? Number(contractPrice) : undefined,
-      })
+      const r = await run()
       if (!r.ok) {
+        revert()
         onNotice({ kind: 'error', text: r.error })
         return
       }
       router.refresh()
-      onNotice({ kind: 'ok', text: '금액을 바꿨습니다.' })
+      onNotice({ kind: 'ok', text: done })
     })
   }
+
+  /* 직접 적는 금액 칸 — 바뀌었을 때만 묻는다 */
+  const commitPrice = (
+    label: string,
+    value: string,
+    saved: number,
+    reset: (v: string) => void,
+    patch: (n: number) => Parameters<typeof setDesignerPrices>[1],
+  ) => {
+    const n = Number(value)
+    if (value.trim() === String(saved)) return
+    if (!value.trim() || !Number.isFinite(n)) {
+      reset(String(saved))
+      onNotice({ kind: 'error', text: `${label}${eulReul(label)} 숫자로 적어 주세요.` })
+      return
+    }
+    if (!window.confirm(`${label}${eulReul(label)} ${formatPrice(n)}으로 바꿀까요?`)) {
+      reset(String(saved))
+      return
+    }
+    commit(
+      () => setDesignerPrices(d.id, patch(n)),
+      `${label}${eulReul(label)} ${formatPrice(n)}으로 바꿨습니다.`,
+      () => reset(String(saved)),
+    )
+  }
+
+  /* 프리미엄 한 유형 저장 */
+  const commitPremium = (s: Scope, next: { on: boolean; price: string }, question: string, done: string) => {
+    const before = premiumNow(s)
+    if (!window.confirm(question)) {
+      setPremiumOf(s, before)
+      return
+    }
+    setPremiumOf(s, next)
+    commit(
+      () =>
+        setDesignerPremiums(d.id, {
+          [s]: { enabled: next.on, price: next.price.trim() ? Number(next.price) : null },
+        }),
+      done,
+      () => setPremiumOf(s, before),
+    )
+  }
+
+  const togglePremium = (s: Scope, on: boolean) => {
+    const label = `${SCOPE_LABELS[s]} 프리미엄`
+    const price = premium[s].price.trim()
+    if (!on) {
+      commitPremium(s, { on: false, price }, `${label}${eulReul(label)} 끌까요?`, `${label}${eulReul(label)} 껐습니다.`)
+      return
+    }
+    /* 금액이 없으면 칸만 열어 둔다 — 금액을 적고 벗어날 때 묻는다 */
+    if (!price) {
+      setPremiumOf(s, { on: true })
+      return
+    }
+    commitPremium(
+      s,
+      { on: true, price },
+      `${label}${eulReul(label)} ${formatPrice(Number(price))}으로 켤까요?`,
+      `${label}${eulReul(label)} 켰습니다.`,
+    )
+  }
+
+  const blurPremium = (s: Scope) => {
+    const label = `${SCOPE_LABELS[s]} 프리미엄`
+    const cur = premium[s]
+    const saved = premiumNow(s)
+    const price = cur.price.trim()
+    if (cur.on === saved.on && price === saved.price) return
+
+    /* 켜 놓고 금액을 비우면 — 프리미엄을 끄고 금액도 지운다 */
+    if (!price) {
+      commitPremium(
+        s,
+        { on: false, price: '' },
+        `${label} 금액을 비울까요? 프리미엄도 꺼집니다.`,
+        `${label}${eulReul(label)} 껐습니다.`,
+      )
+      return
+    }
+    if (!Number.isFinite(Number(price))) {
+      setPremiumOf(s, saved)
+      onNotice({ kind: 'error', text: `${label} 금액을 숫자로 적어 주세요.` })
+      return
+    }
+    commitPremium(
+      s,
+      { on: cur.on, price },
+      `${label}${eulReul(label)} ${formatPrice(Number(price))}으로 ${saved.on ? '바꿀까요' : '켤까요'}?`,
+      `${label}${eulReul(label)} ${formatPrice(Number(price))}으로 저장했습니다.`,
+    )
+  }
+
+  /* 요약 — 유형마다 받는지, 기본 금액, 프리미엄 금액 */
+  const rows: { s: Scope; on: boolean; base: string }[] = [
+    { s: 'sample', on: d.scope_sample, base: formatPriceRange(d.design_price, d.price_max) },
+    {
+      s: 'logo',
+      on: d.scope_logo ?? false,
+      base: formatPriceRange(d.logo_price ?? DEFAULT_LOGO_PRICE, LOGO_PRICE_MAX),
+    },
+    { s: 'full_design', on: d.scope_full_design, base: `${formatPrice(fullNow)}~` },
+    { s: 'with_dev', on: d.scope_with_dev, base: `${formatPrice(projectNow)}~` },
+  ]
 
   return (
     <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
@@ -276,58 +461,61 @@ function PlanSummary({
           href="/admin/settings"
           className="text-xs font-medium text-violet-600 transition hover:text-violet-800"
         >
-          문구 수정 →
+          문구·프리미엄 설정 →
         </Link>
       </div>
 
       <dl className="mt-3 space-y-2 text-sm">
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-neutral-500">디자인</dt>
-          <dd className="font-medium">{formatPriceRange(d.design_price, d.price_max)}</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-neutral-500">로고</dt>
-          <dd className="flex items-center gap-1.5">
-            {!d.scope_logo && (
-              <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-600">
-                안 받음
-              </span>
-            )}
-            <span className={d.scope_logo ? 'font-medium' : 'text-neutral-400'}>
-              {formatPriceRange(d.logo_price ?? DEFAULT_LOGO_PRICE, LOGO_PRICE_MAX)}
-            </span>
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-neutral-500">본 계약</dt>
-          <dd className="font-medium">{formatPrice(contractNow)}~</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-neutral-500">프리미엄</dt>
-          <dd className="flex items-center gap-1.5">
-            {!d.premium_enabled && (
-              <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-600">
-                숨김
-              </span>
-            )}
-            <span className={d.premium_enabled ? 'font-medium' : 'text-neutral-400'}>
-              {formatPrice(d.premium_price)}
-            </span>
-          </dd>
-        </div>
+        {rows.map(({ s, on, base }) => (
+          <div key={s} className="flex items-baseline justify-between gap-2">
+            <dt className="text-neutral-500">{SCOPE_LABELS[s]}</dt>
+            <dd className="flex flex-wrap items-center justify-end gap-1.5 text-right">
+              {!on && (
+                <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-600">
+                  안 받음
+                </span>
+              )}
+              <span className={on ? 'font-medium' : 'text-neutral-400'}>{base}</span>
+              {/* 디자이너별로 켠 프리미엄 — 설정에서 꺼져 있으면 나가지 않으므로 흐리게 */}
+              {premiums[s]?.enabled && (
+                <span
+                  title={premiumOn[s] ? undefined : '설정에서 이 유형의 프리미엄이 꺼져 있어 나가지 않습니다'}
+                  className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                    premiumOn[s] ? 'bg-violet-100 text-violet-700' : 'bg-neutral-100 text-neutral-400'
+                  }`}
+                >
+                  P {formatPrice(premiums[s]!.price)}~
+                </span>
+              )}
+            </dd>
+          </div>
+        ))}
       </dl>
 
-      {/* 금액 — 시작가는 디자이너도 고르고, 상한·본 계약은 어드민만 정한다 */}
-      <form onSubmit={save} className="mt-4 space-y-3 border-t border-neutral-200 pt-4">
+      <div className="mt-4 space-y-3 border-t border-neutral-200 pt-4">
+        <p className="text-[11px] text-neutral-400">
+          칸을 고치고 벗어나면 저장할지 묻습니다.{pending && ' 저장 중…'}
+        </p>
+
         <label className="block">
           <span className="mb-1.5 flex items-baseline justify-between text-xs font-medium text-neutral-600">
-            시안 시작가
+            메인 시안 시작가
             <span className="font-normal text-neutral-400">디자이너도 수정</span>
           </span>
+          {/* 선택 상자는 고르는 순간 묻는다 — 취소하면 저장된 값이 그대로 남는다(제어 값) */}
           <select
-            value={designPrice}
-            onChange={(e) => setDesignPrice(Number(e.target.value))}
-            className="h-9 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+            value={d.design_price}
+            disabled={pending}
+            onChange={(e) => {
+              const n = Number(e.target.value)
+              if (!window.confirm(`메인 시안 시작가를 ${formatPrice(n)}으로 바꿀까요?`)) return
+              commit(
+                () => setDesignerPrices(d.id, { designPrice: n }),
+                `메인 시안 시작가를 ${formatPrice(n)}으로 바꿨습니다.`,
+                () => {},
+              )
+            }}
+            className="h-9 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2 disabled:opacity-60"
           >
             {DESIGN_PRICES.map((p) => (
               <option key={p} value={p}>
@@ -337,101 +525,251 @@ function PlanSummary({
           </select>
         </label>
 
-        <label className="block">
-          <span className="mb-1.5 flex items-baseline justify-between text-xs font-medium text-neutral-600">
-            시안 가격 상한
-            <span className="font-normal text-neutral-400">어드민만 수정</span>
-          </span>
-          <input
-            type="number"
-            inputMode="numeric"
-            value={priceMax}
-            onChange={(e) => setPriceMax(e.target.value)}
-            min={MIN_PRICE_MAX}
-            max={MAX_PRICE_MAX}
-            step={1000}
-            className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
-          />
-          <span className="mt-1.5 block text-xs leading-relaxed text-neutral-400">
-            올려 두면 디자이너가 더 높은 시작가를 고를 수 있습니다. 기본{' '}
-            {formatPrice(DEFAULT_PRICE_MAX)}.
-          </span>
-        </label>
+        <PriceInput
+          label="메인 시안 가격 상한"
+          value={priceMax}
+          onChange={setPriceMax}
+          onCommit={() =>
+            commitPrice('메인 시안 가격 상한', priceMax, d.price_max, setPriceMax, (n) => ({ priceMax: n }))
+          }
+          min={MIN_PRICE_MAX}
+          max={MAX_PRICE_MAX}
+          help={`올려 두면 디자이너가 더 높은 시작가를 고를 수 있습니다. 기본 ${formatPrice(DEFAULT_PRICE_MAX)}.`}
+        />
+        <PriceInput
+          label="디자인 전체 최소가"
+          value={fullPrice}
+          onChange={setFullPrice}
+          onCommit={() =>
+            commitPrice('디자인 전체 최소가', fullPrice, fullNow, setFullPrice, (n) => ({
+              fullDesignPrice: n,
+            }))
+          }
+          min={MIN_CONTRACT_PRICE}
+          max={MAX_CONTRACT_PRICE}
+          help={`상세 카드와 의뢰 폼에 "N원~" 으로 나갑니다. 기본 ${formatPrice(DEFAULT_FULL_DESIGN_PRICE)}.`}
+        />
+        <PriceInput
+          label="프로젝트 최소가"
+          value={projectPrice}
+          onChange={setProjectPrice}
+          onCommit={() =>
+            commitPrice('프로젝트 최소가', projectPrice, projectNow, setProjectPrice, (n) => ({
+              projectPrice: n,
+            }))
+          }
+          min={MIN_CONTRACT_PRICE}
+          max={MAX_CONTRACT_PRICE}
+          help={`기본 ${formatPrice(DEFAULT_PROJECT_PRICE)}.`}
+        />
 
-        <label className="block">
-          <span className="mb-1.5 flex items-baseline justify-between text-xs font-medium text-neutral-600">
-            본 계약 시작가
-            <span className="font-normal text-neutral-400">어드민만 수정</span>
-          </span>
-          <input
-            type="number"
-            inputMode="numeric"
-            value={contractPrice}
-            onChange={(e) => setContractPrice(e.target.value)}
-            min={MIN_CONTRACT_PRICE}
-            max={MAX_CONTRACT_PRICE}
-            step={1000}
-            className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
-          />
-          <span className="mt-1.5 block text-xs leading-relaxed text-neutral-400">
-            상세 화면에 &ldquo;본 계약 의뢰는 전부 {formatPrice(Number(contractPrice) || 0)}~&rdquo;
-            로 나갑니다. 기본 {formatPrice(DEFAULT_CONTRACT_PRICE)}.
-          </span>
-        </label>
-
-        <button
-          type="submit"
-          disabled={pending || !dirty}
-          className="w-full rounded-lg bg-neutral-900 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
-        >
-          {pending ? '저장 중…' : '금액 저장'}
-        </button>
-      </form>
-
-      {/* 받을 의뢰 유형 중 '디자인 + 개발'만 어드민이 연다 —
-          오프라인 미팅·상주 근무 요청이 따를 수 있어 아무나 받을 수 없다.
-          나머지 둘은 디자이너 몫이라 여기서 다루지 않는다. */}
-      <div className="mt-5 border-t border-neutral-200 pt-4">
-        <p className="text-xs font-medium text-neutral-600">의뢰 유형</p>
-
-        <label className="mt-2.5 flex cursor-pointer items-start gap-2.5">
-          <input
-            type="checkbox"
-            checked={d.scope_with_dev}
-            disabled={pendingScope}
-            onChange={(e) =>
-              startScope(async () => {
-                onNotice(null)
-                const r = await setDesignerWithDev(d.id, e.target.checked)
-                if (!r.ok) {
-                  onNotice({ kind: 'error', text: r.error })
-                  return
-                }
-                router.refresh()
-                onNotice({
-                  kind: 'ok',
-                  text: e.target.checked
-                    ? '프로젝트 의뢰(디자인 + 개발)를 받도록 열었습니다.'
-                    : '프로젝트 의뢰(디자인 + 개발)를 닫았습니다.',
-                })
-              })
-            }
-            className="mt-0.5 shrink-0 accent-violet-600"
-          />
-          <span className="min-w-0">
-            <span className="block text-sm font-medium">프로젝트 의뢰(디자인 + 개발)</span>
-            <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
-              켜면 이 디자이너가 개발까지 포함한 의뢰를 받습니다. 디자이너 본인은 바꿀 수
-              없습니다.
-            </span>
-          </span>
-        </label>
-
-        <p className="mt-2.5 text-xs text-neutral-400">
-          메인 시안 우선과 디자인 의뢰는 디자이너가 직접 켜고 끕니다.
-        </p>
+        {/* 프리미엄 — 유형마다 켜고 금액을 넣는다. 설정에서 그 유형의 프리미엄을
+            켜 둬야 여기서 켤 수 있다. 둘 다 켜져야 공개 화면에 나간다. */}
+        <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-3">
+          <p className="text-xs font-semibold text-violet-800">프리미엄</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
+            설정에서 프리미엄을 켠 유형만 켤 수 있습니다. 꺼도 금액은 남아 있습니다.
+          </p>
+          <div className="mt-3 space-y-2.5">
+            {SCOPES.map((s) => {
+              const allowed = premiumOn[s]
+              const on = premium[s].on
+              return (
+                <div key={s} className="flex items-center justify-between gap-3">
+                  <label
+                    className={`flex min-w-0 items-center gap-2 text-xs ${
+                      allowed ? 'cursor-pointer text-neutral-700' : 'text-neutral-400'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      /* 설정에서 꺼진 유형은 켤 수 없다 — 이미 켜져 있으면 끌 수는 있다 */
+                      disabled={pending || (!allowed && !on)}
+                      onChange={(e) => togglePremium(s, e.target.checked)}
+                      className="shrink-0 accent-violet-600"
+                    />
+                    <span className="truncate">{SCOPE_LABELS[s]}</span>
+                    {!allowed && <span className="shrink-0 text-[11px]">· 설정에서 꺼짐</span>}
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    aria-label={`${SCOPE_LABELS[s]} 프리미엄 금액`}
+                    value={premium[s].price}
+                    onChange={(e) => setPremiumOf(s, { price: e.target.value })}
+                    onBlur={() => blurPremium(s)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur()
+                    }}
+                    disabled={!on || pending}
+                    min={MIN_CONTRACT_PRICE}
+                    max={MAX_CONTRACT_PRICE}
+                    step={1000}
+                    placeholder={on ? '금액' : '—'}
+                    className="h-9 w-32 shrink-0 rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2 disabled:bg-neutral-50 disabled:text-neutral-400"
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </section>
+  )
+}
+
+/* 받을 의뢰 유형 — 어드민이 넷 다 켜고 끈다. 누르면 확인을 받고 바로 저장한다(저장 버튼 없음).
+
+   프로젝트는 오프라인 미팅·상주 근무 요청이 따를 수 있어 어드민만 열 수 있다.
+   나머지 셋은 디자이너 본인도 스튜디오에서 바꾼다 — 여기서는 대신 바꿔 준다. */
+const SCOPE_HELP: Record<Scope, string> = {
+  sample: '메인화면 시안만 먼저 받는 의뢰입니다. 디자이너 본인도 바꿀 수 있습니다.',
+  logo: '로고 디자인 의뢰입니다. 디자이너 본인도 바꿀 수 있습니다.',
+  full_design: '서비스 전체 디자인 의뢰입니다. 디자이너 본인도 바꿀 수 있습니다.',
+  with_dev: '개발까지 포함한 의뢰입니다. 디자이너 본인은 바꿀 수 없습니다.',
+}
+
+function ScopeSection({
+  designer: d,
+  onNotice,
+}: {
+  designer: AdminDesigner
+  onNotice: (n: Notice) => void
+}) {
+  const [pending, start] = useTransition()
+  const router = useRouter()
+
+  const current: Record<Scope, boolean> = {
+    sample: d.scope_sample,
+    /* 033 전에는 칸이 없어 undefined 로 온다 — 꺼진 것으로 본다 */
+    logo: d.scope_logo ?? false,
+    full_design: d.scope_full_design,
+    with_dev: d.scope_with_dev,
+  }
+
+  const toggle = (scope: Scope, on: boolean) => {
+    /* 취소하면 체크가 그대로 남는다 — checked 가 저장된 값(d)을 따른다 */
+    const ok = window.confirm(
+      on
+        ? `이 디자이너가 ${SCOPE_LABELS[scope]}${eulReul(SCOPE_LABELS[scope])} 받도록 열까요?`
+        : `이 디자이너의 ${SCOPE_LABELS[scope]}${eulReul(SCOPE_LABELS[scope])} 닫을까요?`,
+    )
+    if (!ok) return
+    start(async () => {
+      onNotice(null)
+      const r = await setDesignerScope(d.id, scope, on)
+      if (!r.ok) {
+        onNotice({ kind: 'error', text: r.error })
+        return
+      }
+      router.refresh()
+      onNotice({
+        kind: 'ok',
+        text: `${SCOPE_LABELS[scope]}${eulReul(SCOPE_LABELS[scope])} ${on ? '받도록 열었습니다' : '닫았습니다'}.`,
+      })
+    })
+  }
+
+  return (
+    <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
+      <h2 className="text-sm font-semibold">의뢰 유형</h2>
+      <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+        이 디자이너가 받을 의뢰입니다. 끈 유형은 탐색 필터·상세 카드·의뢰 폼에서 빠집니다.
+      </p>
+
+      {SCOPES.map((s) => (
+        <ScopeCheck
+          key={s}
+          label={SCOPE_LABELS[s]}
+          help={SCOPE_HELP[s]}
+          checked={current[s]}
+          disabled={pending}
+          onChange={(on) => toggle(s, on)}
+        />
+      ))}
+
+      {/* 넷 다 끄면 탐색에 나오지 않는다(designer-list.tsx) — 모르고 끄지 않게 알린다 */}
+      {!SCOPES.some((s) => current[s]) && (
+        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800">
+          받는 유형이 없어 탐색 목록에 나오지 않습니다. 프로필 링크로만 열립니다.
+        </p>
+      )}
+    </section>
+  )
+}
+
+/* 어드민이 직접 적는 금액 칸 — 터무니없는 값은 서버가 막는다 */
+function PriceInput({
+  label,
+  value,
+  onChange,
+  onCommit,
+  min,
+  max,
+  help,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  /* 칸을 벗어날 때 — 바뀌었으면 저장할지 묻는다 */
+  onCommit: () => void
+  min: number
+  max: number
+  help: string
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 flex items-baseline justify-between text-xs font-medium text-neutral-600">
+        {label}
+        <span className="font-normal text-neutral-400">어드민만 수정</span>
+      </span>
+      <input
+        type="number"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+        }}
+        min={min}
+        max={max}
+        step={1000}
+        className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+      />
+      <span className="mt-1.5 block text-xs leading-relaxed text-neutral-400">{help}</span>
+    </label>
+  )
+}
+
+function ScopeCheck({
+  label,
+  help,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string
+  help: string
+  checked: boolean
+  disabled: boolean
+  onChange: (on: boolean) => void
+}) {
+  return (
+    <label className="mt-2.5 flex cursor-pointer items-start gap-2.5">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 shrink-0 accent-violet-600"
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">{help}</span>
+      </span>
+    </label>
   )
 }
 

@@ -33,6 +33,9 @@ export type InquiryRow = {
   message: string
   /* 014 이전에 들어온 문의는 비어 있다 */
   inquiry_type: string | null
+  /* 기본·프리미엄(036_plan_copy_premium.sql) — 프리미엄을 고를 수 있던 문의만.
+     036 전에는 select('*') 에 없어 undefined 로 온다. */
+  plan_tier?: 'basic' | 'premium' | null
 
   /* 특정 디자이너에게 보낸 문의면 채워진다. 외래키가 없으므로
      그 디자이너가 지워졌어도 이름은 남아 있다. */

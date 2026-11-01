@@ -8,6 +8,7 @@ import { generateTempPassword, hashPassword } from '@/lib/password'
 import { sendTempPassword } from '@/lib/designer-mail'
 import { displayName } from '@/lib/display-name'
 import { putImage } from '@/lib/upload'
+import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
 import {
   MAX_DESCRIPTION,
   MAX_BIO,
@@ -239,7 +240,13 @@ export async function setDesignerProfilePublic(
    바뀐 칸만 보낸다 — 030 을 적용하기 전에도 시작가·상한은 고칠 수 있게. */
 export async function setDesignerPrices(
   id: string,
-  next: { designPrice?: number; priceMax?: number; contractPrice?: number },
+  next: {
+    designPrice?: number
+    priceMax?: number
+    contractPrice?: number
+    fullDesignPrice?: number
+    projectPrice?: number
+  },
 ): Promise<Result> {
   const db = await guard()
 
@@ -255,6 +262,17 @@ export async function setDesignerPrices(
     return fail(
       `본 계약 시작가는 ${formatPrice(MIN_CONTRACT_PRICE)} 이상 ${formatPrice(MAX_CONTRACT_PRICE)} 이하로 적어 주세요.`,
     )
+  }
+  /* 디자인 전체·프로젝트 최소가 — 본 계약 시작가와 같은 범위(035 의 check 제약과 같은 값) */
+  for (const [label, v] of [
+    ['디자인 전체 최소가', next.fullDesignPrice],
+    ['프로젝트 최소가', next.projectPrice],
+  ] as const) {
+    if (v != null && !isContractPrice(v)) {
+      return fail(
+        `${label}는 ${formatPrice(MIN_CONTRACT_PRICE)} 이상 ${formatPrice(MAX_CONTRACT_PRICE)} 이하로 적어 주세요.`,
+      )
+    }
   }
 
   const { data: d, error: readErr } = await db
@@ -277,6 +295,8 @@ export async function setDesignerPrices(
   if (next.designPrice != null) patch.design_price = next.designPrice
   if (next.priceMax != null) patch.price_max = next.priceMax
   if (next.contractPrice != null) patch.contract_price = next.contractPrice
+  if (next.fullDesignPrice != null) patch.full_design_price = next.fullDesignPrice
+  if (next.projectPrice != null) patch.project_price = next.projectPrice
   if (Object.keys(patch).length === 0) return { ok: true }
 
   const { error } = await db.from('designers').update(patch).eq('id', id)
@@ -285,25 +305,115 @@ export async function setDesignerPrices(
     if (error.message.includes('contract_price')) {
       return fail('본 계약 시작가 칸이 아직 없습니다. 030_contract_price.sql 을 먼저 적용해 주세요.')
     }
+    if (error.message.includes('full_design_price') || error.message.includes('project_price')) {
+      return fail(
+        '디자인 전체·프로젝트 최소가 칸이 아직 없습니다. 035_full_design_project_price.sql 을 먼저 적용해 주세요.',
+      )
+    }
     return fail('변경에 실패했습니다.')
   }
 
   refresh(id)
   /* 디자이너의 시작가 선택지가 바뀐다 */
   revalidatePath('/studio')
+  /* 탐색 카드의 의뢰 폼 금액이 바뀐다 */
+  revalidatePath('/explore')
   return { ok: true }
 }
 
-/* '디자인 + 개발' 의뢰를 받게 할지 — 어드민만 정한다(017_designer_scopes.sql).
+/* 유형별 프리미엄 — 디자이너마다 켜고 끄고 금액을 정한다. 어드민만(036_plan_copy_premium.sql).
 
-   오프라인 미팅·상주 근무 요청이 따를 수 있어 아무나 받을 수 없다.
-   디자이너는 자기 상태를 볼 수만 있고, 받고 싶으면 관리자에게 문의한다. */
-export async function setDesignerWithDev(id: string, on: boolean): Promise<Result> {
+   그 유형의 프리미엄이 설정에서 켜져 있어야 켤 수 있다. 끌 때는 금액을
+   남겨 둔다 — 다시 켤 때 다시 적지 않게. 꺼져 있고 금액도 비었으면 줄을 지운다.
+   받은 유형만 건드린다. */
+export async function setDesignerPremiums(
+  id: string,
+  next: Partial<Record<Scope, { enabled: boolean; price: number | null }>>,
+): Promise<Result> {
   const db = await guard()
 
-  const { error } = await db.from('designers').update({ scope_with_dev: on }).eq('id', id)
+  const { data: copyRows } = await db
+    .from('plan_copy')
+    .select('plan, enabled')
+    .eq('tier', 'premium')
+  const planOn = new Set(
+    ((copyRows ?? []) as { plan: string; enabled: boolean }[]).filter((r) => r.enabled).map((r) => r.plan),
+  )
+
+  const upserts: { designer_id: string; plan: Scope; price: number; enabled: boolean }[] = []
+  const removes: Scope[] = []
+  for (const s of SCOPES) {
+    const v = next[s]
+    if (!v) continue
+
+    if (v.enabled && !planOn.has(s)) {
+      return fail(`${SCOPE_LABELS[s]}의 프리미엄이 설정에서 꺼져 있습니다. 먼저 켜 주세요.`)
+    }
+    if (v.enabled && v.price == null) {
+      return fail(`${SCOPE_LABELS[s]}의 프리미엄 금액을 적어 주세요.`)
+    }
+    if (v.price == null) {
+      removes.push(s)
+      continue
+    }
+    if (!isContractPrice(v.price)) {
+      return fail(
+        `프리미엄 금액은 ${formatPrice(MIN_CONTRACT_PRICE)} 이상 ${formatPrice(MAX_CONTRACT_PRICE)} 이하로 적어 주세요.`,
+      )
+    }
+    upserts.push({ designer_id: id, plan: s, price: v.price, enabled: v.enabled })
+  }
+
+  if (upserts.length > 0) {
+    const { error } = await db
+      .from('designer_premium_prices')
+      .upsert(upserts, { onConflict: 'designer_id,plan' })
+    if (error) {
+      console.error('[designers] 프리미엄 저장 실패:', error.message)
+      if (error.message.includes('designer_premium_prices') || error.message.includes('enabled')) {
+        return fail('프리미엄 표가 아직 없거나 옛 판입니다. 036_plan_copy_premium.sql 을 먼저 적용해 주세요.')
+      }
+      return fail('프리미엄을 저장하지 못했습니다.')
+    }
+  }
+
+  if (removes.length > 0) {
+    const { error } = await db
+      .from('designer_premium_prices')
+      .delete()
+      .eq('designer_id', id)
+      .in('plan', removes)
+    if (error) {
+      console.error('[designers] 프리미엄 삭제 실패:', error.message)
+      return fail('프리미엄을 지우지 못했습니다.')
+    }
+  }
+
+  refresh(id)
+  return { ok: true }
+}
+
+/* 받을 의뢰 유형 — 어드민이 디자이너마다 넷 다 켜고 끌 수 있다.
+
+   프로젝트(디자인 + 개발)는 어드민만 정한다(017_designer_scopes.sql) —
+   오프라인 미팅·상주 근무 요청이 따를 수 있어 아무나 받을 수 없다.
+   메인 시안·로고·디자인 전체는 디자이너 본인도 켜고 끄지만 어드민이 대신 바꿀 수 있다. */
+const SCOPE_COLUMNS: Record<Scope, string> = {
+  sample: 'scope_sample',
+  logo: 'scope_logo',
+  full_design: 'scope_full_design',
+  with_dev: 'scope_with_dev',
+}
+
+export async function setDesignerScope(id: string, scope: Scope, on: boolean): Promise<Result> {
+  const db = await guard()
+
+  const column = SCOPE_COLUMNS[scope]
+  if (!column) return fail('알 수 없는 의뢰 유형입니다.')
+
+  const { error } = await db.from('designers').update({ [column]: on }).eq('id', id)
   if (error) {
-    console.error('[designers] 디자인+개발 설정 실패:', error.message)
+    console.error(`[designers] ${column} 설정 실패:`, error.message)
     return fail('변경에 실패했습니다.')
   }
 

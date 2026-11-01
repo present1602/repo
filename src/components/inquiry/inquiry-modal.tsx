@@ -16,7 +16,50 @@ import {
   INQUIRY_TYPE_HINTS,
   INQUIRY_TYPE_WAS,
   INQUIRY_TYPE_TIPS,
+  type InquiryOffers,
+  type InquiryPlanTier,
+  type InquiryType,
 } from '@/lib/inquiry-types'
+import { formatPrice } from '@/lib/plans'
+
+/* '49,000원~' → 49000 */
+const wonOf = (s: string) => Number(s.replace(/\D/g, ''))
+
+/* 유형 카드 안의 기본·프리미엄 전환 한 칸.
+   라디오 label 안에 있으므로 type="button" — 폼을 보내지 않고, 누름이
+   라디오 선택을 흔들지 않는다(이미 이 유형이 골라져 있을 때만 보인다). */
+function TierButton({
+  label,
+  title,
+  price,
+  on,
+  onPick,
+}: {
+  label: string
+  /* 프리미엄 이름(어드민 설정) — 무엇이 더해지는지 이름으로 알린다 */
+  title?: string
+  price: number
+  on: boolean
+  onPick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      title={title}
+      onClick={(e) => {
+        e.preventDefault()
+        onPick()
+      }}
+      className={`min-h-11 rounded-md px-2.5 py-2 text-left transition ${
+        on ? 'bg-white text-violet-700 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'
+      }`}
+    >
+      <span className="block text-xs font-semibold">{label}</span>
+      <span className="mt-0.5 block text-xs">{formatPrice(price)}~</span>
+    </button>
+  )
+}
 
 /* 의뢰·문의 폼.
 
@@ -28,15 +71,29 @@ import {
 export function InquiryModal({
   designerId,
   designerName,
+  offers,
   onClose,
 }: {
   designerId?: string
   designerName?: string
+  /* 그 디자이너가 받는 유형과 시작가(offersOf) — 없으면 모든 유형을 기본 금액으로 */
+  offers?: InquiryOffers
   onClose: () => void
 }) {
+  /* 받는 유형이 하나도 없으면 다 보여준다 — 고를 게 없는 폼은 보낼 수가 없다 */
+  const types =
+    offers && Object.keys(offers).length > 0
+      ? INQUIRY_TYPES.filter((t) => offers[t] != null)
+      : INQUIRY_TYPES
   const [done, setDone] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+
+  /* 고른 유형과 단계 — 프리미엄이 있는 유형을 고르면 카드 안에 전환이 펼쳐진다.
+     유형을 바꾸면 기본으로 돌아간다 — 다른 유형의 프리미엄을 따라오면 안 된다. */
+  const [picked, setPicked] = useState<InquiryType | null>(null)
+  const [tier, setTier] = useState<InquiryPlanTier>('basic')
+  const pickedOffer = picked ? offers?.[picked] : undefined
 
   /* 한 번 열면 끝까지 같은 키를 쓴다 — 느린 응답에 다시 눌러도
      서버가 같은 접수로 보고 두 번 저장하지 않는다(012_inquiries.sql). */
@@ -115,17 +172,56 @@ export function InquiryModal({
               의뢰 유형 <span className="text-red-600">*</span>
             </legend>
             <div className="grid gap-2 md:grid-cols-2">
-              {INQUIRY_TYPES.map((t) => (
-                <RadioCard
-                  key={t}
-                  name="inquiryType"
-                  value={t}
-                  hint={INQUIRY_TYPE_HINTS[t]}
-                  was={INQUIRY_TYPE_WAS[t]}
-                  tip={INQUIRY_TYPE_TIPS[t]}
-                />
-              ))}
+              {types.map((t) => {
+                const offer = offers?.[t]
+                const price = offer?.price
+                const was = INQUIRY_TYPE_WAS[t]
+                const premium = offer?.premium
+                const checked = picked === t
+                return (
+                  <RadioCard
+                    key={t}
+                    name="inquiryType"
+                    value={t}
+                    hint={price != null ? `${formatPrice(price)}~` : INQUIRY_TYPE_HINTS[t]}
+                    /* 할인 전 금액은 그 디자이너 시작가보다 클 때만 — 아니면 할인이 아니다 */
+                    was={was && (price == null || wonOf(was) > price) ? was : undefined}
+                    tip={INQUIRY_TYPE_TIPS[t]}
+                    onChange={() => {
+                      setPicked(t)
+                      setTier('basic')
+                    }}
+                  >
+                    {/* 프리미엄이 있는 유형 — 고르기 전에는 있다는 것만, 고르면
+                        카드 안에서 기본·프리미엄을 바꾼다 */}
+                    {premium && !checked && (
+                      <span className="mt-1 block text-[11px] text-violet-700">
+                        프리미엄 {formatPrice(premium.price)}~ 선택 가능
+                      </span>
+                    )}
+                    {premium && checked && price != null && (
+                      <span className="mt-3 grid grid-cols-2 gap-1 rounded-lg bg-violet-100 p-1">
+                        <TierButton
+                          label="기본"
+                          price={price}
+                          on={tier === 'basic'}
+                          onPick={() => setTier('basic')}
+                        />
+                        <TierButton
+                          label="프리미엄"
+                          title={premium.name}
+                          price={premium.price}
+                          on={tier === 'premium'}
+                          onPick={() => setTier('premium')}
+                        />
+                      </span>
+                    )}
+                  </RadioCard>
+                )
+              })}
             </div>
+            {/* 프리미엄을 고를 수 있던 유형일 때만 보낸다 — 아니면 서버가 null 로 둔다 */}
+            {pickedOffer?.premium && <input type="hidden" name="planTier" value={tier} />}
           </fieldset>
 
           <div className="mt-6 grid gap-6 md:grid-cols-2 md:gap-7">

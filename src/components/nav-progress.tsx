@@ -32,8 +32,11 @@ export function NavProgress() {
       safety = setTimeout(() => finish(el, running), 15000)
     }
 
+    /* 캡처 단계에서 잡는다 — React 는 document 에 먼저 리스너를 달고, <Link> 가
+       거기서 preventDefault 를 부른다. 버블 단계로 두면 늘 defaultPrevented 를
+       보고 돌아가 바가 한 번도 뜨지 않는다. */
     const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0) return
+      if (e.button !== 0) return
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
       const a = (e.target as Element | null)?.closest?.('a')
       if (!a || !a.href || a.target === '_blank' || a.hasAttribute('download')) return
@@ -43,11 +46,11 @@ export function NavProgress() {
       start()
     }
 
-    document.addEventListener('click', onClick)
+    document.addEventListener('click', onClick, true)
     window.addEventListener('popstate', start)
     return () => {
       clearTimeout(safety)
-      document.removeEventListener('click', onClick)
+      document.removeEventListener('click', onClick, true)
       window.removeEventListener('popstate', start)
     }
   }, [])
@@ -58,7 +61,7 @@ export function NavProgress() {
   }, [pathname, search])
 
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-0.5">
+    <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-[3px]">
       <div ref={bar} className="h-full w-0 bg-violet-600 opacity-0 shadow-[0_0_6px_rgba(124,58,237,0.6)]" />
     </div>
   )

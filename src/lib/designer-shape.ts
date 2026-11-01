@@ -49,6 +49,10 @@ export type DesignerRow = {
   logo_price?: number
   scope_full_design: boolean
   scope_with_dev: boolean
+  /* 디자인 전체·프로젝트 의뢰 최소가 — 어드민만 정한다(035_full_design_project_price.sql).
+     035 전에는 select('*') 에 없어 undefined 로 온다. */
+  full_design_price?: number
+  project_price?: number
 }
 
 /* 화면으로 내려보내는 모양 — 비밀번호 해시를 뺀 나머지 전부 */
@@ -101,6 +105,9 @@ export type PublicDesigner = {
   premium_enabled: boolean
   /* 로고 시작가 ~ LOGO_PRICE_MAX — scope_logo 를 켠 디자이너만 보여준다 */
   logo_price: number
+  /* 디자인 전체·프로젝트 최소가 "N원~" — 어드민이 디자이너마다 정한다 */
+  full_design_price: number
+  project_price: number
   /* 탐색 화면이 이 넷으로 거른다(scopes.ts) */
   scope_sample: boolean
   scope_logo: boolean

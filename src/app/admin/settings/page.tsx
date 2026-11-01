@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
 import { supabaseConfigured } from '@/lib/supabase-admin'
-import { getPlanCopy, getScopePrompt } from '@/lib/site-settings'
+import { getPlanCopies, getScopePrompt } from '@/lib/site-settings'
 import { listAllSpecialties } from '@/lib/specialties'
 import { PlanCopyForm } from '@/components/admin/plan-copy-form'
 import { SpecialtyManager } from '@/components/admin/specialty-manager'
@@ -20,8 +20,8 @@ export default async function AdminSettingsPage() {
   if (!user) redirect('/admin/login')
 
   /* 서로 기다릴 이유가 없다 */
-  const [copy, specialties, scopePrompt] = await Promise.all([
-    getPlanCopy(),
+  const [copies, specialties, scopePrompt] = await Promise.all([
+    getPlanCopies(),
     listAllSpecialties(),
     getScopePrompt(),
   ])
@@ -43,7 +43,7 @@ export default async function AdminSettingsPage() {
 
       <div className="max-w-2xl space-y-6">
         <ScopePromptToggle enabled={scopePrompt} />
-        <PlanCopyForm copy={copy} />
+        <PlanCopyForm copies={copies} />
         <SpecialtyManager specialties={specialties} />
       </div>
     </main>

@@ -10,7 +10,7 @@ import {
   LOGO_PRICE_MAX,
   formatPrice,
   formatPriceRange,
-  type PlanCopy,
+  type PlanCopies,
 } from '@/lib/plans'
 import { SCOPES, SCOPE_LABELS, SCOPE_HINTS } from '@/lib/scopes'
 import { updatePlans } from '@/app/studio/actions'
@@ -19,7 +19,7 @@ import { updatePlans } from '@/app/studio/actions'
 
    금액은 정해진 보기 중에서만 고른다 — 자유 입력이 아니다.
    이름·설명은 전역 설정이라 여기서 바꿀 수 없고, 보여주기만 한다. */
-export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy: PlanCopy }) {
+export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy: PlanCopies }) {
   const [designPrice, setDesignPrice] = useState(d.design_price)
   /* 프리미엄은 화면에서 감췄다 — 값은 그대로 보내 서버가 덮어쓰지 않게 한다.
      되살릴 때 setter 를 다시 만들면 된다(아래 주석 처리한 구획). */
@@ -103,12 +103,12 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
           상한은 어드민이 정한다(016_price_range.sql). */}
       <section>
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold">{copy.design_plan_name}</h3>
+          <h3 className="text-sm font-semibold">{copy.sample.basic.name}</h3>
           <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-500">
             항상 노출
           </span>
         </div>
-        <p className="mt-1 text-xs leading-relaxed text-neutral-500">{copy.design_plan_desc}</p>
+        <p className="mt-1 text-xs leading-relaxed text-neutral-500">{copy.sample.basic.desc}</p>
 
         <div className="mt-3.5 flex flex-wrap items-end gap-3">
           <label className="min-w-0">

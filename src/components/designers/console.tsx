@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import type { WorkRow } from '@/lib/portfolio-limits'
-import type { PlanCopy } from '@/lib/plans'
+import type { PlanCopies } from '@/lib/plans'
 import { ProfileForm } from './profile-form'
 import { PortfolioManager } from './portfolio-manager'
 import { SettingsPanel } from './settings-panel'
@@ -20,7 +20,7 @@ export function DesignerConsole({
 }: {
   designer: AdminDesigner
   works: WorkRow[]
-  planCopy: PlanCopy
+  planCopy: PlanCopies
   /* 고를 수 있는 전문 분야 — 어드민이 켜 둔 것만 온다(011_specialties.sql) */
   specialties: string[]
   /* 이름 줄. 본문 칸 안에 들어가야 좌측 메뉴와 윗선이 맞는다 —

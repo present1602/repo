@@ -4,7 +4,8 @@ import { DesignerList } from '@/components/designer-list'
 import { listPublicDesigners, collectTags } from '@/lib/public-designers'
 import { listVisibleSpecialties } from '@/lib/specialties'
 import { listFeatureIds } from '@/lib/explore-features'
-import { getScopePrompt } from '@/lib/site-settings'
+import { getPlanCopies, getScopePrompt, listDesignerPremiums } from '@/lib/site-settings'
+import { offersOf } from '@/lib/inquiry-types'
 
 export const metadata: Metadata = {
   title: '탐색 · SOOM',
@@ -41,12 +42,21 @@ function ExploreLoading() {
 }
 
 async function ExploreContent() {
-  const [designers, managed, featureIds, scopePrompt] = await Promise.all([
+  const [designers, managed, featureIds, scopePrompt, copies] = await Promise.all([
     listPublicDesigners(),
     listVisibleSpecialties(),
     listFeatureIds('feature1'),
     getScopePrompt(),
+    getPlanCopies(),
   ])
+
+  /* 카드의 의뢰 폼 — 디자이너마다 받는 유형·금액. 프리미엄을 켠 유형이
+     하나라도 있을 때만 디자이너별 프리미엄을 더 읽는다(없으면 쓸 데가 없다). */
+  const anyPremium = Object.values(copies).some((c) => c.premium.enabled)
+  const premiums = anyPremium ? await listDesignerPremiums() : {}
+  const offers = Object.fromEntries(
+    designers.map((d) => [d.id, offersOf(d, { copies, premiums: premiums[d.id] ?? {} })]),
+  )
 
   /* 어드민이 정한 목록을 쓴다(011_specialties.sql). 비어 있으면 —
      마이그레이션 전이거나 아직 하나도 등록하지 않았으면 — 지금까지처럼
@@ -59,6 +69,7 @@ async function ExploreContent() {
       tags={tags}
       featureIds={featureIds}
       scopePrompt={scopePrompt}
+      offers={offers}
     />
   )
 }

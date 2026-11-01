@@ -5,8 +5,11 @@ import { getAdminUser } from '@/lib/admin-auth'
 import { getDesignerById, listWorks } from '@/lib/designers-db'
 import { getDesignerCardPreview } from '@/lib/public-designers'
 import { listVisibleSpecialties } from '@/lib/specialties'
+import { getDesignerPremiums, getPlanCopies } from '@/lib/site-settings'
+import { SCOPES } from '@/lib/scopes'
 import { displayName } from '@/lib/display-name'
 import { DesignerDetail } from '@/components/admin/designer-detail'
+import { isDesignerTab } from '@/components/admin/designer-tabs'
 import { AdminPortfolio } from '@/components/admin/admin-portfolio'
 
 export const instant = false
@@ -30,12 +33,24 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
   const designer = await getDesignerById(id)
   if (!designer) notFound()
 
+  /* 탭은 주소로 — 저장 뒤 새로 그려도, 새로고침해도 같은 탭에 머문다 */
+  const { tab: rawTab } = await props.searchParams
+  const tab = isDesignerTab(rawTab) ? rawTab : 'profile'
+
   /* 포트폴리오·목록 미리보기·분야 목록은 서로 기다릴 이유가 없다 */
-  const [works, cardPreview, specialties] = await Promise.all([
+  const [works, cardPreview, specialties, premiums, copies] = await Promise.all([
     listWorks(id),
     getDesignerCardPreview(id),
     listVisibleSpecialties(),
+    getDesignerPremiums(id),
+    getPlanCopies(),
   ])
+
+  /* 설정에서 프리미엄을 켠 유형 — 켜진 유형만 디자이너별로 켤 수 있다 */
+  const premiumOn = Object.fromEntries(SCOPES.map((s) => [s, copies[s].premium.enabled])) as Record<
+    (typeof SCOPES)[number],
+    boolean
+  >
 
   /* 비밀번호 해시는 화면으로 내려보내지 않는다 */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -49,12 +64,18 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
         </Link>
       </nav>
 
-      {/* 좌측 디자이너 정보 · 우측 포트폴리오.
-          정보 칸은 폭을 고정해 입력칸이 늘어지지 않게 한다. */}
-      <div className="grid gap-8 xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <DesignerDetail designer={safe} cardPreview={cardPreview} specialties={specialties} />
-        <AdminPortfolio designerId={id} works={works} />
-      </div>
+      {/* 프로필 · 포트폴리오 · 설정 탭. 포트폴리오는 서버에서 그린 것을 끼워 넣는다.
+          key 로 탭마다 새로 그린다 — 앞 탭의 알림 문구가 다음 탭에 남지 않게 */}
+      <DesignerDetail
+        key={tab}
+        tab={tab}
+        designer={safe}
+        cardPreview={cardPreview}
+        specialties={specialties}
+        premiums={premiums}
+        premiumOn={premiumOn}
+        portfolio={<AdminPortfolio designerId={id} works={works} />}
+      />
     </main>
   )
 }

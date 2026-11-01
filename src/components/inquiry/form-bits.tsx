@@ -238,6 +238,8 @@ export function RadioCard({
   was,
   tip,
   defaultChecked,
+  onChange,
+  children,
 }: {
   name: string
   value: string
@@ -247,6 +249,10 @@ export function RadioCard({
   /* 이름 옆 정보 아이콘을 눌러야 보이는 설명 */
   tip?: string
   defaultChecked?: boolean
+  /* 골랐을 때 — 고른 유형에 따라 카드 안 내용이 바뀌는 폼이 쓴다 */
+  onChange?: () => void
+  /* 금액 줄 아래에 붙는 내용 — 프리미엄 안내·기본/프리미엄 전환 */
+  children?: ReactNode
 }) {
   return (
     <label className="group flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 p-3 transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50">
@@ -256,9 +262,10 @@ export function RadioCard({
         name={name}
         value={value}
         defaultChecked={defaultChecked}
+        onChange={onChange}
         className="mt-0.5 shrink-0 accent-violet-600"
       />
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1 text-sm font-medium">
           {value}
           {tip && <InfoTip text={tip} />}
@@ -282,6 +289,7 @@ export function RadioCard({
             )}
           </span>
         )}
+        {children}
       </span>
     </label>
   )
@@ -327,7 +335,7 @@ function InfoTip({ text }: { text: string }) {
       {open && (
         <span
           role="tooltip"
-          className="absolute left-1/2 top-full z-20 mt-1.5 w-max max-w-56 -translate-x-1/2 rounded-lg bg-neutral-900 px-3 py-2 text-xs font-normal leading-relaxed text-white shadow-lg"
+          className="absolute left-1/2 top-full z-20 mt-1.5 w-max max-w-56 -translate-x-1/2 whitespace-pre-line rounded-lg bg-neutral-900 px-3 py-2 text-xs font-normal leading-relaxed text-white shadow-lg"
         >
           {text}
         </span>

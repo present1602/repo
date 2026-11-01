@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getDesignerUser } from '@/lib/designer-auth'
 import { listWorks } from '@/lib/designers-db'
-import { getPlanCopy } from '@/lib/site-settings'
+import { getPlanCopies } from '@/lib/site-settings'
 import { listVisibleSpecialties } from '@/lib/specialties'
 import { displayName } from '@/lib/display-name'
 import { logout } from './actions'
@@ -21,7 +21,7 @@ export default async function DesignerHomePage() {
 
   const [works, planCopy, specialties] = await Promise.all([
     listWorks(d.id),
-    getPlanCopy(),
+    getPlanCopies(),
     listVisibleSpecialties(),
   ])
 

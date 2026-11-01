@@ -2,11 +2,43 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { setScopePrompt } from '@/app/admin/settings/actions'
+import { setScopePrompt, type Result } from '@/app/admin/settings/actions'
 
-/* 탐색의 의뢰유형 묻기 — 누르면 바로 저장한다. 저장 버튼을 따로 두면
-   켜 놓고 저장을 잊어 화면과 실제가 어긋난다. */
+/* 탐색의 의뢰유형 묻기 */
 export function ScopePromptToggle({ enabled }: { enabled: boolean }) {
+  return (
+    <SettingSwitch
+      title="탐색 의뢰유형 선택"
+      enabled={enabled}
+      save={setScopePrompt}
+      toastOn="탐색 의뢰유형 선택을 켰어요"
+      toastOff="탐색 의뢰유형 선택을 껐어요"
+    >
+      탐색에 들어오면 &lsquo;어떤 의뢰를 원하시나요?&rsquo;를 먼저 묻고, 제목 옆에 의뢰유형을
+      보여줍니다.
+      <br />
+      끄면 둘 다 나오지 않고 디자이너 목록을 바로 보여줍니다.
+    </SettingSwitch>
+  )
+}
+
+/* 누르면 바로 저장한다. 저장 버튼을 따로 두면 켜 놓고 저장을 잊어
+   화면과 실제가 어긋난다. */
+function SettingSwitch({
+  title,
+  enabled,
+  save,
+  toastOn,
+  toastOff,
+  children,
+}: {
+  title: string
+  enabled: boolean
+  save: (on: boolean) => Promise<Result>
+  toastOn: string
+  toastOff: string
+  children: React.ReactNode
+}) {
   const [on, setOn] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -26,14 +58,14 @@ export function ScopePromptToggle({ enabled }: { enabled: boolean }) {
     setError(null)
     setToast(null)
     start(async () => {
-      const r = await setScopePrompt(next)
+      const r = await save(next)
       if (!r.ok) {
         /* 실패하면 스위치를 되돌린다 — 켜진 채로 두면 반영된 줄 안다 */
         setOn(!next)
         setError(r.error)
         return
       }
-      setToast(next ? '탐색 의뢰유형 선택을 켰어요' : '탐색 의뢰유형 선택을 껐어요')
+      setToast(next ? toastOn : toastOff)
       router.refresh()
     })
   }
@@ -42,20 +74,15 @@ export function ScopePromptToggle({ enabled }: { enabled: boolean }) {
     <div className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold">탐색 의뢰유형 선택</h2>
-          <p className="mt-1 text-xs leading-relaxed text-neutral-500">
-            탐색에 들어오면 &lsquo;어떤 의뢰를 원하시나요?&rsquo;를 먼저 묻고, 제목 옆에 의뢰유형을
-            보여줍니다.
-            <br />
-            끄면 둘 다 나오지 않고 디자이너 목록을 바로 보여줍니다.
-          </p>
+          <h2 className="text-sm font-semibold">{title}</h2>
+          <p className="mt-1 text-xs leading-relaxed text-neutral-500">{children}</p>
         </div>
 
         <button
           type="button"
           role="switch"
           aria-checked={on}
-          aria-label="탐색 의뢰유형 선택"
+          aria-label={title}
           onClick={toggle}
           disabled={pending}
           className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-60 ${

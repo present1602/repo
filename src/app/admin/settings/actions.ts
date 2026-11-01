@@ -3,7 +3,14 @@
 import { revalidatePath } from 'next/cache'
 import { getAdminUser } from '@/lib/admin-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { MAX_PLAN_DESC } from '@/lib/plans'
+import {
+  MAX_PLAN_DESC,
+  MAX_PLAN_NAME,
+  PLAN_TIERS,
+  type PlanCopies,
+  type PlanTier,
+} from '@/lib/plans'
+import { SCOPES, type Scope } from '@/lib/scopes'
 
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
    페이지에서 막았더라도 여기서 권한을 다시 확인해야 한다. */
@@ -20,43 +27,42 @@ function fail(error: string) {
   return { ok: false as const, error }
 }
 
-export type PlanCopyInput = {
-  designName: string
-  designDesc: string
-  premiumName: string
-  premiumDesc: string
-}
-
-/* 플랜 이름·설명은 모든 디자이너에게 같은 문구로 나간다.
-   고치면 공개 상세가 전부 바뀌므로 해당 경로를 통째로 되살린다. */
-export async function updatePlanCopy(input: PlanCopyInput): Promise<Result> {
+/* 플랜 이름·설명과 유형별 프리미엄 스위치 — 의뢰 유형 넷 × 기본·프리미엄(036_plan_copy_premium.sql).
+   모든 디자이너에게 같은 문구로 나가므로 고치면 공개 상세를 통째로 되살린다.
+   받은 것을 모두 한 번에 upsert 한다 — 여덟 줄이라 바뀐 것만 고를 이유가 없다.
+   프리미엄을 꺼도 디자이너별 설정·금액은 지우지 않는다 — 다시 켜면 그대로 돌아온다. */
+export async function updatePlanCopies(input: PlanCopies): Promise<Result> {
   const db = await guard()
 
-  const designName = input.designName.trim()
-  const premiumName = input.premiumName.trim()
-  const designDesc = input.designDesc.trim()
-  const premiumDesc = input.premiumDesc.trim()
+  const rows: { plan: Scope; tier: PlanTier; name: string; description: string; enabled: boolean }[] =
+    []
+  for (const plan of SCOPES) {
+    for (const tier of PLAN_TIERS) {
+      const t = input[plan]?.[tier]
+      const name = (t?.name ?? '').trim()
+      const description = (t?.desc ?? '').trim()
 
-  /* 이름이 비면 공개 화면의 플랜 제목이 사라진다 — 설명과 달리 비울 수 없다 */
-  if (!designName || !premiumName) {
-    return fail('플랜 이름을 입력해 주세요.')
-  }
-  if (designDesc.length > MAX_PLAN_DESC || premiumDesc.length > MAX_PLAN_DESC) {
-    return fail(`설명은 ${MAX_PLAN_DESC}자 이내로 입력해 주세요.`)
+      /* 이름이 비면 공개 화면의 플랜 제목이 사라진다 — 설명과 달리 비울 수 없다 */
+      if (!name) return fail('플랜 이름을 모두 입력해 주세요.')
+      if (name.length > MAX_PLAN_NAME) {
+        return fail(`플랜 이름은 ${MAX_PLAN_NAME}자 이내로 입력해 주세요.`)
+      }
+      if (description.length > MAX_PLAN_DESC) {
+        return fail(`설명은 ${MAX_PLAN_DESC}자 이내로 입력해 주세요.`)
+      }
+      /* 기본 줄은 늘 쓴다 — 스위치는 프리미엄 줄에만 뜻이 있다 */
+      const enabled = tier === 'premium' ? input[plan].premium.enabled === true : true
+      rows.push({ plan, tier, name, description, enabled })
+    }
   }
 
-  const { error } = await db
-    .from('site_settings')
-    .update({
-      design_plan_name: designName,
-      design_plan_desc: designDesc,
-      premium_plan_name: premiumName,
-      premium_plan_desc: premiumDesc,
-    })
-    .eq('id', true)
+  const { error } = await db.from('plan_copy').upsert(rows, { onConflict: 'plan,tier' })
 
   if (error) {
     console.error('[settings] 플랜 문구 수정 실패:', error.message)
+    if (error.message.includes('plan_copy') || error.message.includes('enabled')) {
+      return fail('플랜 문구 표가 아직 없거나 옛 판입니다. 036_plan_copy_premium.sql 을 먼저 적용해 주세요.')
+    }
     return fail('저장에 실패했습니다.')
   }
 
@@ -64,6 +70,9 @@ export async function updatePlanCopy(input: PlanCopyInput): Promise<Result> {
   revalidatePath('/studio')
   /* 모든 디자이너의 공개 상세에 같은 문구가 실려 있다 */
   revalidatePath('/designers', 'layout')
+  /* 프리미엄을 켜고 끄면 디자이너 화면의 프리미엄 칸이 열리고 닫힌다 */
+  revalidatePath('/admin/designers', 'layout')
+  revalidatePath('/explore')
 
   return { ok: true }
 }
