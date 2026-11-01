@@ -7,15 +7,27 @@ import { displayNameOf } from '@/lib/display-name'
 import { Img } from './img'
 import { WorkModal } from './work-modal'
 import { ScopePrompt } from './scope-prompt'
+import { InquiryButton } from './inquiry/inquiry-button'
+
+/* 기본 카드가 보여주는 작업 수 — 썸네일 줄과 다이얼로그 모두 이만큼만 */
+const SPOTLIGHT_MAX = 4
 import { SCOPES, SCOPE_LABELS, acceptsScope, type Scope } from '@/lib/scopes'
 
 export function DesignerList({
   designers,
   tags: allTags,
+  featureIds = [],
 }: {
   designers: PublicDesignerCard[]
   tags: string[]
+  /* 어드민이 위쪽에 썸네일 줄 카드(feature1)로 올린 디자이너, 차례대로.
+     나머지는 기본 카드(대표 작업 한 장)로 그 아래에 선다(032_explore_features.sql). */
+  featureIds?: string[]
 }) {
+  const featureRank = useMemo(
+    () => new Map(featureIds.map((id, i) => [id, i])),
+    [featureIds],
+  )
   const [tag, setTag] = useState<string | null>(null)
   const [q, setQ] = useState('')
 
@@ -39,7 +51,7 @@ export function DesignerList({
 
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    return shown.filter((d) => {
+    const hit = shown.filter((d) => {
       if (tag && !d.tags.includes(tag)) return false
       if (!needle) return true
       /* 이름·한 줄 소개·분야까지 함께 본다. 이름이 비어 있는 계정도 있으므로
@@ -47,21 +59,28 @@ export function DesignerList({
       const hay = [displayNameOf(d), d.one_liner ?? '', ...d.tags].join(' ').toLowerCase()
       return hay.includes(needle)
     })
-  }, [shown, tag, q])
+    /* 올린 디자이너를 어드민이 정한 차례대로 앞에 세운다. 거르기는 똑같이 받는다 —
+       분야를 골랐는데 상관없는 사람이 위에 남으면 필터가 고장 난 것처럼 보인다. */
+    const up = hit
+      .filter((d) => featureRank.has(d.id))
+      .sort((a, b) => featureRank.get(a.id)! - featureRank.get(b.id)!)
+    return [...up, ...hit.filter((d) => !featureRank.has(d.id))]
+  }, [shown, tag, q, featureRank])
 
   /* 썸네일 다이얼로그는 목록 순서대로 디자이너들의 작업을 한 줄로 잇는다 —
      한 사람의 끝에서 넘기면 그 사람의 처음이 아니라 다음 디자이너의 첫 작업이 나온다.
      맨 처음과 맨 끝에서는 더 넘어가지 않는다(loop={false}).
-     카드에 담겨 온 몇 장만 잇는다 — 카드의 썸네일 줄과 같은 범위다. */
+     카드에 보이는 장만 잇는다 — 기본 카드는 SPOTLIGHT_MAX 장, feature1 은 담겨 온 전부. */
   const { flat, starts } = useMemo(() => {
-    const flat: (PublicWork & { designer: PublicDesignerCard; nth: number })[] = []
+    const flat: (PublicWork & { designer: PublicDesignerCard; nth: number; of: number })[] = []
     const starts = new Map<string, number>()
     for (const d of list) {
       starts.set(d.id, flat.length)
-      d.works.forEach((w, i) => flat.push({ ...w, designer: d, nth: i + 1 }))
+      const works = featureRank.has(d.id) ? d.works : d.works.slice(0, SPOTLIGHT_MAX)
+      works.forEach((w, i) => flat.push({ ...w, designer: d, nth: i + 1, of: works.length }))
     }
     return { flat, starts }
-  }, [list])
+  }, [list, featureRank])
   const [openAt, setOpenAt] = useState<number | null>(null)
 
   /* 분야를 바꾸면 목록이 통째로 바뀐다 — 내려가 있던 자리에 남으면
@@ -165,13 +184,21 @@ export function DesignerList({
         )}
 
         <div className="grid grid-cols-1 gap-4">
-          {list.map((d) => (
-            <DesignerCard
-              key={d.id}
-              designer={d}
-              onOpenWork={(i) => setOpenAt(starts.get(d.id)! + i)}
-            />
-          ))}
+          {list.map((d) =>
+            featureRank.has(d.id) ? (
+              <DesignerCard
+                key={d.id}
+                designer={d}
+                onOpenWork={(i) => setOpenAt(starts.get(d.id)! + i)}
+              />
+            ) : (
+              <DesignerSpotlight
+                key={d.id}
+                designer={d}
+                onOpenWork={(i) => setOpenAt(starts.get(d.id)! + i)}
+              />
+            ),
+          )}
         </div>
 
         {list.length === 0 && (
@@ -191,7 +218,7 @@ export function DesignerList({
           onClose={() => setOpenAt(null)}
           nameOf={(w) => displayNameOf(w.designer)}
           hrefOf={(w) => `/designers/${w.designer.id}`}
-          counterOf={(w) => [w.nth, w.designer.works.length]}
+          counterOf={(w) => [w.nth, w.of]}
           loop={false}
         />
       )}
@@ -271,12 +298,20 @@ export function DesignerCard({
             ))}
           </div>
         )}
-        <Link
-          href={href}
-          className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-violet-600"
-        >
-          프로필 보기
-        </Link>
+        {/* 프로필로 넘어가지 않고 이 자리에서 바로 의뢰할 수 있게 */}
+        <div className="flex shrink-0 gap-2">
+          <Link
+            href={href}
+            className="rounded-lg border border-neutral-300 px-4 py-2 text-xs font-semibold text-neutral-800 transition hover:border-neutral-900"
+          >
+            프로필 보기
+          </Link>
+          <InquiryButton
+            designerId={d.id}
+            designerName={name}
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-violet-600"
+          />
+        </div>
       </div>
 
       {/* 작업이 없는 디자이너도 있다 — 그때는 썸네일 줄을 아예 비운다 */}
@@ -336,15 +371,156 @@ export function DesignerCard({
   )
 }
 
+/* 기본 카드 — 대표 작업 한 장을 크게, 오른쪽에 프로필과 버튼.
+
+   작업을 한두 개만 올린 디자이너가 많다. 썸네일을 한 줄로 늘어놓는 카드
+   (DesignerCard, feature1)는 네 장은 있어야 줄이 차서, 적으면 휑해 보였다.
+   한 장을 크게 두면 한 장뿐이어도 카드가 꽉 찬다.
+
+   그림 아래 작은 썸네일(최대 SPOTLIGHT_MAX 장)로 이 디자이너의 다른 작업을
+   골라 보고, 큰 그림을 누르면 상세 다이얼로그가 그 작업부터 열린다.
+   그보다 많으면 끝에 "+N" 을 두어 프로필에서 마저 보게 한다. */
+function DesignerSpotlight({
+  designer: d,
+  onOpenWork,
+}: {
+  designer: PublicDesignerCard
+  onOpenWork: (i: number) => void
+}) {
+  const href = `/designers/${d.id}`
+  const name = displayNameOf(d)
+  const [cur, setCur] = useState(0)
+  const works = d.works.slice(0, SPOTLIGHT_MAX)
+  const n = works.length
+  const w = works[cur]
+  /* 카드에 담겨 온 장수가 아니라 전체 장수로 센다 */
+  const more = d.works_total - n
+
+  return (
+    <article className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm ring-1 ring-neutral-200/70 md:p-4">
+      <div className="grid gap-5 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-center md:gap-10">
+        <div className="min-w-0">
+          <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-neutral-100">
+            {w ? (
+              <button
+                type="button"
+                onClick={() => onOpenWork(cur)}
+                aria-label={w.title ? `${w.title} 크게 보기` : '작업 크게 보기'}
+                className="group block size-full"
+              >
+                {/* 긴 화면 캡처도 첫 화면(위쪽)이 보이게 위를 맞춘다 */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={w.thumb_url}
+                  alt={w.title ?? ''}
+                  loading="lazy"
+                  className="size-full object-cover object-top transition duration-500 group-hover:scale-[1.02]"
+                />
+              </button>
+            ) : (
+              <p className="grid size-full place-items-center text-sm text-neutral-400">
+                아직 공개된 작업이 없습니다.
+              </p>
+            )}
+
+          </div>
+
+          {/* 다른 작업 — 그림 아래에 작은 네모로 왼쪽부터. 한 장뿐이면 고를 게 없으니
+              띄우지 않는다. 그림 위에 겹쳐 두면 좁은 화면에서 그림을 가린다. */}
+          {n > 1 && (
+            <div className="mt-2.5 flex gap-2">
+              {works.map((t, i) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setCur(i)}
+                  aria-label={`${i + 1}번째 작업`}
+                  aria-current={i === cur}
+                  className={`size-12 shrink-0 overflow-hidden rounded-md transition md:size-14 ${
+                    i === cur
+                      ? 'ring-2 ring-violet-500 ring-offset-1'
+                      : 'opacity-70 ring-1 ring-neutral-200 hover:opacity-100'
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={t.thumb_url} alt="" loading="lazy" className="size-full object-cover" />
+                </button>
+              ))}
+              {more > 0 && (
+                <Link
+                  href={href}
+                  aria-label={`작업 ${more}개 더 보기`}
+                  className="grid size-12 shrink-0 place-items-center rounded-md bg-neutral-100 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-800 md:size-14"
+                >
+                  +{more}
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="px-2 pb-3 md:px-0 md:py-4 md:pr-6">
+          <Link href={href} className="group/name flex items-center gap-3">
+            <Avatar designer={d} size="size-14" />
+            <span className="min-w-0 truncate text-2xl font-bold tracking-tight transition group-hover/name:text-violet-600 md:text-3xl">
+              {name}
+            </span>
+          </Link>
+
+          {d.one_liner && (
+            <p className="mt-4 text-base leading-relaxed text-neutral-800 md:text-lg">
+              {d.one_liner}
+            </p>
+          )}
+
+          {d.tags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {d.tags.map((t) => (
+                <span key={t} className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* 지금 보고 있는 작업 — 제목·클라이언트는 선택 입력이라 없으면 줄을 비운다 */}
+          {w?.title && (
+            <p className="mt-4 truncate text-xs text-neutral-500">
+              현재 작업 · {w.title}
+              {w.client && ` — ${w.client}`}
+            </p>
+          )}
+
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <Link
+              href={href}
+              className="rounded-full border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-800 transition hover:border-neutral-900"
+            >
+              프로필 보기
+            </Link>
+            <InquiryButton
+              designerId={d.id}
+              designerName={name}
+              className="rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
+            />
+          </div>
+        </div>
+      </div>
+    </article>
+  )
+}
+
 /* 프로필 이미지가 없으면 이름 첫 글자로 채운다 — 빈 회색 원이 줄줄이 늘어서지 않게 */
-function Avatar({ designer: d }: { designer: PublicDesignerCard }) {
+function Avatar({ designer: d, size = 'size-11' }: { designer: PublicDesignerCard; size?: string }) {
   const name = displayNameOf(d)
 
   if (d.avatar_url) {
-    return <Img src={d.avatar_url} alt={name} className="size-11 shrink-0 rounded-full" />
+    return <Img src={d.avatar_url} alt={name} className={`${size} shrink-0 rounded-full`} />
   }
   return (
-    <div className="grid size-11 shrink-0 place-items-center rounded-full bg-neutral-200 text-sm font-medium text-neutral-500">
+    <div
+      className={`grid ${size} shrink-0 place-items-center rounded-full bg-neutral-200 text-sm font-medium text-neutral-500`}
+    >
       {name.slice(0, 1)}
     </div>
   )
