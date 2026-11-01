@@ -91,7 +91,9 @@ export function InquiryModal({
 
   /* 고른 유형과 단계 — 프리미엄이 있는 유형을 고르면 카드 안에 전환이 펼쳐진다.
      유형을 바꾸면 기본으로 돌아간다 — 다른 유형의 프리미엄을 따라오면 안 된다. */
-  const [picked, setPicked] = useState<InquiryType | null>(null)
+  /* 디자이너가 받는 유형이 하나뿐이면 처음부터 골라 둔다 — 고를 게 없는데 누르게 하지 않는다 */
+  const only = offers && types.length === 1 ? types[0] : null
+  const [picked, setPicked] = useState<InquiryType | null>(only)
   const [tier, setTier] = useState<InquiryPlanTier>('basic')
   const pickedOffer = picked ? offers?.[picked] : undefined
 
@@ -181,6 +183,7 @@ export function InquiryModal({
                 return (
                   <RadioCard
                     key={t}
+                    defaultChecked={t === only}
                     name="inquiryType"
                     value={t}
                     hint={price != null ? `${formatPrice(price)}~` : INQUIRY_TYPE_HINTS[t]}
