@@ -37,6 +37,9 @@ export type DesignerRow = {
   price_max: number
   premium_price: number
   premium_enabled: boolean
+  /* 본 계약 시작가 — 어드민만 정한다(030_contract_price.sql).
+     030 전에는 select('*') 에 없어 undefined 로 온다. */
+  contract_price?: number
   /* 받을 의뢰 유형(017_designer_scopes.sql, 019_scope_sample_optional.sql).
      메인 시안·디자인 전체는 본인이, 디자인 + 개발은 어드민이 켜고 끈다. */
   scope_sample: boolean
@@ -98,8 +101,12 @@ export type PublicDesigner = {
   scope_with_dev: boolean
 }
 
-/* 상세 화면 — 프로필과 작업을 함께 받는다 */
-export type PublicDesignerDetail = PublicDesigner & { works: PublicWork[] }
+/* 상세 화면 — 프로필과 작업을 함께 받는다.
+   본 계약 시작가는 상세 화면의 플랜 카드에만 나가므로 여기에만 싣는다. */
+export type PublicDesignerDetail = PublicDesigner & {
+  works: PublicWork[]
+  contract_price: number
+}
 
 /* 탐색 목록 한 줄 — 카드에 썸네일 몇 장과 총 개수를 함께 보여준다 */
 export type PublicDesignerCard = PublicDesigner & {

@@ -15,7 +15,16 @@ import {
   checkPublicReady,
   type WorkRow,
 } from '@/lib/portfolio-limits'
-import { formatPrice, isPriceMax, MIN_PRICE_MAX, MAX_PRICE_MAX } from '@/lib/plans'
+import {
+  formatPrice,
+  isDesignPrice,
+  isPriceMax,
+  isContractPrice,
+  MIN_PRICE_MAX,
+  MAX_PRICE_MAX,
+  MIN_CONTRACT_PRICE,
+  MAX_CONTRACT_PRICE,
+} from '@/lib/plans'
 
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
    페이지에서 막았더라도 여기서 권한을 다시 확인해야 한다. */
@@ -217,42 +226,65 @@ export async function setDesignerProfilePublic(
   return { ok: true, ...(warning ? { warning } : {}) }
 }
 
-/* 시안 가격 상한 — 어드민만 정한다(016_price_range.sql).
+/* 디자이너의 금액들 — 시안 시작가·상한·본 계약 시작가.
 
-   올려 두면 디자이너가 그만큼 높은 시작가를 고를 수 있다. 금액을 올려 줄
-   만한 디자이너를 가려내는 일은 사람이 판단하므로 자유 입력으로 둔다 —
-   대신 터무니없는 값은 막는다.
+   상한(016_price_range.sql)과 본 계약 시작가(030_contract_price.sql)는
+   어드민만 정한다. 시작가는 디자이너도 고르지만 어드민이 대신 바꿀 수 있다.
+   금액을 올려 줄 만한 디자이너를 가려내는 일은 사람이 판단하므로 상한·본 계약은
+   자유 입력으로 둔다 — 대신 터무니없는 값은 막는다.
 
-   상한을 내릴 때 지금 시작가가 그보다 높으면 범위가 뒤집힌다. DB check
-   제약(designers_price_order)이 막아 주지만, 거부되면 뭉뚱그린 메시지만
-   남으므로 여기서 먼저 알려준다. */
-export async function setDesignerPriceMax(id: string, priceMax: number): Promise<Result> {
+   시작가가 상한보다 높으면 범위가 뒤집힌다. DB check 제약(designers_price_order)이
+   막아 주지만, 거부되면 뭉뚱그린 메시지만 남으므로 여기서 먼저 알려준다.
+
+   바뀐 칸만 보낸다 — 030 을 적용하기 전에도 시작가·상한은 고칠 수 있게. */
+export async function setDesignerPrices(
+  id: string,
+  next: { designPrice?: number; priceMax?: number; contractPrice?: number },
+): Promise<Result> {
   const db = await guard()
 
-  if (!isPriceMax(priceMax)) {
+  if (next.designPrice != null && !isDesignPrice(next.designPrice)) {
+    return fail('시작가는 보기 중에서 골라 주세요.')
+  }
+  if (next.priceMax != null && !isPriceMax(next.priceMax)) {
     return fail(
       `상한은 ${formatPrice(MIN_PRICE_MAX)} 이상 ${formatPrice(MAX_PRICE_MAX)} 이하로 적어 주세요.`,
+    )
+  }
+  if (next.contractPrice != null && !isContractPrice(next.contractPrice)) {
+    return fail(
+      `본 계약 시작가는 ${formatPrice(MIN_CONTRACT_PRICE)} 이상 ${formatPrice(MAX_CONTRACT_PRICE)} 이하로 적어 주세요.`,
     )
   }
 
   const { data: d, error: readErr } = await db
     .from('designers')
-    .select('design_price')
+    .select('design_price, price_max')
     .eq('id', id)
     .maybeSingle()
 
   if (readErr || !d) return fail('디자이너를 찾을 수 없습니다.')
 
-  const designPrice = d.design_price as number
+  const designPrice = next.designPrice ?? (d.design_price as number)
+  const priceMax = next.priceMax ?? (d.price_max as number)
   if (designPrice > priceMax) {
     return fail(
-      `지금 시작가(${formatPrice(designPrice)})보다 낮게 내릴 수 없습니다. 디자이너가 시작가를 먼저 낮춰야 합니다.`,
+      `시작가(${formatPrice(designPrice)})는 상한(${formatPrice(priceMax)})보다 높을 수 없습니다.`,
     )
   }
 
-  const { error } = await db.from('designers').update({ price_max: priceMax }).eq('id', id)
+  const patch: Record<string, number> = {}
+  if (next.designPrice != null) patch.design_price = next.designPrice
+  if (next.priceMax != null) patch.price_max = next.priceMax
+  if (next.contractPrice != null) patch.contract_price = next.contractPrice
+  if (Object.keys(patch).length === 0) return { ok: true }
+
+  const { error } = await db.from('designers').update(patch).eq('id', id)
   if (error) {
-    console.error('[designers] 가격 상한 변경 실패:', error.message)
+    console.error('[designers] 금액 변경 실패:', error.message)
+    if (error.message.includes('contract_price')) {
+      return fail('본 계약 시작가 칸이 아직 없습니다. 030_contract_price.sql 을 먼저 적용해 주세요.')
+    }
     return fail('변경에 실패했습니다.')
   }
 

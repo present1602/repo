@@ -2,6 +2,7 @@ import 'server-only'
 import { cache } from 'react'
 import { supabaseAdmin } from './supabase-admin'
 import { MAX_WORKS, CARD_THUMBS } from './portfolio-limits'
+import { DEFAULT_CONTRACT_PRICE } from './plans'
 import type {
   PublicWork,
   PublicDesignerCard,
@@ -281,7 +282,7 @@ export const getPublicDesigner = cache(async function getPublicDesigner(
 
   /* 디자이너와 작업을 동시에 묻는다 — 작업 질의는 id 만 있으면 되므로
      디자이너 결과를 기다릴 이유가 없다. 비공개로 판명되면 작업은 버린다. */
-  const [{ data, error }, { data: workRows, error: workError }] = await Promise.all([
+  const [{ data, error }, { data: workRows, error: workError }, contractPrice] = await Promise.all([
     selectDesigner<PublicDesignerDetail>((cols) =>
       db
         .from('designers')
@@ -301,6 +302,7 @@ export const getPublicDesigner = cache(async function getPublicDesigner(
         .limit(MAX_WORKS)
         .overrideTypes<WorkWithOwner[]>(),
     ),
+    getContractPrice(id),
   ])
 
   if (error) {
@@ -315,8 +317,23 @@ export const getPublicDesigner = cache(async function getPublicDesigner(
 
   const works = ((workRows ?? []) as WorkWithOwner[]).sort(byOrder).map(strip)
 
-  return { ...(data as PublicDesignerDetail), works }
+  return { ...(data as PublicDesignerDetail), works, contract_price: contractPrice }
 })
+
+/* 본 계약 시작가 — 030 마이그레이션 전에도 상세가 뜨게 따로 묻는다.
+
+   DESIGNER_COLS 에 넣으면 컬럼이 없는 DB 에서 상세 질의가 통째로 실패해
+   404 가 된다. 실패하면 기본값으로 메운다 — 어차피 지금은 모두 같은 금액이다.
+   030 을 적용하고 나면 DESIGNER_COLS 로 옮겨도 된다. */
+async function getContractPrice(id: string): Promise<number> {
+  const { data, error } = await supabaseAdmin!
+    .from('designers')
+    .select('contract_price')
+    .eq('id', id)
+    .maybeSingle()
+  if (error || !data) return DEFAULT_CONTRACT_PRICE
+  return (data as { contract_price: number }).contract_price
+}
 
 /* 홈 화면 피드 — 어드민이 고른 작업을 앞에, 나머지는 최신순으로.
 

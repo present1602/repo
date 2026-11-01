@@ -120,10 +120,12 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
               그때는 한 칸을 비우지 않고 폭을 채운다. */}
           <div className={`grid gap-3 ${d.premium_enabled ? 'md:grid-cols-2' : ''}`}>
             <PlanCard
+              badge="메인시안"
               name={copy.design_plan_name}
               desc={copy.design_plan_desc}
               price={d.design_price}
               priceTo={d.price_max}
+              // note={`본 계약 의뢰는 전부 ${formatPrice(d.contract_price)}~`}
             />
             {d.premium_enabled && (
               <PlanCard
@@ -180,22 +182,42 @@ function DetailSkeleton() {
 /* priceTo 가 있으면 "시작가 ~ 상한" 범위로 적는다(016_price_range.sql).
    같은 금액이면 한쪽만 나온다 — formatPriceRange 가 처리한다. */
 function PlanCard({
+  badge,
   name,
   desc,
   price,
   priceTo,
+  note,
 }: {
+  /* 이름 앞에 붙는 작은 표시 — 이 금액이 무엇에 대한 값인지 */
+  badge?: string
   name: string
   desc: string
   price: number
   priceTo?: number
+  /* 금액 아래 덧붙이는 안내 — 시안 다음 단계의 금액 */
+  note?: string
 }) {
   return (
     <div className="rounded-xl bg-neutral-50 p-6 ring-1 ring-neutral-200">
-      <p className="font-semibold">{name}</p>
+      <p className="flex items-center gap-2 font-semibold">
+        {badge && (
+          <span className="rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
+            {badge}
+          </span>
+        )}
+        {name}
+      </p>
       <p className="mt-2 text-2xl font-bold tracking-tight">
         {priceTo == null ? formatPrice(price) : formatPriceRange(price, priceTo)}
       </p>
+      {note && (
+        <p className="mt-2">
+          <span className="inline-block rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white">
+            {note}
+          </span>
+        </p>
+      )}
       <p className="mt-3 text-sm leading-relaxed text-neutral-600">{desc}</p>
     </div>
   )

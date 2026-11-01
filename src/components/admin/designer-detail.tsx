@@ -9,9 +9,13 @@ import { MAX_BIO, CARD_THUMBS } from '@/lib/portfolio-limits'
 import {
   formatPrice,
   formatPriceRange,
+  DESIGN_PRICES,
   DEFAULT_PRICE_MAX,
   MIN_PRICE_MAX,
   MAX_PRICE_MAX,
+  DEFAULT_CONTRACT_PRICE,
+  MIN_CONTRACT_PRICE,
+  MAX_CONTRACT_PRICE,
 } from '@/lib/plans'
 import { displayName, NAME_MAX, nameError } from '@/lib/display-name'
 import {
@@ -20,7 +24,7 @@ import {
   setDesignerProfilePublic,
   resetPassword,
   deleteDesigner,
-  setDesignerPriceMax,
+  setDesignerPrices,
   setDesignerWithDev,
 } from '@/app/admin/designers/actions'
 import { Field, input, ghostButton } from './form-bits'
@@ -213,7 +217,7 @@ function ListPreviewDialog({
 
 /* ─────────── 가격 ─────────── */
 
-/* 금액은 디자이너 본인이 고른다 — 어드민은 확인만 한다.
+/* 금액 — 시작가는 디자이너가 고르고 어드민도 바꿀 수 있다. 상한·본 계약은 어드민만.
    문구를 바꾸려면 설정 화면으로 간다. */
 function PlanSummary({
   designer: d,
@@ -222,27 +226,39 @@ function PlanSummary({
   designer: AdminDesigner
   onNotice: (n: Notice) => void
 }) {
-  /* 상한은 어드민이 직접 적는다 — 금액을 올려 줄 만한 디자이너를
-     가려내는 일은 사람이 판단한다(016_price_range.sql). */
+  /* 상한·본 계약 시작가는 어드민이 직접 적는다 — 금액을 올려 줄 만한 디자이너를
+     가려내는 일은 사람이 판단한다(016_price_range.sql, 030_contract_price.sql).
+     시작가는 디자이너가 고르지만 여기서도 바꿀 수 있다. */
+  const contractNow = d.contract_price ?? DEFAULT_CONTRACT_PRICE
+  const [designPrice, setDesignPrice] = useState(d.design_price)
   const [priceMax, setPriceMax] = useState(String(d.price_max))
+  const [contractPrice, setContractPrice] = useState(String(contractNow))
   const [pending, start] = useTransition()
   /* 의뢰 유형은 저장 버튼 없이 바로 반영된다 — 가격과 따로 둔다 */
   const [pendingScope, startScope] = useTransition()
   const router = useRouter()
 
-  const dirty = priceMax !== String(d.price_max)
+  const dirty =
+    designPrice !== d.design_price ||
+    priceMax !== String(d.price_max) ||
+    contractPrice !== String(contractNow)
 
   const save = (e: React.FormEvent) => {
     e.preventDefault()
     onNotice(null)
     start(async () => {
-      const r = await setDesignerPriceMax(d.id, Number(priceMax))
+      /* 바뀐 칸만 보낸다 — 030 전에도 시작가·상한은 저장되게 */
+      const r = await setDesignerPrices(d.id, {
+        designPrice: designPrice !== d.design_price ? designPrice : undefined,
+        priceMax: priceMax !== String(d.price_max) ? Number(priceMax) : undefined,
+        contractPrice: contractPrice !== String(contractNow) ? Number(contractPrice) : undefined,
+      })
       if (!r.ok) {
         onNotice({ kind: 'error', text: r.error })
         return
       }
       router.refresh()
-      onNotice({ kind: 'ok', text: '상한을 바꿨습니다.' })
+      onNotice({ kind: 'ok', text: '금액을 바꿨습니다.' })
     })
   }
 
@@ -264,6 +280,10 @@ function PlanSummary({
           <dd className="font-medium">{formatPriceRange(d.design_price, d.price_max)}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-neutral-500">본 계약</dt>
+          <dd className="font-medium">{formatPrice(contractNow)}~</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
           <dt className="text-neutral-500">프리미엄</dt>
           <dd className="flex items-center gap-1.5">
             {!d.premium_enabled && (
@@ -278,41 +298,76 @@ function PlanSummary({
         </div>
       </dl>
 
-      {/* 상한 — 여기만 어드민이 정한다. 시작가는 디자이너가 고른다. */}
-      <form onSubmit={save} className="mt-4 border-t border-neutral-200 pt-4">
+      {/* 금액 — 시작가는 디자이너도 고르고, 상한·본 계약은 어드민만 정한다 */}
+      <form onSubmit={save} className="mt-4 space-y-3 border-t border-neutral-200 pt-4">
+        <label className="block">
+          <span className="mb-1.5 flex items-baseline justify-between text-xs font-medium text-neutral-600">
+            시안 시작가
+            <span className="font-normal text-neutral-400">디자이너도 수정</span>
+          </span>
+          <select
+            value={designPrice}
+            onChange={(e) => setDesignPrice(Number(e.target.value))}
+            className="h-9 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+          >
+            {DESIGN_PRICES.map((p) => (
+              <option key={p} value={p}>
+                {formatPrice(p)}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <label className="block">
           <span className="mb-1.5 flex items-baseline justify-between text-xs font-medium text-neutral-600">
             시안 가격 상한
             <span className="font-normal text-neutral-400">어드민만 수정</span>
           </span>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              inputMode="numeric"
-              value={priceMax}
-              onChange={(e) => setPriceMax(e.target.value)}
-              min={MIN_PRICE_MAX}
-              max={MAX_PRICE_MAX}
-              step={1000}
-              className="h-9 min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
-            />
-            <button
-              type="submit"
-              disabled={pending || !dirty}
-              className="shrink-0 rounded-lg bg-neutral-900 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
-            >
-              {pending ? '저장 중…' : '저장'}
-            </button>
-          </div>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={priceMax}
+            onChange={(e) => setPriceMax(e.target.value)}
+            min={MIN_PRICE_MAX}
+            max={MAX_PRICE_MAX}
+            step={1000}
+            className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+          />
+          <span className="mt-1.5 block text-xs leading-relaxed text-neutral-400">
+            올려 두면 디자이너가 더 높은 시작가를 고를 수 있습니다. 기본{' '}
+            {formatPrice(DEFAULT_PRICE_MAX)}.
+          </span>
         </label>
 
-        <p className="mt-2 text-xs leading-relaxed text-neutral-400">
-          올려 두면 디자이너가 더 높은 시작가를 고를 수 있습니다. 기본{' '}
-          {formatPrice(DEFAULT_PRICE_MAX)}.
-        </p>
-      </form>
+        <label className="block">
+          <span className="mb-1.5 flex items-baseline justify-between text-xs font-medium text-neutral-600">
+            본 계약 시작가
+            <span className="font-normal text-neutral-400">어드민만 수정</span>
+          </span>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={contractPrice}
+            onChange={(e) => setContractPrice(e.target.value)}
+            min={MIN_CONTRACT_PRICE}
+            max={MAX_CONTRACT_PRICE}
+            step={1000}
+            className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+          />
+          <span className="mt-1.5 block text-xs leading-relaxed text-neutral-400">
+            상세 화면에 &ldquo;본 계약 의뢰는 전부 {formatPrice(Number(contractPrice) || 0)}~&rdquo;
+            로 나갑니다. 기본 {formatPrice(DEFAULT_CONTRACT_PRICE)}.
+          </span>
+        </label>
 
-      <p className="mt-3 text-xs text-neutral-400">시작가는 디자이너가 설정합니다.</p>
+        <button
+          type="submit"
+          disabled={pending || !dirty}
+          className="w-full rounded-lg bg-neutral-900 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
+        >
+          {pending ? '저장 중…' : '금액 저장'}
+        </button>
+      </form>
 
       {/* 받을 의뢰 유형 중 '디자인 + 개발'만 어드민이 연다 —
           오프라인 미팅·상주 근무 요청이 따를 수 있어 아무나 받을 수 없다.

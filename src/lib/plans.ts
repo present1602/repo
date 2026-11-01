@@ -22,6 +22,15 @@ export const DEFAULT_PRICE_MAX = 99000
 export const MIN_PRICE_MAX = 29000
 export const MAX_PRICE_MAX = 1000000
 
+/* 본 계약 시작가 — 어드민이 디자이너마다 적는다(030_contract_price.sql 과 같은 값) */
+export const DEFAULT_CONTRACT_PRICE = 189000
+export const MIN_CONTRACT_PRICE = 10000
+export const MAX_CONTRACT_PRICE = 100000000
+
+export function isContractPrice(n: number): boolean {
+  return Number.isInteger(n) && n >= MIN_CONTRACT_PRICE && n <= MAX_CONTRACT_PRICE
+}
+
 /* 보기에 없는 값이면 거절한다.
    서버 액션은 누구나 부를 수 있어 클라이언트가 보낸 숫자를 믿으면 안 된다.
    DB check 제약이 최종 방어하지만, 거부되면 뭉뚱그린 에러만 남는다. */
