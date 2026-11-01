@@ -20,29 +20,27 @@ export function WorkGallery({ works }: { works: PublicWork[] }) {
 
   return (
     <>
-      <div className="columns-2 gap-4 md:columns-3 md:gap-8">
-        {works.map((w, i) => (
-          <button
-            key={w.id}
-            onClick={() => setIndex(i)}
-            className="group mb-8 block w-full break-inside-avoid text-left md:mb-12"
-          >
-            <Thumbnail work={w} />
-            {/* 제목·클라이언트는 선택 입력이다 —
-                비어 있으면 줄 자체를 그리지 않아 빈 간격이 남지 않게 한다 */}
-            {w.title && (
-              <h3 className="mt-3 text-base font-medium md:text-lg">{w.title}</h3>
-            )}
-            {/* AI 사용 표기는 true 일 때만 붙인다 — null(묻기 전에 올라간
-                작업)과 false 를 구분해 보여주지 않는다. */}
-            {(w.client || w.ai_used || w.soom_work) && (
-              <p className="flex flex-wrap items-center gap-x-2 text-xs text-neutral-500">
-                {w.client}
-                {w.ai_used && <span className="text-violet-600">AI 활용</span>}
-                {w.soom_work && <span className="font-medium text-neutral-900">SOOM 의뢰</span>}
-              </p>
-            )}
-          </button>
+      {/* 왼쪽부터 한 장씩 돌아가며 칸에 넣는다(1·2·3 다음 4는 다시 왼쪽).
+          CSS columns 는 칸 높이를 맞추려고 순서를 위아래로 흘려, 4장이면
+          마지막 장이 가운데 칸 밑에 붙는다 — 읽는 순서와 어긋난다.
+          칸 수가 화면 폭마다 달라 두 벌을 깔고 CSS 로 하나만 보인다.
+          숨은 쪽 그림은 lazy 라 받지 않는다. */}
+      <div className="flex gap-4 md:hidden">
+        {columns(works, 2).map((col, c) => (
+          <div key={c} className="min-w-0 flex-1">
+            {col.map(({ w, i }) => (
+              <Card key={w.id} work={w} onOpen={() => setIndex(i)} />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="hidden gap-8 md:flex">
+        {columns(works, 3).map((col, c) => (
+          <div key={c} className="min-w-0 flex-1">
+            {col.map(({ w, i }) => (
+              <Card key={w.id} work={w} onOpen={() => setIndex(i)} />
+            ))}
+          </div>
         ))}
       </div>
 
@@ -50,6 +48,34 @@ export function WorkGallery({ works }: { works: PublicWork[] }) {
         <WorkModal works={works} index={index} setIndex={setIndex} onClose={() => setIndex(null)} />
       )}
     </>
+  )
+}
+
+/* 작업을 n 칸에 왼쪽부터 돌아가며 나눈다. 모달은 전체 순서로 열어야 하므로
+   원래 자리(i)를 함께 들고 간다. */
+function columns(works: PublicWork[], n: number) {
+  const cols: { w: PublicWork; i: number }[][] = Array.from({ length: n }, () => [])
+  works.forEach((w, i) => cols[i % n].push({ w, i }))
+  return cols
+}
+
+function Card({ work: w, onOpen }: { work: PublicWork; onOpen: () => void }) {
+  return (
+    <button onClick={onOpen} className="group mb-8 block w-full text-left md:mb-12">
+      <Thumbnail work={w} />
+      {/* 제목·클라이언트는 선택 입력이다 —
+                비어 있으면 줄 자체를 그리지 않아 빈 간격이 남지 않게 한다 */}
+      {w.title && <h3 className="mt-3 text-base font-medium md:text-lg">{w.title}</h3>}
+      {/* AI 사용 표기는 true 일 때만 붙인다 — null(묻기 전에 올라간
+                작업)과 false 를 구분해 보여주지 않는다. */}
+      {(w.client || w.ai_used || w.soom_work) && (
+        <p className="flex flex-wrap items-center gap-x-2 text-xs text-neutral-500">
+          {w.client}
+          {w.ai_used && <span className="text-violet-600">AI 활용</span>}
+          {w.soom_work && <span className="font-medium text-neutral-900">SOOM 의뢰</span>}
+        </p>
+      )}
+    </button>
   )
 }
 

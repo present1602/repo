@@ -518,7 +518,11 @@ const ZOOMS = [1, 1.5, 2, 3, 4]
 const TALL_RATIO = 1.6
 
 /* 원본 비율 그대로 칸 안에 맞춰 보여주고, 우측 하단 −/+ 로 키워 본다.
-   모바일에서는 버튼 없이 두 손가락으로 집어 키운다(touch-action: pinch-zoom).
+   모바일에서는 버튼 없이 두 손가락으로 집어 키운다.
+
+   집어 키우기는 브라우저에 맡기지 않고 직접 한다. 브라우저 핀치는 페이지
+   전체를 키우는 것이라 배율을 알 수도 되돌릴 수도 없다 — 다음 작업으로
+   넘겨도 확대된 채 남고, 둘러보는 끝이 어디인지도 알 수 없다.
 
    처음에는 잘리지도 늘어나지도 않게 칸에 맞춘다 — 세로로 긴 그림은
    높이에 맞춰 좌우에 흰 여백이 남는다. 글자가 작아 안 보이면 키워서
@@ -551,12 +555,18 @@ function ZoomImage({
   const imgRef = useRef<HTMLImageElement>(null)
   const [boxSize, setBoxSize] = useState<{ w: number; h: number } | null>(null)
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null)
-  const [step, setStep] = useState(0)
+  /* 배율 — 1(칸에 맞춤)부터 ZOOMS 끝까지. 버튼은 ZOOMS 단계로 뛰고,
+     집어 키우기는 그 사이 아무 값이나 된다. */
+  const [zoom, setZoom] = useState(1)
   const [flash, setFlash] = useState(false)
   const flashTimer = useRef<number | undefined>(undefined)
-  /* 배율을 바꾸기 직전에 보던 자리(칸 가운데가 그림의 어디였는지, 0~1).
-     바꾼 뒤 같은 자리를 가운데로 되돌려, 키울 때 왼쪽 위로 튀지 않게 한다. */
-  const focus = useRef<{ x: number; y: number } | null>(null)
+  /* 배율을 바꾸는 동안 붙잡아 둘 자리.
+     fx·fy — 그림의 어디인지(0~1), px·py — 그 자리가 칸 안 어디에 보여야 하는지(px).
+     버튼은 칸 가운데를, 집기는 두 손가락 사이를 붙잡는다 — 키울 때 왼쪽 위로
+     튀지 않고 손가락 밑 그림이 그대로 손가락 밑에 남는다. */
+  const focus = useRef<{ fx: number; fy: number; px: number; py: number } | null>(null)
+  /* 집기 — 시작할 때 두 손가락 거리와 배율. 작업이 바뀌면 비운다(아래 [src] effect). */
+  const pinch = useRef<{ d0: number; z0: number } | null>(null)
 
   /* 세로 스크롤 방향을 재는 값들 — 아래 onScroll 이 쓴다.
      작업이 바뀔 때 함께 비워야 해서 여기서 선언한다. */
@@ -575,7 +585,7 @@ function ZoomImage({
     return () => ro.disconnect()
   }, [])
 
-  const zoom = ZOOMS[step]
+  const MAX_ZOOM = ZOOMS[ZOOMS.length - 1]
 
   /* 길쭉한 그림은 너비에 맞춰 잘리게 두고, 나머지는 칸 안에 통째로 넣는다 */
   const tall = natural ? natural.h / natural.w > TALL_RATIO : false
@@ -586,14 +596,36 @@ function ZoomImage({
         : Math.min(boxSize.w / natural.w, boxSize.h / natural.h)
       : null
 
+  /* 붙잡아 둔 자리를 새 배율에서 같은 곳에 오도록 스크롤을 맞춘다.
+     그림이 칸보다 작은 쪽은 가운데에 놓이므로(길쭉한 그림의 세로는 위에서
+     시작) 그만큼의 여백을 더해 계산한다. */
   useLayoutEffect(() => {
     const box = boxRef.current
     const f = focus.current
-    if (!box || !f) return
+    if (!box || !f || !fit || !natural) return
     focus.current = null
-    box.scrollLeft = f.x * box.scrollWidth - box.clientWidth / 2
-    box.scrollTop = f.y * box.scrollHeight - box.clientHeight / 2
-  }, [step])
+    const w = natural.w * fit * zoom
+    const h = natural.h * fit * zoom
+    const offX = Math.max(0, (box.clientWidth - w) / 2)
+    const offY = tall ? 0 : Math.max(0, (box.clientHeight - h) / 2)
+    box.scrollLeft = offX + f.fx * w - f.px
+    box.scrollTop = offY + f.fy * h - f.py
+  }, [zoom, fit, natural, tall])
+
+  /* 화면 좌표(clientX/Y)의 한 점을 붙잡는다 — 그 점 밑의 그림 자리를 잰다 */
+  const anchorAt = (cx: number, cy: number) => {
+    const box = boxRef.current
+    const img = imgRef.current
+    if (!box || !img) return
+    const b = box.getBoundingClientRect()
+    const r = img.getBoundingClientRect()
+    focus.current = {
+      fx: (cx - r.left) / r.width,
+      fy: (cy - r.top) / r.height,
+      px: cx - b.left,
+      py: cy - b.top,
+    }
+  }
 
   /* 다른 작업으로 바뀌면 처음 상태로 — 예전에는 key 로 통째로 새로 그려
      저절로 됐지만, 이제 같은 요소가 src 만 바꿔 달기 때문에 직접 되돌린다.
@@ -604,7 +636,7 @@ function ZoomImage({
   const [seenSrc, setSeenSrc] = useState(src)
   if (seenSrc !== src) {
     setSeenSrc(src)
-    setStep(0)
+    setZoom(1)
     setFlash(false)
     /* natural 은 비우지 않는다 — 비우면 fit 이 null 이 되어 그 한 프레임
        동안 <img> 에 크기가 안 붙고 원본 크기(1600px 등)로 그려진다.
@@ -617,6 +649,7 @@ function ZoomImage({
      이미지에서 늦게 오거나 아예 오지 않을 수 있다. */
   useLayoutEffect(() => {
     focus.current = null
+    pinch.current = null
     acc.current = 0
     down.current = false
     lastTop.current = 0
@@ -631,19 +664,25 @@ function ZoomImage({
     }
   }, [src])
 
-  const go = (next: number) => {
-    const box = boxRef.current
-    if (!box || next < 0 || next >= ZOOMS.length) return
-    focus.current = {
-      x: (box.scrollLeft + box.clientWidth / 2) / box.scrollWidth,
-      y: (box.scrollTop + box.clientHeight / 2) / box.scrollHeight,
-    }
-    setStep(next)
-
-    /* 배율은 늘 띄워 두지 않고, 바꿀 때만 잠깐 보였다가 사라진다 */
+  /* 배율은 늘 띄워 두지 않고, 바꿀 때만 잠깐 보였다가 사라진다 */
+  const showFlash = () => {
     setFlash(true)
     window.clearTimeout(flashTimer.current)
     flashTimer.current = window.setTimeout(() => setFlash(false), 900)
+  }
+
+  /* 버튼·키 — 지금 배율에서 다음(이전) 단계로. 집어서 2.3배 같은 사이 값에
+     있어도 다음 단계(3배)로 간다. 칸 가운데를 붙잡는다. */
+  const stepZoom = (dir: 1 | -1) => {
+    const box = boxRef.current
+    if (!box) return
+    const next =
+      dir > 0 ? ZOOMS.find((z) => z > zoom + 0.01) : [...ZOOMS].reverse().find((z) => z < zoom - 0.01)
+    if (next == null) return
+    const b = box.getBoundingClientRect()
+    anchorAt(b.left + b.width / 2, b.top + b.height / 2)
+    setZoom(next)
+    showFlash()
   }
 
   useEffect(() => () => window.clearTimeout(flashTimer.current), [])
@@ -693,7 +732,7 @@ function ZoomImage({
      하므로 마우스만 다룬다. */
   const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
   const [dragging, setDragging] = useState(false)
-  const pannable = step > 0
+  const pannable = zoom > 1
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const box = boxRef.current
@@ -723,8 +762,8 @@ function ZoomImage({
   useEffect(() => {
     if (!active) return
     const h = (e: KeyboardEvent) => {
-      if (e.key === '+' || e.key === '=') go(step + 1)
-      if (e.key === '-' || e.key === '_') go(step - 1)
+      if (e.key === '+' || e.key === '=') stepZoom(1)
+      if (e.key === '-' || e.key === '_') stepZoom(-1)
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
@@ -735,15 +774,16 @@ function ZoomImage({
      브라우저 기본 동작(세로 스크롤·핀치 줌)을 막지 않으려고 touch 이벤트를
      수동으로 듣고 preventDefault 는 하지 않는다.
 
-     확대해서 그림이 칸보다 넓을 때는, 먼저 그림 안을 둘러보게 둔다.
-     좌우 끝에 닿은 채로 시작한 쓸기만 넘기기로 친다 — 사진 앱들과 같다.
-     중간에서 끝까지 밀어붙인 그 동작은 넘기지 않고, 다음 쓸기부터 유효하다.
-     끝에서 시작했을 때는 실수로 넘어가지 않게 문턱을 더 높인다.
+     확대해서 그림이 칸보다 넓을 때는 먼저 그림 안을 둘러본다(브라우저 스크롤).
+     그쪽 끝에 닿은 뒤에도 같은 손으로 계속 밀면, 그때부터 민 만큼(over)이
+     트랙으로 넘어가 다음 장이 따라 들어온다 — 사진 앱들과 같다.
+     확대 중에는 저항을 더 세게 걸어, 끝에 닿아 살짝 더 민 정도로는
+     튕겨 돌아오고 분명히 더 밀어야 넘어간다.
 
      넘기지 않는 경우:
        · 두 손가락 이상 — 집어서 키우는 중이다
-       · 그림이 칸보다 넓은데 그쪽 끝이 아님 — 둘러보는 중이다
-       · 세로로 더 많이 움직임 — 설명을 읽으려 위아래로 쓴 것이다 */
+       · 세로로 더 많이 움직임 — 설명을 읽으려 위아래로 쓴 것이다
+       · 끝을 넘어 민 거리가 문턱보다 짧고 빠르게 튕기지도 않음 */
   const touch = useRef<{
     x: number
     y: number
@@ -751,21 +791,45 @@ function ZoomImage({
     at: number
     moved: boolean
     multi: boolean
-    /* 쓸기를 시작한 순간 좌·우 끝에 닿아 있었는지 */
-    atStart: boolean
-    atEnd: boolean
-    /* 확대되어 가로로 둘러볼 여지가 있는 상태인지 */
+    /* 처음 크게 움직인 쪽으로 제스처 방향을 굳힌다 — 가로(h) / 세로(v) */
+    lock: 'h' | 'v' | null
+    /* 직전 손가락 위치와 시각 — 끝에 닿은 순간을 잡고, 튕긴 속도를 잰다 */
+    lastX: number
+    lastT: number
+    vx: number
+    /* 끝에 닿은 순간의 손가락 x — 여기서부터 민 거리가 트랙으로 간다.
+       아직 끝에 닿지 않았으면 null */
+    edgeX: number | null
+    /* 이 쓸기가 확대된(가로로 둘러볼 수 있는) 상태에서 시작했는지 */
     wide: boolean
   } | null>(null)
+
+  /* 끝을 넘어 민 거리의 문턱(px)과 트랙이 손을 따라오는 비율.
+     확대 중에는 둘러보다 끝에 닿아 살짝 더 민 것을 넘기기로 오해하지 않도록
+     문턱을 높이고 더 뻑뻑하게 한다. */
   const SWIPE_MIN = 50
-  /* 확대 상태에서 넘길 때의 문턱 — 둘러보다 끝에 닿아 살짝 더 민 것을
-     넘기기로 오해하지 않도록 평소보다 크게 잡는다. */
-  const SWIPE_MIN_ZOOMED = 90
+  const SWIPE_MIN_ZOOMED = 80
+  const FOLLOW = 0.55
+  const FOLLOW_ZOOMED = 0.35
+  /* 문턱에 못 미쳐도 이만큼 빠르게(px/ms) 튕겼으면 넘긴다 — 단, 최소 이 거리는 밀어야 */
+  const FLICK_V = 0.6
+  const FLICK_MIN = 24
   /* 탭으로 치는 한계 — 이보다 길게 누르거나 많이 움직이면 탭이 아니다 */
   const TAP_MS = 400
   const TAP_SLOP = 10
 
+  const distance = (a: React.Touch, b: React.Touch) =>
+    Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+
   const onTouchStart = (e: React.TouchEvent) => {
+    /* 두 번째 손가락이 닿으면 집기로 바꾼다 — 그 제스처는 넘기지 않는다 */
+    if (e.touches.length === 2) {
+      if (touch.current) touch.current.multi = true
+      onDrag?.(0)
+      const [a, b] = [e.touches[0], e.touches[1]]
+      pinch.current = { d0: distance(a, b), z0: zoom }
+      return
+    }
     if (e.touches.length !== 1) {
       touch.current = null
       return
@@ -779,44 +843,81 @@ function ZoomImage({
       at: Date.now(),
       moved: false,
       multi: false,
+      lock: null,
+      lastX: t.clientX,
+      lastT: e.timeStamp,
+      vx: 0,
+      /* 둘러볼 게 없으면 처음부터 끝에 있는 셈이다 */
+      edgeX: wide ? null : t.clientX,
       wide,
-      atStart: !box || box.scrollLeft <= 1,
-      atEnd: !box || box.scrollLeft >= box.scrollWidth - box.clientWidth - 1,
     }
   }
 
   const onTouchMove = (e: React.TouchEvent) => {
-    const s = touch.current
-    if (!s) return
-    /* 중간에 손가락이 늘면 핀치로 본다 — 그 제스처는 넘기지 않는다 */
-    if (e.touches.length > 1) {
-      s.multi = true
-      onDrag?.(0)
+    /* 집는 중 — 두 손가락 사이를 붙잡고 거리 비율만큼 키운다 */
+    const p = pinch.current
+    if (p && e.touches.length >= 2) {
+      const [a, b] = [e.touches[0], e.touches[1]]
+      const z = Math.min(MAX_ZOOM, Math.max(1, (p.z0 * distance(a, b)) / p.d0))
+      anchorAt((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2)
+      setZoom(z)
+      showFlash()
       return
     }
-    if (s.multi) return
 
-    /* 조금이라도 움직였으면 탭이 아니다 */
-    {
-      const t0 = e.touches[0]
-      if (Math.abs(t0.clientX - s.x) > TAP_SLOP || Math.abs(t0.clientY - s.y) > TAP_SLOP) {
-        s.moved = true
-      }
-    }
-    if (!onDrag) return
-
+    const s = touch.current
+    if (!s || s.multi) return
     const t = e.touches[0]
     const dx = t.clientX - s.x
     const dy = t.clientY - s.y
-    if (Math.abs(dx) <= Math.abs(dy)) return
-    /* 넘길 수 있는 방향으로만 손을 따라간다 */
-    if (s.wide && ((dx < 0 && !s.atEnd) || (dx > 0 && !s.atStart))) return
-    /* 끝에서 더 끌면 뻑뻑하게 — 넘길 수 있다는 느낌만 준다 */
-    onDrag(dx * 0.55)
+
+    /* 조금이라도 움직였으면 탭이 아니다 */
+    if (Math.abs(dx) > TAP_SLOP || Math.abs(dy) > TAP_SLOP) {
+      s.moved = true
+      s.lock ??= Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+    }
+
+    /* 손가락 속도 — 놓는 순간 튕겼는지 본다 */
+    const dt = e.timeStamp - s.lastT
+    if (dt > 0) s.vx = (t.clientX - s.lastX) / dt
+    const prevX = s.lastX
+    s.lastX = t.clientX
+    s.lastT = e.timeStamp
+
+    if (!onDrag || s.lock !== 'h') return
+
+    const box = boxRef.current
+    const max = box ? box.scrollWidth - box.clientWidth : 0
+    /* 왼쪽으로 밀면(다음 장) 오른쪽 끝, 오른쪽으로 밀면 왼쪽 끝에 닿아 있어야 한다 */
+    const atLeft = !box || box.scrollLeft <= 1
+    const atRight = !box || box.scrollLeft >= max - 1
+
+    if (s.edgeX == null) {
+      /* 둘러보다 이번 움직임에 그쪽 끝에 닿았으면 여기서부터 센다 */
+      if ((t.clientX < prevX && atRight) || (t.clientX > prevX && atLeft)) s.edgeX = prevX
+      else return
+    }
+
+    const over = t.clientX - s.edgeX
+    /* 되돌아와 끝에서 떨어졌으면 다시 그림을 둘러보는 중이다 */
+    if (s.wide && ((over < 0 && !atRight) || (over > 0 && !atLeft))) {
+      s.edgeX = null
+      onDrag(0)
+      return
+    }
+    onDrag(over * (s.wide ? FOLLOW_ZOOMED : FOLLOW))
   }
 
   const onTouchEnd = (e: React.TouchEvent) => {
+    /* 집기에서 손가락이 하나라도 떨어지면 집기는 끝이다. 거의 1배로
+       돌아왔으면 1배에 맞춘다 — 1.02배처럼 어정쩡하게 남지 않게. */
+    if (pinch.current && e.touches.length < 2) {
+      pinch.current = null
+      if (zoom < 1.05) setZoom(1)
+    }
+
     const s = touch.current
+    if (e.touches.length > 0) return
     touch.current = null
     onDrag?.(0)
     if (!s || s.multi) return
@@ -828,25 +929,41 @@ function ZoomImage({
       return
     }
 
-    if (!onSwipe) return
+    if (!onSwipe || s.lock !== 'h' || s.edgeX == null) return
 
-    const t = e.changedTouches[0]
-    const dx = t.clientX - s.x
-    const dy = t.clientY - s.y
+    const over = e.changedTouches[0].clientX - s.edgeX
     const min = s.wide ? SWIPE_MIN_ZOOMED : SWIPE_MIN
-    if (Math.abs(dx) < min || Math.abs(dx) <= Math.abs(dy)) return
+    /* 같은 방향으로 빠르게 튕겼는지 */
+    const flick = Math.abs(over) >= FLICK_MIN && Math.abs(s.vx) > FLICK_V && s.vx * over > 0
+    if (Math.abs(over) < min && !flick) return
 
-    /* 확대 중이면 그 방향 끝에서 시작한 쓸기만 넘긴다 */
-    if (s.wide && ((dx < 0 && !s.atEnd) || (dx > 0 && !s.atStart))) return
-
-    /* 왼쪽으로 쓸면 다음 장 — 종이를 넘기는 방향과 같다 */
-    onSwipe(dx < 0 ? 'left' : 'right')
+    /* 왼쪽으로 쓸면 다음 장 — 종이를 넘기는 방향과 같다.
+       넘어가면 다음 장은 처음 배율(1배)로 열린다(위 seenSrc). */
+    onSwipe(over < 0 ? 'left' : 'right')
   }
+
+  /* 두 손가락 움직임이 브라우저의 스크롤·확대로 새지 않게 막는다.
+     React 의 터치 핸들러는 passive 라 preventDefault 가 듣지 않아 직접 단다.
+     iOS 사파리는 touch-action 과 별개로 gesture* 이벤트로 페이지를 키운다. */
+  useEffect(() => {
+    const box = boxRef.current
+    if (!box) return
+    const stopMulti = (e: TouchEvent) => {
+      if (e.touches.length > 1 && e.cancelable) e.preventDefault()
+    }
+    const stopGesture = (e: Event) => e.preventDefault()
+    box.addEventListener('touchmove', stopMulti, { passive: false })
+    box.addEventListener('gesturestart', stopGesture)
+    return () => {
+      box.removeEventListener('touchmove', stopMulti)
+      box.removeEventListener('gesturestart', stopGesture)
+    }
+  }, [])
 
   return (
     <div className="relative h-full w-full bg-white">
-      {/* 두 손가락으로 집어 키우는 동작(pinch-zoom)과 세로 스크롤(pan-y)은
-          브라우저에 맡긴다. 확대돼 가로로 둘러볼 수 있을 때만 pan-x 를 열어
+      {/* 세로 스크롤(pan-y)은 브라우저에 맡기고, 집어 키우기는 직접 한다.
+          확대돼 가로로 둘러볼 수 있을 때만 pan-x 를 열어
           그림 안을 훑게 하고, 끝에 닿은 뒤의 쓸기는 위 onTouch* 가 받는다. */}
       <div
         ref={boxRef}
@@ -858,7 +975,12 @@ function ZoomImage({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onScroll={onScroll}
-        style={{ touchAction: pannable ? 'pan-x pan-y pinch-zoom' : 'pan-y pinch-zoom' }}
+        /* 집기는 위 onTouch* 가 맡으므로 브라우저 핀치(pinch-zoom)는 열지 않는다.
+           끝에서 더 밀 때 튕기는 효과는 트랙이 대신하므로 스크롤 바운스는 끈다. */
+        style={{
+          touchAction: pannable ? 'pan-x pan-y' : 'pan-y',
+          overscrollBehavior: 'none',
+        }}
         className={`absolute inset-0 overflow-auto ${
           pannable ? (dragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''
         }`}
@@ -911,16 +1033,16 @@ function ZoomImage({
           {Math.round(zoom * 100)}%
         </span>
         <button
-          onClick={() => go(step - 1)}
-          disabled={step === 0}
+          onClick={() => stepZoom(-1)}
+          disabled={zoom <= 1}
           aria-label="축소"
           className="grid size-9 place-items-center rounded-full bg-neutral-900/50 text-lg leading-none text-white backdrop-blur-sm transition hover:bg-neutral-900/75 disabled:opacity-30"
         >
           −
         </button>
         <button
-          onClick={() => go(step + 1)}
-          disabled={step === ZOOMS.length - 1}
+          onClick={() => stepZoom(1)}
+          disabled={zoom >= MAX_ZOOM}
           aria-label="확대"
           className="grid size-9 place-items-center rounded-full bg-neutral-900/50 text-lg leading-none text-white backdrop-blur-sm transition hover:bg-neutral-900/75 disabled:opacity-30"
         >
