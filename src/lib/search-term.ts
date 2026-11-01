@@ -1,13 +1,13 @@
 /* 검색어가 "걸러도 될 만큼" 입력됐는지 판단한다.
 
-   한글은 두 글자, 영문·숫자는 세 글자부터 거른다. 기준이 다른 이유는
+   한글은 두 글자, 영문·숫자는 네 글자부터 거른다. 기준이 다른 이유는
    한 글자가 담는 정보량이 다르기 때문이다 — '김서'는 이미 이름을 좁히지만
    'ki'는 kim·king·kitchen 어디에나 걸려 목록이 줄지 않는다.
 
    클라이언트 컴포넌트가 쓰므로 server-only 모듈에 두지 않는다. */
 
 export const MIN_HANGUL = 2
-export const MIN_LATIN = 3
+export const MIN_LATIN = 4
 
 /* 한글 음절(가–힣)과 자모(ㄱ–ㅣ) 둘 다 센다.
    조합 중인 글자('ㄱ')도 한 글자로 쳐야 입력 도중 기준이 흔들리지 않는다. */
@@ -25,7 +25,7 @@ export function isSearchable(raw: string): boolean {
   if (s.length === 0) return false
 
   /* 한글이 하나라도 섞여 있으면 한글 기준을 쓴다.
-     '김a'처럼 섞어 치는 중에 기준이 3글자로 올라가면,
+     '김a'처럼 섞어 치는 중에 기준이 4글자로 올라가면,
      두 글자를 쳤는데도 목록이 안 걸러져 고장으로 보인다. */
   return s.length >= (HANGUL_RE.test(s) ? MIN_HANGUL : MIN_LATIN)
 }

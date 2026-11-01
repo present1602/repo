@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { PublicDesignerCard, PublicWork } from '@/lib/designer-shape'
 import { displayNameOf } from '@/lib/display-name'
@@ -9,6 +9,7 @@ import { WorkModal } from './work-modal'
 import { ScopePrompt } from './scope-prompt'
 import { InquiryButton } from './inquiry/inquiry-button'
 import { offersOf, type InquiryOffers } from '@/lib/inquiry-types'
+import { isSearchable, searchHint } from '@/lib/search-term'
 
 /* 기본 카드가 보여주는 작업 수 — 썸네일 줄과 다이얼로그 모두 이만큼만 */
 const SPOTLIGHT_MAX = 4
@@ -39,6 +40,37 @@ export function DesignerList({
   const [tag, setTag] = useState<string | null>(null)
   const [q, setQ] = useState('')
 
+  /* 한글 두 글자, 영문·숫자 네 글자부터 거른다(search-term.ts) — 그 전에는 전체를 둔다 */
+  const term = q.trim()
+  const searching = isSearchable(term)
+
+  /* 이메일 @ 앞부분으로 찾은 디자이너 — 이메일은 목록에 없어 서버가 맞춰 id 만 준다
+     (/api/designers/search). 어느 검색어의 결과인지 함께 둔다 — 입력이 바뀌면
+     앞 검색어의 결과는 쓰지 않는다. 타자가 멈춘 뒤에 묻는다. */
+  const [emailHits, setEmailHits] = useState<{ q: string; ids: Set<string> }>({
+    q: '',
+    ids: new Set(),
+  })
+  useEffect(() => {
+    if (!searching) return
+    const ctrl = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/designers/search?q=${encodeURIComponent(term)}`, {
+          signal: ctrl.signal,
+        })
+        const data = (await res.json()) as { ids?: string[] }
+        setEmailHits({ q: term, ids: new Set(data.ids ?? []) })
+      } catch {
+        /* 끊기거나 취소되면 이름·소개 검색만으로 둔다 */
+      }
+    }, 250)
+    return () => {
+      clearTimeout(t)
+      ctrl.abort()
+    }
+  }, [term, searching])
+
   /* 들어오자마자 어떤 의뢰인지 묻고, 그 유형을 받는 디자이너만 남긴다.
      null 이면 거르지 않는다 — 고르지 않고 닫은 경우다. */
   const [scope, setScope] = useState<Scope | null>(null)
@@ -58,14 +90,16 @@ export function DesignerList({
   )
 
   const list = useMemo(() => {
-    const needle = q.trim().toLowerCase()
+    const needle = searching ? term.toLowerCase() : ''
+    const byEmail = emailHits.q === term ? emailHits.ids : null
     const hit = shown.filter((d) => {
       if (tag && !d.tags.includes(tag)) return false
       if (!needle) return true
       /* 이름·한 줄 소개·분야까지 함께 본다. 이름이 비어 있는 계정도 있으므로
-         표시명으로 맞춘다 — 화면에 보이는 글자로 검색되는 게 자연스럽다. */
+         표시명으로 맞춘다 — 화면에 보이는 글자로 검색되는 게 자연스럽다.
+         이메일로 찾은 디자이너도 더한다. */
       const hay = [displayNameOf(d), d.one_liner ?? '', ...d.tags].join(' ').toLowerCase()
-      return hay.includes(needle)
+      return hay.includes(needle) || (byEmail?.has(d.id) ?? false)
     })
     /* 올린 디자이너를 어드민이 정한 차례대로 앞에 세운다. 거르기는 똑같이 받는다 —
        분야를 골랐는데 상관없는 사람이 위에 남으면 필터가 고장 난 것처럼 보인다. */
@@ -73,7 +107,7 @@ export function DesignerList({
       .filter((d) => featureRank.has(d.id))
       .sort((a, b) => featureRank.get(a.id)! - featureRank.get(b.id)!)
     return [...up, ...hit.filter((d) => !featureRank.has(d.id))]
-  }, [shown, tag, q, featureRank])
+  }, [shown, tag, term, searching, emailHits, featureRank])
 
   /* 썸네일 다이얼로그는 목록 순서대로 디자이너들의 작업을 한 줄로 잇는다 —
      한 사람의 끝에서 넘기면 그 사람의 처음이 아니라 다음 디자이너의 첫 작업이 나온다.
@@ -174,12 +208,20 @@ export function DesignerList({
             </div>
           </div>
 
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="디자이너 이름, 키워드 검색"
-            className="h-9 w-full min-w-0 rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2 sm:w-64"
-          />
+          <div className="w-full min-w-0 sm:w-64">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="디자이너 이메일, 키워드 검색"
+              aria-describedby="designer-search-hint"
+              className="h-9 w-full min-w-0 rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+            />
+            {/* 기준에 못 미치면 왜 목록이 그대로인지 알린다 — 고장으로 보이지 않게.
+                영문 안내('4글자부터')는 띄우지 않는다 — 한글 안내만 */}
+            <p id="designer-search-hint" className="mt-1 min-h-4 text-[11px] text-neutral-400">
+              {/[가-힣ㄱ-ㅣ]/.test(q) && searchHint(q)}
+            </p>
+          </div>
         </div>
 
         {allTags.length > 0 && (
