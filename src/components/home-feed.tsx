@@ -54,6 +54,7 @@ export function HomeFeed({ works }: { works: FeedWork[] }) {
           setIndex={setIndex}
           onClose={() => setIndex(null)}
           nameOf={(w) => displayNameOf(w.designer)}
+          hrefOf={(w) => `/designers/${w.designer.id}`}
         />
       )}
     </>

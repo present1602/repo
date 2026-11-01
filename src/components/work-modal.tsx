@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import type { PublicWork } from '@/lib/designer-shape'
 
 /* 좌우로 미끄러지는 시간(ms). 트랙에 거는 CSS 전환과 같은 값이어야
@@ -13,6 +14,7 @@ export function WorkModal<W extends PublicWork>({
   setIndex,
   onClose,
   nameOf,
+  hrefOf,
   counterOf,
   loop = true,
 }: {
@@ -23,6 +25,8 @@ export function WorkModal<W extends PublicWork>({
   /* 헤더 번호 왼쪽에 붙일 디자이너 이름(가린 이름).
      넘기는 동안 같은 사람의 작업인지 알아보게 한다 — 없으면 번호만 둔다. */
   nameOf?: (w: W) => string
+  /* 이름을 눌렀을 때 갈 디자이너 페이지 주소 */
+  hrefOf?: (w: W) => string
   /* 헤더 번호를 전체가 아닌 다른 기준으로 셀 때 — [몇 번째, 모두].
      여러 디자이너를 이어 넘기는 탐색에서는 그 디자이너 안에서 센다. */
   counterOf?: (w: W) => [number, number]
@@ -237,9 +241,25 @@ export function WorkModal<W extends PublicWork>({
       >
         <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-5 py-3">
           <span className="flex min-w-0 items-baseline gap-2.5 text-xs text-neutral-500">
-            {nameOf && (
-              <span className="truncate text-sm font-semibold text-neutral-900">{nameOf(w)}</span>
-            )}
+            {/* 주소를 주면 이름이 그 디자이너 페이지로 가는 링크가 된다 —
+                누를 수 있다는 걸 색으로 알린다 */}
+            {nameOf &&
+              (hrefOf ? (
+                <Link
+                  href={hrefOf(w)}
+                  /* 넘어가기 전에 뒤 화면을 맨 위로 바로 올려 둔다.
+                     Next 는 새 화면의 윗변이 이미 보이면 스크롤을 건드리지 않아,
+                     목록을 조금 내려 둔 채 넘어가면 새 화면 위쪽이 상단 바에 가린다.
+                     홈은 html 에 smooth 가 걸려 있어 Next 에 맡기면 흐르듯 올라간다 —
+                     'instant' 로 그 설정을 이긴다. 모달이 덮고 있어 이 움직임은 보이지 않는다. */
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'instant' })}
+                  className="truncate text-sm font-semibold text-violet-600 transition hover:text-violet-800 hover:underline"
+                >
+                  {nameOf(w)}
+                </Link>
+              ) : (
+                <span className="truncate text-sm font-semibold text-neutral-900">{nameOf(w)}</span>
+              ))}
             <span className="shrink-0 tracking-widest">
               {String(num).padStart(2, '0')} / {String(total).padStart(2, '0')}
             </span>

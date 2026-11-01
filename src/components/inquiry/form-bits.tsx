@@ -235,11 +235,17 @@ export function RadioCard({
   name,
   value,
   hint,
+  was,
+  tip,
   defaultChecked,
 }: {
   name: string
   value: string
   hint?: string
+  /* 할인 전 금액 — hint 앞에 사선을 그어 보여준다 */
+  was?: string
+  /* 이름 옆 정보 아이콘을 눌러야 보이는 설명 */
+  tip?: string
   defaultChecked?: boolean
 }) {
   return (
@@ -253,12 +259,77 @@ export function RadioCard({
         className="mt-0.5 shrink-0 accent-violet-600"
       />
       <span className="min-w-0">
-        <span className="block text-sm font-medium">{value}</span>
+        <span className="flex items-center gap-1 text-sm font-medium">
+          {value}
+          {tip && <InfoTip text={tip} />}
+        </span>
+        {/* 설명 안의 \n 은 줄바꿈으로 보인다 — 글자에 <br/> 을 넣으면 그대로 찍힌다 */}
         {hint && (
-          <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">{hint}</span>
+          <span className="mt-0.5 block whitespace-pre-line text-xs leading-relaxed text-neutral-500">
+            {/* 할인 전 금액 — 가로줄(line-through) 대신 사선을 긋는다 */}
+            {was && (
+              <span className="relative mr-1.5 inline-block text-[11px] text-neutral-400">
+                <s className="no-underline">{was}</s>
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 top-1/2 h-px rotate-[8deg] bg-neutral-400"
+                />
+              </span>
+            )}
+            {hint}
+          </span>
         )}
       </span>
     </label>
+  )
+}
+
+/* 정보 아이콘 — 누르면 설명 말풍선이 뜨고, 다시 누르거나 바깥을 누르면 닫힌다.
+
+   터치 기기에는 hover 가 없으므로 누름으로 여닫는다.
+   라디오 label 안에 있으므로 누름이 라디오 선택으로 번지지 않게 막는다 —
+   설명만 보려던 사람의 선택이 바뀌면 안 된다. */
+function InfoTip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const close = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [open])
+
+  return (
+    <span ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="설명 보기"
+        aria-expanded={open}
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setOpen((v) => !v)
+        }}
+        className="grid size-5 place-items-center rounded-full text-neutral-400 transition hover:text-violet-600"
+      >
+        <svg viewBox="0 0 16 16" fill="none" className="size-3.5" aria-hidden>
+          <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M8 7.2v3.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          <circle cx="8" cy="5.1" r="0.85" fill="currentColor" />
+        </svg>
+      </button>
+      {open && (
+        <span
+          role="tooltip"
+          className="absolute left-1/2 top-full z-20 mt-1.5 w-max max-w-56 -translate-x-1/2 rounded-lg bg-neutral-900 px-3 py-2 text-xs font-normal leading-relaxed text-white shadow-lg"
+        >
+          {text}
+        </span>
+      )}
+    </span>
   )
 }
 

@@ -190,6 +190,7 @@ export function DesignerList({
           setIndex={setOpenAt}
           onClose={() => setOpenAt(null)}
           nameOf={(w) => displayNameOf(w.designer)}
+          hrefOf={(w) => `/designers/${w.designer.id}`}
           counterOf={(w) => [w.nth, w.designer.works.length]}
           loop={false}
         />

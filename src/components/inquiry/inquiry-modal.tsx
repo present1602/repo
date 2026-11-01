@@ -11,13 +11,19 @@ import {
   ReadonlyRow,
   inputCls,
 } from './form-bits'
-import { INQUIRY_TYPES, INQUIRY_TYPE_HINTS } from '@/lib/inquiry-types'
+import {
+  INQUIRY_TYPES,
+  INQUIRY_TYPE_HINTS,
+  INQUIRY_TYPE_WAS,
+  INQUIRY_TYPE_TIPS,
+} from '@/lib/inquiry-types'
 
 /* 의뢰·문의 폼.
 
    보낸 내용은 /api/inquiry 로 가서 DB 에 쌓이고 어드민에게 메일이 간다.
 
-   designerName 을 주면 "{이름}에게 문의하기", 없으면 일반 의뢰로 연다 —
+   designerName 을 주면 "문의하기"(누구에게인지는 아래 디자이너 줄이 보여준다),
+   없으면 일반 의뢰로 연다 —
    네비바의 '의뢰하기'는 아직 상대가 정해지지 않은 상태로 열린다. */
 export function InquiryModal({
   designerId,
@@ -71,7 +77,7 @@ export function InquiryModal({
   return (
     <Dialog
       eyebrow="INQUIRY"
-      title={designerName ? `${designerName}에게 문의하기` : '의뢰 문의하기'}
+      title={designerName ? '문의하기' : '의뢰 문의하기'}
       onClose={onClose}
     >
       {done ? (
@@ -110,7 +116,14 @@ export function InquiryModal({
             </legend>
             <div className="grid gap-2 md:grid-cols-3">
               {INQUIRY_TYPES.map((t) => (
-                <RadioCard key={t} name="inquiryType" value={t} hint={INQUIRY_TYPE_HINTS[t]} />
+                <RadioCard
+                  key={t}
+                  name="inquiryType"
+                  value={t}
+                  hint={INQUIRY_TYPE_HINTS[t]}
+                  was={INQUIRY_TYPE_WAS[t]}
+                  tip={INQUIRY_TYPE_TIPS[t]}
+                />
               ))}
             </div>
           </fieldset>
@@ -164,10 +177,16 @@ export function InquiryModal({
                   name="message"
                   rows={6}
                   maxLength={5000}
-                  placeholder="어떤 서비스에 대한 의뢰인지 알려주세요. 소개 자료를 첨부해주시면 더욱 좋습니다. 원하는 스타일의 레퍼런스 서비스 url 혹은 앱 이름을 알려주세요."
+                  /* 중괄호로 감싸야 \n 이 줄바꿈이 된다 — 따옴표만 쓴 JSX 속성은
+                     \n 을 글자 그대로 찍는다. textarea 의 placeholder 는 줄바꿈을 보여준다. */
+                  placeholder={
+                    '어떤 서비스에 대한 의뢰인지 알려주세요.\n소개 자료를 첨부해주시면 좋습니다.\n원하는 스타일의 레퍼런스 서비스 url 혹은 앱 이름을 알려주세요.'
+                  }
                   /* 여기만 테두리를 두른다 — 여러 줄이라 밑줄만으로는
                      어디까지가 입력칸인지 알 수 없다 */
-                  className={`${inputCls} resize-y rounded-lg border border-neutral-300 bg-white px-3 leading-relaxed focus:border-neutral-900`}
+                  /* inputCls 의 border-0 이 border 를 이겨 아래 줄만 남는다 —
+                     border-b 처럼 변별 클래스로 나머지 세 변을 다시 켠다 */
+                  className={`${inputCls} resize-y rounded-lg border-x border-t border-neutral-300 bg-white px-3 leading-relaxed focus:border-neutral-900`}
                 />
               </Field>
             </div>
