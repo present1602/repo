@@ -15,9 +15,21 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// 공유 미리보기(og:image)는 같은 폴더의 opengraph-image.png 를 Next 가 붙인다.
+// 이미지 주소는 절대 URL 이어야 해서 metadataBase 로 사이트 주소를 준다.
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://soom.it"),
   title: "SOOM",
   description: "디자이너 포트폴리오 플랫폼",
+  openGraph: {
+    type: "website",
+    siteName: "SOOM",
+    title: "SOOM",
+    description: "소액 의뢰로 시작해 본 계약까지.",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
