@@ -72,27 +72,40 @@ export function InquiryModal({
   designerId,
   designerName,
   offers,
+  initialType,
+  hiddenTypes = [],
   onClose,
 }: {
   designerId?: string
   designerName?: string
   /* 그 디자이너가 받는 유형과 시작가(offersOf) — 없으면 모든 유형을 기본 금액으로 */
   offers?: InquiryOffers
+  /* 처음부터 골라 둘 유형 — 상세의 의뢰 패널에서 고른 것 */
+  initialType?: InquiryType
+  /* 사이트에서 숨긴 플랜의 유형 — 디자이너가 정해지지 않은 폼(네비바)에서 뺀다.
+     디자이너에게 보내는 폼은 offers 가 이미 걸러 온다 */
+  hiddenTypes?: InquiryType[]
   onClose: () => void
 }) {
   /* 받는 유형이 하나도 없으면 다 보여준다 — 고를 게 없는 폼은 보낼 수가 없다 */
   const types =
     offers && Object.keys(offers).length > 0
       ? INQUIRY_TYPES.filter((t) => offers[t] != null)
-      : INQUIRY_TYPES
+      : INQUIRY_TYPES.filter((t) => !hiddenTypes.includes(t))
   const [done, setDone] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
   /* 고른 유형과 단계 — 프리미엄이 있는 유형을 고르면 카드 안에 전환이 펼쳐진다.
      유형을 바꾸면 기본으로 돌아간다 — 다른 유형의 프리미엄을 따라오면 안 된다. */
-  /* 디자이너가 받는 유형이 하나뿐이면 처음부터 골라 둔다 — 고를 게 없는데 누르게 하지 않는다 */
-  const only = offers && types.length === 1 ? types[0] : null
+  /* 처음부터 골라 둘 유형 — 넘겨받은 것, 아니면 받는 유형이 하나뿐일 때 그것.
+     고를 게 없는데 누르게 하지 않는다 */
+  const only =
+    initialType && (types as readonly string[]).includes(initialType)
+      ? initialType
+      : offers && types.length === 1
+        ? types[0]
+        : null
   const [picked, setPicked] = useState<InquiryType | null>(only)
   const [tier, setTier] = useState<InquiryPlanTier>('basic')
   const pickedOffer = picked ? offers?.[picked] : undefined

@@ -14,16 +14,29 @@ import { isSearchable, searchHint } from '@/lib/search-term'
 /* 기본 카드가 보여주는 작업 수 — 썸네일 줄과 다이얼로그 모두 이만큼만 */
 const SPOTLIGHT_MAX = 4
 import { SCOPES, SCOPE_LABELS, acceptsScope, type Scope } from '@/lib/scopes'
+import type { SpecialtyScopeMode } from '@/lib/specialty-shape'
+
+/* 제목 옆 의뢰 범위 필터 — 디자인 의뢰·프로젝트 의뢰를 받는 디자이너로 거른다 */
+const REACHES = [
+  { key: 'all', label: '전체', scope: null },
+  { key: 'design', label: '디자인', scope: 'full_design' },
+  { key: 'design_dev', label: '디자인 + 개발', scope: 'with_dev' },
+] as const satisfies readonly { key: string; label: string; scope: Scope | null }[]
+type Reach = (typeof REACHES)[number]['key']
 
 export function DesignerList({
   designers,
   tags: allTags,
+  scopeModes = {},
   featureIds = [],
   scopePrompt = true,
   offers,
+  hiddenScopes = [],
 }: {
   designers: PublicDesignerCard[]
   tags: string[]
+  /* 분야 이름 → 의뢰 범위(039_specialty_scope_mode.sql). 없는 분야는 choice 로 본다 */
+  scopeModes?: Record<string, SpecialtyScopeMode>
   /* 어드민이 위쪽에 썸네일 줄 카드(feature1)로 올린 디자이너, 차례대로.
      나머지는 기본 카드(대표 작업 한 장)로 그 아래에 선다(032_explore_features.sql). */
   featureIds?: string[]
@@ -32,7 +45,13 @@ export function DesignerList({
   scopePrompt?: boolean
   /* 디자이너 id → 의뢰 폼의 유형·금액(offersOf). 프리미엄까지 담으려고 서버에서 만들어 온다 */
   offers?: Record<string, InquiryOffers>
+  /* 사이트에서 숨긴 플랜(038_plan_visibility.sql) — 팝업·필터에서 빼고, 이것만 받는 디자이너는 목록에서 뺀다 */
+  hiddenScopes?: Scope[]
 }) {
+  const visibleScopes = useMemo(
+    () => SCOPES.filter((s) => !hiddenScopes.includes(s)),
+    [hiddenScopes],
+  )
   const featureRank = useMemo(
     () => new Map(featureIds.map((id, i) => [id, i])),
     [featureIds],
@@ -83,17 +102,25 @@ export function DesignerList({
       designers.filter((d) => {
         /* 받을 유형을 모두 끈 디자이너는 거르지 않을 때도 뺀다 — 탐색에는
            나오지 않고 프로필 링크로만 열리게 하려고 끈 것이다(plan-form.tsx) */
-        if (!SCOPES.some((s) => acceptsScope(d, s))) return false
+        if (!visibleScopes.some((s) => acceptsScope(d, s))) return false
         return !scope || acceptsScope(d, scope)
       }),
-    [designers, scope],
+    [designers, scope, visibleScopes],
   )
+
+  /* 의뢰 범위 필터 — 전체 또는 '고객이 선택'(choice) 분야에서만 보인다.
+     디자인만·디자인 + 개발로 정해 둔 분야에서는 숨기고 거르지 않는다. 고른 값은
+     남겨 두어 choice 분야로 돌아오면 그대로 걸린다. */
+  const [reach, setReach] = useState<Reach>('all')
+  const showReach = !tag || (scopeModes[tag] ?? 'choice') === 'choice'
+  const reachScope = showReach ? REACHES.find((r) => r.key === reach)!.scope : null
 
   const list = useMemo(() => {
     const needle = searching ? term.toLowerCase() : ''
     const byEmail = emailHits.q === term ? emailHits.ids : null
     const hit = shown.filter((d) => {
       if (tag && !d.tags.includes(tag)) return false
+      if (reachScope && !acceptsScope(d, reachScope)) return false
       if (!needle) return true
       /* 이름·한 줄 소개·분야까지 함께 본다. 이름이 비어 있는 계정도 있으므로
          표시명으로 맞춘다 — 화면에 보이는 글자로 검색되는 게 자연스럽다.
@@ -107,7 +134,7 @@ export function DesignerList({
       .filter((d) => featureRank.has(d.id))
       .sort((a, b) => featureRank.get(a.id)! - featureRank.get(b.id)!)
     return [...up, ...hit.filter((d) => !featureRank.has(d.id))]
-  }, [shown, tag, term, searching, emailHits, featureRank])
+  }, [shown, tag, reachScope, term, searching, emailHits, featureRank])
 
   /* 썸네일 다이얼로그는 목록 순서대로 디자이너들의 작업을 한 줄로 잇는다 —
      한 사람의 끝에서 넘기면 그 사람의 처음이 아니라 다음 디자이너의 첫 작업이 나온다.
@@ -171,6 +198,30 @@ export function DesignerList({
                 <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
                   {tag ?? 'Designers'}
                 </h1>
+                {showReach && (
+                  <div
+                    role="radiogroup"
+                    aria-label="의뢰 범위"
+                    className="inline-flex self-center rounded-full bg-neutral-200/70 p-0.5 text-xs"
+                  >
+                    {REACHES.map((r) => (
+                      <button
+                        key={r.key}
+                        type="button"
+                        role="radio"
+                        aria-checked={reach === r.key}
+                        onClick={() => setReach(r.key)}
+                        className={`rounded-full px-2.5 py-1 transition ${
+                          reach === r.key
+                            ? 'bg-white font-semibold text-violet-700 shadow-sm'
+                            : 'text-neutral-600 hover:text-neutral-900'
+                        }`}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {/* 고른 유형을 제목 옆에 늘 보이게 — 왜 목록이 짧은지 모르면
                     디자이너가 없는 줄 알고 되돌아간다. '모르겠어요'로 닫았으면
                     '전체'로 띄운다 — 유형을 고르는 자리가 있다는 걸 알려야 한다.
@@ -283,6 +334,7 @@ export function DesignerList({
       {scopePrompt && !asked && (
         <ScopePrompt
           current={scope}
+          scopes={visibleScopes}
           onPick={(s) => {
             setScope(s)
             setAsked(true)

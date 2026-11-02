@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
-import { SiteNavbar } from "@/components/site-navbar";
+import { SiteNavbarData } from "@/components/site-navbar-data";
 import { SiteFooter } from "@/components/site-footer";
 
 const geistSans = Geist({
@@ -49,7 +49,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             띄우지 않는 화면에서 그 띠가 잠깐 보였다 사라진다 — 바가 있는
             화면에서 한 번 밀리는 편이 덜 눈에 띈다. */}
         <Suspense fallback={null}>
-          <SiteNavbar />
+          <SiteNavbarData />
         </Suspense>
 
         <div className="flex flex-1 flex-col">{children}</div>

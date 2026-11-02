@@ -4,11 +4,12 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   MAX_PLAN_DESC,
+  MAX_PLAN_DURATION,
   MAX_PLAN_NAME,
   PLAN_TIERS,
   type PlanCopies,
-  type PlanText,
   type PlanTier,
+  type PlanTierCopy,
 } from '@/lib/plans'
 import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
 import { updatePlanCopies } from '@/app/admin/settings/actions'
@@ -36,7 +37,7 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(copies)
 
-  const edit = (plan: Scope, tier: PlanTier, patch: Partial<PlanText>) =>
+  const edit = (plan: Scope, tier: PlanTier, patch: Partial<PlanTierCopy>) =>
     setDraft((d) => ({
       ...d,
       [plan]:
@@ -47,6 +48,9 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
 
   const setPremiumOn = (plan: Scope, enabled: boolean) =>
     setDraft((d) => ({ ...d, [plan]: { ...d[plan], premium: { ...d[plan].premium, enabled } } }))
+
+  const setVisible = (plan: Scope, visible: boolean) =>
+    setDraft((d) => ({ ...d, [plan]: { ...d[plan], visible } }))
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,9 +70,13 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
     <form onSubmit={submit} className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
       <h2 className="text-sm font-semibold">가격 플랜 문구</h2>
       <p className="mt-1 text-xs leading-relaxed text-neutral-500">
-        의뢰 유형마다 기본과 프리미엄의 이름·설명을 정합니다. 디자이너 상세의 플랜 카드에 나갑니다.
+        의뢰 유형마다 기본과 프리미엄의 이름·설명·작업 기간을 정합니다. 디자이너 상세의 의뢰
+        패널에 나갑니다. 작업 기간은 디자이너마다 따로 바꿀 수 있습니다.
         <br />
         프리미엄을 켠 유형만 디자이너별로 프리미엄을 켜고 금액을 넣을 수 있습니다.
+        <br />
+        숨긴 플랜은 공개 화면(상세·의뢰 폼·탐색)과 디자이너 스튜디오에서 빠집니다. 디자이너별
+        설정은 남아 있어 다시 노출하면 돌아옵니다.
       </p>
 
       {msg && (
@@ -83,12 +91,32 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
 
       <div className="mt-4 space-y-5">
         {SCOPES.map((plan) => (
-          <div key={plan} className="rounded-lg border border-neutral-200 p-4">
+          <div
+            key={plan}
+            className={`rounded-lg border p-4 ${
+              draft[plan].visible ? 'border-neutral-200' : 'border-dashed border-neutral-300 bg-neutral-50'
+            }`}
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <h3 className="text-xs font-semibold text-neutral-700">{SCOPE_LABELS[plan]}</h3>
                 <span className="text-[11px] text-neutral-400">{PRICE_NOTES[plan]}</span>
               </div>
+              <div className="flex flex-wrap items-center gap-4">
+              {/* 노출 — 끄면 이 플랜이 공개 화면 어디에도 나가지 않는다 */}
+              <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-neutral-600">
+                노출
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={draft[plan].visible}
+                  onChange={(e) => setVisible(plan, e.target.checked)}
+                  className="size-4 accent-violet-600"
+                />
+                <span className={draft[plan].visible ? 'text-violet-700' : 'text-neutral-400'}>
+                  {draft[plan].visible ? '노출' : '숨김'}
+                </span>
+              </label>
               <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-neutral-600">
                 프리미엄
                 <input
@@ -102,6 +130,7 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
                   {draft[plan].premium.enabled ? '켜짐' : '꺼짐'}
                 </span>
               </label>
+              </div>
             </div>
 
             <div className="mt-3 grid gap-4 md:grid-cols-2">
@@ -145,8 +174,8 @@ function TierFields({
   label: string
   /* 꺼 둔 프리미엄 — 공개 화면에 나가지 않는다는 표시 */
   muted?: boolean
-  value: PlanText
-  onChange: (patch: Partial<PlanText>) => void
+  value: PlanTierCopy
+  onChange: (patch: Partial<PlanTierCopy>) => void
 }) {
   return (
     <div className={muted ? 'opacity-50' : ''}>
@@ -185,6 +214,18 @@ function TierFields({
           className="w-full resize-y rounded-lg border border-neutral-300 px-3 py-2 text-sm leading-relaxed outline-none ring-violet-500 focus:ring-2"
         />
       </label>
+
+      <label className="mt-3 block">
+        <span className="mb-1.5 block text-xs font-medium text-neutral-600">작업 기간</span>
+        <input
+          value={value.duration}
+          onChange={(e) => onChange({ duration: e.target.value })}
+          maxLength={MAX_PLAN_DURATION}
+          placeholder="예: 3–5일 (비우면 나가지 않음)"
+          className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+        />
+      </label>
+
     </div>
   )
 }

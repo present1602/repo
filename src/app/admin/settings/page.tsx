@@ -1,12 +1,19 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
 import { supabaseConfigured } from '@/lib/supabase-admin'
-import { getPlanCopies, getScopePrompt } from '@/lib/site-settings'
+import {
+  getPlanCopies,
+  getScopePrompt,
+  getShowDuration,
+  listOptionTemplates,
+} from '@/lib/site-settings'
 import { listAllSpecialties } from '@/lib/specialties'
 import { PlanCopyForm } from '@/components/admin/plan-copy-form'
+import { OptionTemplateManager } from '@/components/admin/option-template-manager'
 import { SpecialtyManager } from '@/components/admin/specialty-manager'
-import { ScopePromptToggle } from '@/components/admin/scope-prompt-toggle'
+import { ScopePromptToggle, ShowDurationToggle } from '@/components/admin/scope-prompt-toggle'
 
 export const metadata: Metadata = {
   title: '설정 · SOOM',
@@ -15,15 +22,33 @@ export const metadata: Metadata = {
 
 export const instant = false
 
-export default async function AdminSettingsPage() {
+/* 탭 — 주소의 ?tab= 으로 고른다. 저장 뒤 새로 그려도, 새로고침해도 같은 탭에 머문다 */
+const TABS = [
+  { key: 'general', label: '기본 설정' },
+  { key: 'plans', label: '가격 템플릿' },
+  { key: 'options', label: '포함 항목 템플릿' },
+] as const
+type Tab = (typeof TABS)[number]['key']
+
+function isTab(v: unknown): v is Tab {
+  return TABS.some((t) => t.key === v)
+}
+
+export default async function AdminSettingsPage(props: PageProps<'/admin/settings'>) {
   const user = await getAdminUser()
   if (!user) redirect('/admin/login')
 
-  /* 서로 기다릴 이유가 없다 */
-  const [copies, specialties, scopePrompt] = await Promise.all([
-    getPlanCopies(),
-    listAllSpecialties(),
-    getScopePrompt(),
+  const { tab: rawTab } = await props.searchParams
+  const tab: Tab = isTab(rawTab) ? rawTab : 'general'
+
+  /* 서로 기다릴 이유가 없다. 탭마다 필요한 것만 읽는다 —
+     포함 항목 템플릿 탭도 프리미엄을 켠 플랜을 알아야 해서 플랜 문구를 함께 읽는다 */
+  const [copies, specialties, scopePrompt, showDuration, templates] = await Promise.all([
+    tab === 'general' ? null : getPlanCopies(),
+    tab === 'general' ? listAllSpecialties() : null,
+    tab === 'general' ? getScopePrompt() : null,
+    tab === 'general' ? getShowDuration() : null,
+    tab === 'options' ? listOptionTemplates() : null,
   ])
 
   return (
@@ -41,10 +66,42 @@ export default async function AdminSettingsPage() {
         </p>
       )}
 
+      <nav aria-label="설정" className="mb-6 flex max-w-2xl gap-1 border-b border-neutral-200">
+        {TABS.map((t) => {
+          const on = t.key === tab
+          return (
+            <Link
+              key={t.key}
+              href={t.key === 'general' ? '/admin/settings' : `?tab=${t.key}`}
+              aria-current={on ? 'page' : undefined}
+              scroll={false}
+              className={`-mb-px border-b-2 px-3.5 py-2.5 text-sm font-medium transition ${
+                on
+                  ? 'border-violet-600 text-violet-700'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              {t.label}
+            </Link>
+          )
+        })}
+      </nav>
+
       <div className="max-w-2xl space-y-6">
-        <ScopePromptToggle enabled={scopePrompt} />
-        <PlanCopyForm copies={copies} />
-        <SpecialtyManager specialties={specialties} />
+        {/* 기본 설정 — 화면 스위치와 전문 분야 */}
+        {tab === 'general' && (
+          <>
+            <ScopePromptToggle enabled={scopePrompt!} />
+            <ShowDurationToggle enabled={showDuration!} />
+            <SpecialtyManager specialties={specialties!} />
+          </>
+        )}
+
+        {/* 가격 템플릿 — 플랜 이름·설명·작업 기간, 유형별 프리미엄 켜기 */}
+        {tab === 'plans' && <PlanCopyForm copies={copies!} />}
+
+        {/* 포함 항목 템플릿 — 디자이너가 플랜마다 골라 등록하는 문장 */}
+        {tab === 'options' && <OptionTemplateManager templates={templates!} copies={copies!} />}
       </div>
     </main>
   )

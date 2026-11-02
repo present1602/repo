@@ -20,22 +20,12 @@ export function WorkGallery({ works }: { works: PublicWork[] }) {
 
   return (
     <>
-      {/* 왼쪽부터 한 장씩 돌아가며 칸에 넣는다(1·2·3 다음 4는 다시 왼쪽).
-          CSS columns 는 칸 높이를 맞추려고 순서를 위아래로 흘려, 4장이면
-          마지막 장이 가운데 칸 밑에 붙는다 — 읽는 순서와 어긋난다.
-          칸 수가 화면 폭마다 달라 두 벌을 깔고 CSS 로 하나만 보인다.
-          숨은 쪽 그림은 lazy 라 받지 않는다. */}
-      <div className="flex gap-4 md:hidden">
-        {columns(works, 2).map((col, c) => (
-          <div key={c} className="min-w-0 flex-1">
-            {col.map(({ w, i }) => (
-              <Card key={w.id} work={w} onOpen={() => setIndex(i)} />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="hidden gap-8 md:flex">
-        {columns(works, 3).map((col, c) => (
+      {/* 한 장이면 폭을 다 쓰고, 두 장부터는 2열 masonry.
+          왼쪽부터 한 장씩 돌아가며 칸에 넣는다(1·2 다음 3은 다시 왼쪽).
+          CSS columns 는 칸 높이를 맞추려고 순서를 위아래로 흘려 읽는 순서와
+          어긋난다. 오른쪽에 의뢰 패널이 붙어 칸이 좁으므로 화면 폭과 상관없이 두 칸이다. */}
+      <div className="flex gap-3 md:gap-4">
+        {columns(works, works.length === 1 ? 1 : 2).map((col, c) => (
           <div key={c} className="min-w-0 flex-1">
             {col.map(({ w, i }) => (
               <Card key={w.id} work={w} onOpen={() => setIndex(i)} />
@@ -61,7 +51,7 @@ function columns(works: PublicWork[], n: number) {
 
 function Card({ work: w, onOpen }: { work: PublicWork; onOpen: () => void }) {
   return (
-    <button onClick={onOpen} className="group mb-8 block w-full text-left md:mb-12">
+    <button onClick={onOpen} className="group mb-5 block w-full text-left md:mb-6">
       <Thumbnail work={w} />
       {/* 제목·클라이언트는 선택 입력이다 —
                 비어 있으면 줄 자체를 그리지 않아 빈 간격이 남지 않게 한다 */}

@@ -15,6 +15,8 @@ export function DesignerConsole({
   works,
   planCopy,
   specialties,
+  canSample,
+  planSetup,
   header,
   footer,
 }: {
@@ -23,6 +25,10 @@ export function DesignerConsole({
   planCopy: PlanCopies
   /* 고를 수 있는 전문 분야 — 어드민이 켜 둔 것만 온다(011_specialties.sql) */
   specialties: string[]
+  /* 메인 시안 우선 의뢰를 허용한 분야(039)를 골랐는지 — 아니면 그 스위치를 보여주지 않는다 */
+  canSample: boolean
+  /* 설정 탭의 포함 항목 등록 — 서버에서 받은 템플릿·등록 값으로 페이지가 그려 넘긴다 */
+  planSetup: React.ReactNode
   /* 이름 줄. 본문 칸 안에 들어가야 좌측 메뉴와 윗선이 맞는다 —
      페이지에서 그려 넘긴다(서버에서 받은 값을 쓰는 부분이 섞여 있다). */
   header: React.ReactNode
@@ -99,7 +105,13 @@ export function DesignerConsole({
             )}
             {tab === 'portfolio' && <PortfolioManager works={works} />}
             {tab === 'settings' && (
-              <SettingsPanel designer={designer} copy={planCopy} openPasswordAtFirst={temp} />
+              <SettingsPanel
+                designer={designer}
+                copy={planCopy}
+                canSample={canSample}
+                planSetup={planSetup}
+                openPasswordAtFirst={temp}
+              />
             )}
           </div>
         </div>

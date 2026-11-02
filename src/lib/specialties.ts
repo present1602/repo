@@ -1,6 +1,6 @@
 import 'server-only'
 import { supabaseAdmin } from './supabase-admin'
-import type { Specialty } from './specialty-shape'
+import type { Specialty, SpecialtyScopeMode } from './specialty-shape'
 
 /* 전문 분야 목록 조회(011_specialties.sql).
 
@@ -8,6 +8,13 @@ import type { Specialty } from './specialty-shape'
    한곳에서 읽어야 둘이 어긋나지 않는다. */
 
 const COLS = 'id, name, sort_order, visible'
+/* 039 전에는 없다 — 실패 메시지에 이름이 나오면 빼고 다시 묻는다(site-settings.ts 와 같은 방식) */
+const OPTIONAL_COLS = ['scope_mode', 'allow_sample']
+
+type Row = Omit<Specialty, 'scope_mode' | 'allow_sample'> & {
+  scope_mode?: SpecialtyScopeMode
+  allow_sample?: boolean
+}
 
 /* 화면에 내보낼 순서로 정렬한다 — sort_order 가 같으면 이름순(한글 기준).
    Postgres 의 정렬은 로케일 설정에 기대므로 코드에서 맞춘다. */
@@ -16,27 +23,74 @@ function byOrder(a: Specialty, b: Specialty) {
   return a.name.localeCompare(b.name, 'ko')
 }
 
+/* 분야 줄을 읽는다. 039 전이면 scope_mode 는 choice(지금까지 그랬다),
+   allow_sample 은 꺼진 것으로 채운다. */
+async function readSpecialties(visibleOnly: boolean) {
+  const db = supabaseAdmin!
+  const ask = (cols: string[]) => {
+    const q = db.from('specialties').select([COLS, ...cols].join(', '))
+    return visibleOnly ? q.eq('visible', true) : q
+  }
+
+  let cols = OPTIONAL_COLS
+  let r = await ask(cols)
+  for (const c of OPTIONAL_COLS) {
+    if (!r.error?.message.includes(c)) continue
+    cols = cols.filter((x) => x !== c)
+    r = await ask(cols)
+  }
+
+  if (r.error) {
+    /* 마이그레이션 전이면 테이블이 없다 — 조용히 비워 돌려준다 */
+    if (!/specialties/i.test(r.error.message)) {
+      console.error('[specialties] 조회 실패:', r.error.message)
+    }
+    return null
+  }
+
+  return ((r.data ?? []) as unknown as Row[])
+    .map((s) => ({ ...s, scope_mode: s.scope_mode ?? 'choice', allow_sample: s.allow_sample ?? false }))
+    .sort(byOrder)
+}
+
+/* 메인 시안 우선 의뢰를 허용한 분야 이름(039). 디자이너가 이 중 하나를 골라야
+   scope_sample 을 켤 수 있고 공개 화면에도 나간다.
+
+   숨긴 분야도 넣는다 — 필터에서 뺐다고 그 분야 디자이너의 메인 시안까지 끊기면 과하다.
+   039 전이면 null — 거르지 않는다(지금까지처럼 디자이너 스위치만 본다). */
+export async function listSampleSpecialties(): Promise<string[] | null> {
+  if (!supabaseAdmin) return null
+
+  const { data, error } = await supabaseAdmin
+    .from('specialties')
+    .select('name')
+    .eq('allow_sample', true)
+
+  if (error) {
+    if (!/specialties|allow_sample/i.test(error.message)) {
+      console.error('[specialties] 메인 시안 허용 분야 조회 실패:', error.message)
+    }
+    return null
+  }
+
+  return (data ?? []).map((s) => s.name as string)
+}
+
 /* 공개 화면용 — 켜 둔 분야의 이름만.
 
    011 을 아직 돌리지 않았으면 빈 배열을 돌려준다. 호출부가 그때는
    지금까지처럼 디자이너 태그를 모아 쓰므로 화면이 비지 않는다. */
 export async function listVisibleSpecialties(): Promise<string[]> {
   if (!supabaseAdmin) return []
+  return (await readSpecialties(true))?.map((s) => s.name) ?? []
+}
 
-  const { data, error } = await supabaseAdmin
-    .from('specialties')
-    .select(COLS)
-    .eq('visible', true)
-
-  if (error) {
-    /* 마이그레이션 전이면 테이블이 없다 — 조용히 비워 돌려준다 */
-    if (!/specialties/i.test(error.message)) {
-      console.error('[specialties] 조회 실패:', error.message)
-    }
-    return []
-  }
-
-  return ((data ?? []) as Specialty[]).sort(byOrder).map((s) => s.name)
+/* 탐색용 — 켜 둔 분야의 이름과 의뢰 범위, 차례대로(039_specialty_scope_mode.sql) */
+export async function listVisibleSpecialtyModes(): Promise<
+  { name: string; scope_mode: SpecialtyScopeMode }[]
+> {
+  if (!supabaseAdmin) return []
+  return (await readSpecialties(true))?.map((s) => ({ name: s.name, scope_mode: s.scope_mode })) ?? []
 }
 
 /* 어드민용 — 꺼 둔 것까지 전부. 각 분야를 쓰는 디자이너 수를 함께 센다.
@@ -47,16 +101,11 @@ export async function listAllSpecialties(): Promise<Specialty[]> {
   if (!supabaseAdmin) return []
 
   const [list, designers] = await Promise.all([
-    supabaseAdmin.from('specialties').select(COLS),
+    readSpecialties(false),
     supabaseAdmin.from('designers').select('tags'),
   ])
 
-  if (list.error) {
-    if (!/specialties/i.test(list.error.message)) {
-      console.error('[specialties] 조회 실패:', list.error.message)
-    }
-    return []
-  }
+  if (!list) return []
 
   /* 디자이너 쪽을 못 읽어도 목록은 보여준다 — 쓰임 수만 비운다 */
   const used = new Map<string, number>()
@@ -66,7 +115,5 @@ export async function listAllSpecialties(): Promise<Specialty[]> {
     }
   }
 
-  return ((list.data ?? []) as Specialty[])
-    .map((s) => ({ ...s, used: used.get(s.name) ?? 0 }))
-    .sort(byOrder)
+  return list.map((s) => ({ ...s, used: used.get(s.name) ?? 0 }))
 }

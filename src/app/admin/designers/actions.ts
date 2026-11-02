@@ -25,7 +25,12 @@ import {
   MAX_PRICE_MAX,
   MIN_CONTRACT_PRICE,
   MAX_CONTRACT_PRICE,
+  MAX_PLAN_DURATION,
+  slotOf,
+  type PlanTier,
+  type RegisteredOption,
 } from '@/lib/plans'
+import { replaceSlotOptions, slotOpenFor } from '@/lib/plan-options-db'
 
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
    페이지에서 막았더라도 여기서 권한을 다시 확인해야 한다. */
@@ -388,6 +393,57 @@ export async function setDesignerPremiums(
       return fail('프리미엄을 지우지 못했습니다.')
     }
   }
+
+  refresh(id)
+  return { ok: true }
+}
+
+/* 디자이너별 작업 기간과 포함 항목 — 플랜(유형·단계) 하나씩 저장한다(037_plan_details.sql).
+
+   duration 이 null 이면 전체 공통값을 따른다(줄을 지운다).
+   포함 항목은 받은 목록이 그 플랜의 전부다 — 검사는 plan-options-db.ts 가 한다.
+   받지 않는 유형도 미리 채워 둘 수 있다. 프리미엄은 설정에서 켠 유형만. */
+export async function setDesignerPlanSetup(
+  id: string,
+  plan: Scope,
+  tier: PlanTier,
+  next: { duration: string | null; options: RegisteredOption[] },
+): Promise<Result> {
+  const db = await guard()
+
+  if (!SCOPES.includes(plan) || (tier !== 'basic' && tier !== 'premium')) {
+    return fail('알 수 없는 플랜입니다.')
+  }
+
+  const closed = await slotOpenFor(id, plan, tier, { requireAccepted: false })
+  if (closed) return fail(closed)
+
+  const duration = next.duration?.trim() || null
+  if (duration && duration.length > MAX_PLAN_DURATION) {
+    return fail(`작업 기간은 ${MAX_PLAN_DURATION}자 이내로 입력해 주세요.`)
+  }
+
+  const { error } =
+    duration == null
+      ? await db
+          .from('designer_plan_details')
+          .delete()
+          .eq('designer_id', id)
+          .eq('plan', plan)
+          .eq('tier', tier)
+      : await db
+          .from('designer_plan_details')
+          .upsert({ designer_id: id, plan, tier, duration }, { onConflict: 'designer_id,plan,tier' })
+  if (error) {
+    console.error('[designers] 작업 기간 저장 실패:', error.message)
+    if (error.message.includes('designer_plan_details')) {
+      return fail('플랜 상세 표가 아직 없습니다. 037_plan_details.sql 을 먼저 적용해 주세요.')
+    }
+    return fail('저장에 실패했습니다.')
+  }
+
+  const optErr = await replaceSlotOptions(id, slotOf(plan, tier), next.options)
+  if (optErr) return fail(optErr)
 
   refresh(id)
   return { ok: true }

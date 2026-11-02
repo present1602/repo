@@ -15,6 +15,8 @@ import type {
   FeedDesigner,
   FeedWork,
 } from './designer-shape'
+import { listSampleSpecialties } from './specialties'
+import { sampleAllowed } from './specialty-shape'
 
 /* 로그인 없이 보이는 화면(탐색·상세)이 쓰는 조회.
 
@@ -157,7 +159,19 @@ async function selectDesigners<T extends object>(
   }
   if (r.error || !r.data) return r
 
-  return { ...r, data: r.data.map((d) => ({ ...SCOPE_DEFAULTS, ...d })) }
+  const allowed = await sampleSpecialties()
+  return { ...r, data: r.data.map((d) => gateSample({ ...SCOPE_DEFAULTS, ...d }, allowed)) }
+}
+
+/* 메인 시안 우선 의뢰는 어드민이 허용한 분야(039)를 고른 디자이너만 받는다.
+   본인 스위치(scope_sample)가 켜져 있어도 분야가 없으면 공개 화면에서는 꺼진 것으로 본다 —
+   탐색 필터·의뢰 패널·의뢰 폼이 모두 이 값을 보므로 여기서 한 번에 거른다.
+   요청 하나에서 여러 번 불려도 한 번만 묻는다. */
+const sampleSpecialties = cache(listSampleSpecialties)
+
+function gateSample<D extends { scope_sample: boolean }>(d: D, allowed: string[] | null): D {
+  const tags = (d as { tags?: string[] }).tags ?? []
+  return d.scope_sample && !sampleAllowed(tags, allowed) ? { ...d, scope_sample: false } : d
 }
 
 /* 한 명만 받는 질의(maybeSingle)용 — 위와 같은 일을 한다 */
@@ -171,7 +185,8 @@ async function selectDesigner<T extends object>(
   }
   if (r.error || !r.data) return r
 
-  return { ...r, data: { ...SCOPE_DEFAULTS, ...r.data } }
+  const allowed = await sampleSpecialties()
+  return { ...r, data: gateSample({ ...SCOPE_DEFAULTS, ...r.data }, allowed) }
 }
 
 /* 탐색 목록 — 공개 디자이너 + 카드용 썸네일.

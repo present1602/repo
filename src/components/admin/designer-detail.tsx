@@ -20,6 +20,10 @@ import {
   DEFAULT_FULL_DESIGN_PRICE,
   DEFAULT_PROJECT_PRICE,
   type DesignerPremiums,
+  type DesignerPlanDetails,
+  type DesignerPlanOptions,
+  type OptionTemplate,
+  type PlanCopies,
 } from '@/lib/plans'
 import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
 import { displayName, NAME_MAX, nameError } from '@/lib/display-name'
@@ -36,6 +40,8 @@ import {
 import { Field, input, ghostButton } from './form-bits'
 import { SpecialtyPicker } from './specialty-picker'
 import { DESIGNER_TABS, type DesignerTab } from './designer-tabs'
+import { PlanSetup, type SetupSlot } from '@/components/plan-setup'
+import { OptionTemplateManager } from './option-template-manager'
 
 type Notice = { kind: 'ok' | 'warn' | 'error'; text: string } | null
 
@@ -52,12 +58,22 @@ export function DesignerDetail({
   specialties,
   premiums,
   premiumOn,
+  copies,
+  planDetails,
+  templates,
+  planOptions,
   portfolio,
 }: {
   /* 지금 탭 — 주소의 ?tab= 에서 온다(designer-tabs.ts) */
   tab: DesignerTab
   /* 포트폴리오 탭 내용 — 서버에서 그린 것(AdminPortfolio)을 그대로 끼운다 */
   portfolio: ReactNode
+  /* 전체 공통 플랜 문구·기간·포함 항목과 이 디자이너의 덮어쓰기(037_plan_details.sql) */
+  copies: PlanCopies
+  planDetails: DesignerPlanDetails
+  /* 포함 항목 템플릿과 이 디자이너가 플랜마다 등록한 것 */
+  templates: OptionTemplate[]
+  planOptions: DesignerPlanOptions
   designer: AdminDesigner
   /* 전문 분야 선택지 — 설정에서 켜 둔 것(011_specialties.sql) */
   specialties: string[]
@@ -183,12 +199,33 @@ export function DesignerDetail({
           좁은 화면에서는 의뢰 유형이 아래로 내려간다 */}
       {tab === 'settings' && (
         <div className="grid max-w-5xl items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <PlanSummary
-            designer={d}
-            premiums={premiums}
-            premiumOn={premiumOn}
-            onNotice={setNotice}
-          />
+          <div className="min-w-0 space-y-6">
+            <PlanSummary
+              designer={d}
+              premiums={premiums}
+              premiumOn={premiumOn}
+              onNotice={setNotice}
+            />
+            {/* 이 디자이너만 쓰는 문장 — 어드민만 만든다. 만든 것은 아래 등록 목록에 함께 나온다 */}
+            <OptionTemplateManager
+              templates={templates.filter((t) => t.designerId === d.id)}
+              copies={copies}
+              designerId={d.id}
+            />
+            {/* 받지 않는 유형도 미리 채워 둘 수 있게 넷 다. 프리미엄은 설정에서 켠 플랜만 */}
+            <PlanSetup
+              mode="admin"
+              designerId={d.id}
+              slots={SCOPES.flatMap((s): SetupSlot[] => [
+                { scope: s, tier: 'basic' },
+                ...(premiumOn[s] ? [{ scope: s, tier: 'premium' as const }] : []),
+              ])}
+              copies={copies}
+              templates={templates}
+              registered={planOptions}
+              details={planDetails}
+            />
+          </div>
           <ScopeSection designer={d} onNotice={setNotice} />
         </div>
       )}

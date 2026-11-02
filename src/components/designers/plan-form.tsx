@@ -19,7 +19,17 @@ import { updatePlans } from '@/app/studio/actions'
 
    금액은 정해진 보기 중에서만 고른다 — 자유 입력이 아니다.
    이름·설명은 전역 설정이라 여기서 바꿀 수 없고, 보여주기만 한다. */
-export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy: PlanCopies }) {
+export function PlanForm({
+  designer: d,
+  copy,
+  canSample,
+}: {
+  designer: AdminDesigner
+  copy: PlanCopies
+  /* 메인 시안 우선 의뢰를 허용한 분야(039)를 골랐는지. 아니면 메인 시안 칸을 숨긴다 —
+     켜 둔 값은 그대로 보내 지우지 않는다(공개 화면에서는 public-designers.ts 가 끈다) */
+  canSample: boolean
+}) {
   const [designPrice, setDesignPrice] = useState(d.design_price)
   /* 프리미엄은 화면에서 감췄다 — 값은 그대로 보내 서버가 덮어쓰지 않게 한다.
      되살릴 때 setter 를 다시 만들면 된다(아래 주석 처리한 구획). */
@@ -101,6 +111,7 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
 
           공개 화면에는 "시작가 ~ 상한" 범위로 나간다. 시작가만 고르고
           상한은 어드민이 정한다(016_price_range.sql). */}
+{copy.sample.visible && canSample && (
       <section>
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold">{copy.sample.basic.name}</h3>
@@ -146,9 +157,11 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
           으로 보입니다. 상한을 올리려면 관리자에게 문의해 주세요.
         </p>
       </section>
+      )}
 
       {/* 로고 디자인 — 시작가만 고른다. 상한은 모두 같은 99,000원.
           아래 '받을 의뢰 유형'에서 로고를 켠 경우에만 공개 프로필에 나간다. */}
+{copy.logo.visible && (
       <section>
         <h3 className="text-sm font-semibold">로고 디자인</h3>
 
@@ -194,6 +207,7 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
           )}
         </p>
       </section>
+      )}
 
       <hr className="border-neutral-200" />
 
@@ -205,7 +219,7 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
           체크한 유형의 의뢰만 연결됩니다. 맡기 어려운 유형은 꺼 두세요. 소액 의뢰 없이 본계약
           건만 받으려면 메인 시안 의뢰를 끄면 됩니다.
         </p>
-        {!sample && !logo && !fullDesign && !withDev && (
+        {!(sample && canSample) && !logo && !fullDesign && !withDev && (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
             모든 유형을 끄면 탐색 목록에 노출되지 않습니다. 프로필 링크를 직접 받은 사람만 볼 수
             있습니다.
@@ -213,9 +227,10 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
         )}
 
         <div className="mt-3.5 space-y-2">
-          {SCOPES.map((s) => {
+          {/* 사이트에서 숨긴 플랜은 빼낸다(038_plan_visibility.sql) — 켜 둔 값은 그대로 남는다 */}
+          {SCOPES.filter((s) => copy[s].visible && (s !== 'sample' || canSample)).map((s) => {
             /* 유형마다 주인이 다르다 —
-                 sample      본인이 켜고 끈다. 기본 켜짐.
+                 sample      본인이 켜고 끈다. 어드민이 허용한 분야를 골랐을 때만 보인다.
                  logo        본인이 켜고 끈다.
                  full_design 본인이 켜고 끈다.
                  with_dev    어드민이 열어 준다. 본인은 보기만 한다. */
@@ -270,9 +285,14 @@ export function PlanForm({ designer: d, copy }: { designer: AdminDesigner; copy:
                     >
                       {SCOPE_LABELS[s]}
                     </span>
-                    {s === 'sample' && (
+                    {s === 'full_design' && (
                       <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
                         기본
+                      </span>
+                    )}
+                    {s === 'sample' && (
+                      <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">
+                        추가 옵션
                       </span>
                     )}
                     {s === 'with_dev' && (

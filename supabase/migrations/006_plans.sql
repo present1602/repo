@@ -77,10 +77,10 @@ create table if not exists public.site_settings (
   updated_at  timestamptz not null default now(),
 
   design_plan_name  text not null default '디자인 플랜',
-  design_plan_desc  text not null default '고객측에서 디자인할 화면에 들어갈 내용을 구체적으로 전달합니다.',
+  design_plan_desc  text not null default '',
 
   premium_plan_name text not null default '프리미엄 플랜',
-  premium_plan_desc text not null default '프리미엄플랜설명',
+  premium_plan_desc text not null default '',
 
   constraint site_settings_single_row check (id),
   constraint site_settings_desc_len check (

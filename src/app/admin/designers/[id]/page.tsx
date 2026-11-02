@@ -5,7 +5,13 @@ import { getAdminUser } from '@/lib/admin-auth'
 import { getDesignerById, listWorks } from '@/lib/designers-db'
 import { getDesignerCardPreview } from '@/lib/public-designers'
 import { listVisibleSpecialties } from '@/lib/specialties'
-import { getDesignerPremiums, getPlanCopies } from '@/lib/site-settings'
+import {
+  getDesignerPlanDetails,
+  getDesignerPlanOptions,
+  getDesignerPremiums,
+  getPlanCopies,
+  listOptionTemplates,
+} from '@/lib/site-settings'
 import { SCOPES } from '@/lib/scopes'
 import { displayName } from '@/lib/display-name'
 import { DesignerDetail } from '@/components/admin/designer-detail'
@@ -38,13 +44,17 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
   const tab = isDesignerTab(rawTab) ? rawTab : 'profile'
 
   /* 포트폴리오·목록 미리보기·분야 목록은 서로 기다릴 이유가 없다 */
-  const [works, cardPreview, specialties, premiums, copies] = await Promise.all([
-    listWorks(id),
-    getDesignerCardPreview(id),
-    listVisibleSpecialties(),
-    getDesignerPremiums(id),
-    getPlanCopies(),
-  ])
+  const [works, cardPreview, specialties, premiums, copies, planDetails, templates, planOptions] =
+    await Promise.all([
+      listWorks(id),
+      getDesignerCardPreview(id),
+      listVisibleSpecialties(),
+      getDesignerPremiums(id),
+      getPlanCopies(),
+      getDesignerPlanDetails(id),
+      listOptionTemplates({ designerId: id }),
+      getDesignerPlanOptions(id),
+    ])
 
   /* 설정에서 프리미엄을 켠 유형 — 켜진 유형만 디자이너별로 켤 수 있다 */
   const premiumOn = Object.fromEntries(SCOPES.map((s) => [s, copies[s].premium.enabled])) as Record<
@@ -74,6 +84,10 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
         specialties={specialties}
         premiums={premiums}
         premiumOn={premiumOn}
+        copies={copies}
+        planDetails={planDetails}
+        templates={templates}
+        planOptions={planOptions}
         portfolio={<AdminPortfolio designerId={id} works={works} />}
       />
     </main>

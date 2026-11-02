@@ -4,13 +4,18 @@ import { revalidatePath } from 'next/cache'
 import { getAdminUser } from '@/lib/admin-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import {
+  MAX_OPTION_TEMPLATE,
   MAX_PLAN_DESC,
+  MAX_PLAN_DURATION,
   MAX_PLAN_NAME,
   PLAN_TIERS,
+  PLAN_SLOTS,
   type PlanCopies,
+  type PlanSlot,
   type PlanTier,
 } from '@/lib/plans'
 import { SCOPES, type Scope } from '@/lib/scopes'
+import { isSpecialtyScopeMode, type SpecialtyScopeMode } from '@/lib/specialty-shape'
 
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
    페이지에서 막았더라도 여기서 권한을 다시 확인해야 한다. */
@@ -34,8 +39,15 @@ function fail(error: string) {
 export async function updatePlanCopies(input: PlanCopies): Promise<Result> {
   const db = await guard()
 
-  const rows: { plan: Scope; tier: PlanTier; name: string; description: string; enabled: boolean }[] =
-    []
+  const rows: {
+    plan: Scope
+    tier: PlanTier
+    name: string
+    description: string
+    enabled: boolean
+    duration: string
+    visible: boolean
+  }[] = []
   for (const plan of SCOPES) {
     for (const tier of PLAN_TIERS) {
       const t = input[plan]?.[tier]
@@ -50,9 +62,15 @@ export async function updatePlanCopies(input: PlanCopies): Promise<Result> {
       if (description.length > MAX_PLAN_DESC) {
         return fail(`설명은 ${MAX_PLAN_DESC}자 이내로 입력해 주세요.`)
       }
+      const duration = (t?.duration ?? '').trim()
+      if (duration.length > MAX_PLAN_DURATION) {
+        return fail(`작업 기간은 ${MAX_PLAN_DURATION}자 이내로 입력해 주세요.`)
+      }
       /* 기본 줄은 늘 쓴다 — 스위치는 프리미엄 줄에만 뜻이 있다 */
       const enabled = tier === 'premium' ? input[plan].premium.enabled === true : true
-      rows.push({ plan, tier, name, description, enabled })
+      /* 노출은 기본 줄에만 둔다 — 플랜을 숨기면 프리미엄도 함께 빠진다 */
+      const visible = tier === 'basic' ? input[plan].visible !== false : true
+      rows.push({ plan, tier, name, description, enabled, duration, visible })
     }
   }
 
@@ -60,8 +78,10 @@ export async function updatePlanCopies(input: PlanCopies): Promise<Result> {
 
   if (error) {
     console.error('[settings] 플랜 문구 수정 실패:', error.message)
-    if (error.message.includes('plan_copy') || error.message.includes('enabled')) {
-      return fail('플랜 문구 표가 아직 없거나 옛 판입니다. 036_plan_copy_premium.sql 을 먼저 적용해 주세요.')
+    if (/plan_copy|enabled|duration|visible/.test(error.message)) {
+      return fail(
+        '플랜 문구 표가 아직 없거나 옛 판입니다. 036·037·038 마이그레이션을 먼저 적용해 주세요.',
+      )
     }
     return fail('저장에 실패했습니다.')
   }
@@ -73,7 +93,27 @@ export async function updatePlanCopies(input: PlanCopies): Promise<Result> {
   /* 프리미엄을 켜고 끄면 디자이너 화면의 프리미엄 칸이 열리고 닫힌다 */
   revalidatePath('/admin/designers', 'layout')
   revalidatePath('/explore')
+  /* 숨긴 플랜은 네비바의 의뢰 폼에서도 빠진다 */
+  revalidatePath('/', 'layout')
 
+  return { ok: true }
+}
+
+/* 작업 기간 노출 — 끄면 넣어 둔 기간이 공개 화면에 모두 나가지 않는다 */
+export async function setShowDuration(on: boolean): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db.from('site_settings').update({ show_duration: on }).eq('id', true)
+  if (error) {
+    console.error('[settings] 작업 기간 노출 변경 실패:', error.message)
+    if (error.message.includes('show_duration')) {
+      return fail('작업 기간 칸이 아직 없습니다. 037_plan_details.sql 을 먼저 적용해 주세요.')
+    }
+    return fail('변경에 실패했습니다.')
+  }
+
+  revalidatePath('/admin/settings')
+  revalidatePath('/designers', 'layout')
   return { ok: true }
 }
 
@@ -218,6 +258,48 @@ export async function setSpecialtyVisible(id: string, visible: boolean): Promise
   return { ok: true }
 }
 
+/* 의뢰 범위 — choice 일 때만 탐색 제목 옆에 디자인/디자인+개발 필터가 나온다
+   (039_specialty_scope_mode.sql). 디자이너 tags 는 건드리지 않는다. */
+export async function setSpecialtyScopeMode(id: string, mode: SpecialtyScopeMode): Promise<Result> {
+  const db = await guard()
+
+  if (!isSpecialtyScopeMode(mode)) return fail('알 수 없는 의뢰 범위입니다.')
+
+  const { error } = await db.from('specialties').update({ scope_mode: mode }).eq('id', id)
+  if (error) {
+    console.error('[specialties] 의뢰 범위 변경 실패:', error.message)
+    return fail(
+      error.message.includes('scope_mode')
+        ? '039_specialty_scope_mode.sql 을 먼저 실행해 주세요.'
+        : '변경에 실패했습니다.',
+    )
+  }
+
+  refreshSpecialties()
+  return { ok: true }
+}
+
+/* 메인 시안 우선 의뢰 허용(039) — 켜면 이 분야를 고른 디자이너가 스튜디오에서
+   메인 시안 의뢰를 받을지 고를 수 있다. 끄면 그 디자이너들의 메인 시안 의뢰가
+   공개 화면에서 빠진다. 디자이너가 켜 둔 값(scope_sample)은 지우지 않는다. */
+export async function setSpecialtyAllowSample(id: string, allow: boolean): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db.from('specialties').update({ allow_sample: allow }).eq('id', id)
+  if (error) {
+    console.error('[specialties] 메인 시안 허용 변경 실패:', error.message)
+    return fail(
+      error.message.includes('allow_sample')
+        ? '039_specialty_scope_mode.sql 을 먼저 실행해 주세요.'
+        : '변경에 실패했습니다.',
+    )
+  }
+
+  refreshSpecialties()
+  revalidatePath('/designers/[id]', 'page')
+  return { ok: true }
+}
+
 /* 순서 바꾸기 — 받은 차례대로 0번부터 다시 매긴다.
    포트폴리오 순서(adminReorderWorks)와 같은 방침이다. */
 export async function reorderSpecialties(ids: string[]): Promise<Result> {
@@ -254,28 +336,56 @@ export async function reorderSpecialties(ids: string[]): Promise<Result> {
   return { ok: true }
 }
 
-/* 지우기 — 아무도 쓰지 않는 분야만. 쓰는 디자이너가 있으면 끄기를 권한다.
+/* 지우기 — 이 분야를 고른 디자이너의 tags 에서 먼저 빼고 지운다.
 
-   지워 버리면 그 디자이너의 tags 에 목록에 없는 이름이 남는다.
-   어느 필터에도 걸리지 않으면서 프로필에는 보이는 상태가 된다. */
+   쓰는 디자이너가 있으면 숨긴 분야만 지울 수 있다 — 노출 중인 분야를 한 번에
+   지워 디자이너 프로필에서 빠지는 실수를 막는다. 아무도 안 쓰면 바로 지운다.
+
+   분야만 지우면 디자이너의 tags 에 목록에 없는 이름이 남아, 어느 필터에도
+   걸리지 않으면서 프로필에는 보이는 상태가 된다. 그래서 tags 를 먼저 고친다 —
+   중간에 실패하면 분야가 남아 있으니 다시 누르면 이어서 지워진다. */
 export async function deleteSpecialty(id: string): Promise<Result> {
   const db = await guard()
 
   const { data: s, error: readErr } = await db
     .from('specialties')
-    .select('name')
+    .select('name, visible')
     .eq('id', id)
     .maybeSingle()
 
   if (readErr || !s) return fail('분야를 찾을 수 없습니다.')
 
-  const { count } = await db
-    .from('designers')
-    .select('id', { count: 'exact', head: true })
-    .contains('tags', [s.name as string])
+  const name = s.name as string
 
-  if ((count ?? 0) > 0) {
-    return fail(`${count}명이 쓰고 있어 지울 수 없습니다. 노출을 꺼 주세요.`)
+  /* renameSpecialty 와 같은 방식 — 읽고 고쳐 쓴다 */
+  const { data: users, error: usersErr } = await db
+    .from('designers')
+    .select('id, tags')
+    .contains('tags', [name])
+
+  if (usersErr) {
+    console.error('[specialties] 사용 디자이너 조회 실패:', usersErr.message)
+    return fail('삭제에 실패했습니다.')
+  }
+
+  const rows = (users ?? []) as { id: string; tags: string[] }[]
+  if (rows.length > 0 && s.visible) {
+    return fail(`${rows.length}명이 쓰고 있습니다. 먼저 숨김으로 바꾼 뒤 지워 주세요.`)
+  }
+
+  const results = await Promise.all(
+    rows.map((d) =>
+      db
+        .from('designers')
+        .update({ tags: (d.tags ?? []).filter((t) => t !== name) })
+        .eq('id', d.id),
+    ),
+  )
+
+  const failedOne = results.find((r) => r.error)
+  if (failedOne?.error) {
+    console.error('[specialties] 디자이너 태그 해제 실패:', failedOne.error.message)
+    return fail('일부 디자이너에서 분야를 빼지 못했습니다. 다시 시도해 주세요.')
   }
 
   const { error } = await db.from('specialties').delete().eq('id', id)
@@ -285,5 +395,105 @@ export async function deleteSpecialty(id: string): Promise<Result> {
   }
 
   refreshSpecialties()
+  return { ok: true }
+}
+
+/* ─────────── 포함 항목 템플릿 ───────────
+
+   어드민은 문장만 만든다('수정 {n}회'). 숫자는 디자이너가 플랜마다 등록할 때 넣는다
+   (037_plan_details.sql). targets 가 null 이면 모든 플랜에서 고를 수 있다. */
+
+function cleanTemplate(input: { template: string; targets: PlanSlot[] | null }) {
+  const template = input.template.trim()
+  if (!template) return { error: '문장을 입력해 주세요.' } as const
+  if (template.length > MAX_OPTION_TEMPLATE) {
+    return { error: `문장은 ${MAX_OPTION_TEMPLATE}자 이내로 입력해 주세요.` } as const
+  }
+  /* 정해진 칸만 받는다. 하나도 고르지 않았으면 어디에도 안 나가므로 막는다 */
+  const targets = input.targets == null ? null : input.targets.filter((t) => PLAN_SLOTS.includes(t))
+  if (targets && targets.length === 0) return { error: '노출할 플랜을 하나 이상 골라 주세요.' } as const
+  return { template, targets } as const
+}
+
+function refreshTemplates() {
+  revalidatePath('/admin/settings')
+  revalidatePath('/admin/designers', 'layout')
+  revalidatePath('/studio')
+  revalidatePath('/designers', 'layout')
+}
+
+/* designerId 를 주면 그 디자이너 전용 — 어드민만 만들고, 그 디자이너만 고른다 */
+export async function createOptionTemplate(input: {
+  template: string
+  targets: PlanSlot[] | null
+  designerId?: string | null
+}): Promise<Result> {
+  const db = await guard()
+  const c = cleanTemplate(input)
+  if ('error' in c) return fail(c.error!)
+
+  const designerId = input.designerId || null
+
+  /* 맨 뒤에 세운다 — 공통과 전용은 차례를 따로 센다 */
+  const base = db.from('option_templates').select('sort_order')
+  const { data: last } = await (designerId ? base.eq('designer_id', designerId) : base.is('designer_id', null))
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const { error } = await db.from('option_templates').insert({
+    template: c.template,
+    targets: c.targets,
+    designer_id: designerId,
+    sort_order: ((last?.sort_order as number) ?? -1) + 1,
+  })
+  if (error) {
+    if (/duplicate|unique/i.test(error.message)) return fail('같은 문장이 이미 있습니다.')
+    console.error('[settings] 템플릿 추가 실패:', error.message)
+    if (error.message.includes('option_templates')) {
+      return fail('템플릿 표가 아직 없습니다. 037_plan_details.sql 을 먼저 적용해 주세요.')
+    }
+    return fail('추가에 실패했습니다.')
+  }
+
+  refreshTemplates()
+  return { ok: true }
+}
+
+/* 문장을 고치면 이미 등록한 디자이너에게도 바뀐 문장이 나간다.
+   노출 플랜에서 빠진 곳은 등록돼 있어도 나가지 않는다(지우지는 않는다 — 다시 넣으면 돌아온다). */
+export async function updateOptionTemplate(
+  id: string,
+  input: { template: string; targets: PlanSlot[] | null },
+): Promise<Result> {
+  const db = await guard()
+  const c = cleanTemplate(input)
+  if ('error' in c) return fail(c.error!)
+
+  const { error } = await db
+    .from('option_templates')
+    .update({ template: c.template, targets: c.targets })
+    .eq('id', id)
+  if (error) {
+    if (/duplicate|unique/i.test(error.message)) return fail('같은 문장이 이미 있습니다.')
+    console.error('[settings] 템플릿 수정 실패:', error.message)
+    return fail('수정에 실패했습니다.')
+  }
+
+  refreshTemplates()
+  return { ok: true }
+}
+
+/* 지우면 디자이너들이 등록한 것도 함께 지워진다(on delete cascade) */
+export async function deleteOptionTemplate(id: string): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db.from('option_templates').delete().eq('id', id)
+  if (error) {
+    console.error('[settings] 템플릿 삭제 실패:', error.message)
+    return fail('삭제에 실패했습니다.')
+  }
+
+  refreshTemplates()
   return { ok: true }
 }

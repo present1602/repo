@@ -2,8 +2,16 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getDesignerUser } from '@/lib/designer-auth'
 import { listWorks } from '@/lib/designers-db'
-import { getPlanCopies } from '@/lib/site-settings'
-import { listVisibleSpecialties } from '@/lib/specialties'
+import {
+  getDesignerPlanOptions,
+  getDesignerPremiums,
+  getPlanCopies,
+  listOptionTemplates,
+} from '@/lib/site-settings'
+import { acceptsScope, SCOPES } from '@/lib/scopes'
+import { PlanSetup, type SetupSlot } from '@/components/plan-setup'
+import { listSampleSpecialties, listVisibleSpecialties } from '@/lib/specialties'
+import { sampleAllowed } from '@/lib/specialty-shape'
 import { displayName } from '@/lib/display-name'
 import { logout } from './actions'
 import { DesignerConsole } from '@/components/designers/console'
@@ -19,11 +27,34 @@ export default async function DesignerHomePage() {
   const d = await getDesignerUser()
   if (!d) redirect('/studio/login')
 
-  const [works, planCopy, specialties] = await Promise.all([
+  const [works, planCopy, specialties, sampleTags, templates, planOptions, premiums] = await Promise.all([
     listWorks(d.id),
     getPlanCopies(),
     listVisibleSpecialties(),
+    listSampleSpecialties(),
+    listOptionTemplates({ designerId: d.id }),
+    getDesignerPlanOptions(d.id),
+    getDesignerPremiums(d.id),
   ])
+
+  /* 포함 항목을 등록할 수 있는 플랜 — 사이트에 보이고 받는 유형만. 프리미엄은 유형 전체와
+     이 디자이너의 프리미엄이 모두 켜졌을 때만(어드민이 켠다) */
+  const slots = SCOPES.filter((s) => planCopy[s].visible && acceptsScope(d, s)).flatMap((s): SetupSlot[] => [
+    { scope: s, tier: 'basic' },
+    ...(planCopy[s].premium.enabled && premiums[s]?.enabled
+      ? [{ scope: s, tier: 'premium' as const }]
+      : []),
+  ])
+  const planSetup = (
+    <PlanSetup
+      mode="designer"
+      designerId={d.id}
+      slots={slots}
+      copies={planCopy}
+      templates={templates}
+      registered={planOptions}
+    />
+  )
 
   /* 비밀번호 해시는 화면으로 내려보내지 않는다 */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -62,6 +93,8 @@ export default async function DesignerHomePage() {
         works={works}
         planCopy={planCopy}
         specialties={specialties}
+        canSample={sampleAllowed(d.tags ?? [], sampleTags)}
+        planSetup={planSetup}
         header={header}
         footer={footer}
       />

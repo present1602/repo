@@ -11,10 +11,15 @@ import { ChangePasswordDialog } from './change-password-dialog'
 export function SettingsPanel({
   designer: d,
   copy,
+  canSample,
+  planSetup,
   openPasswordAtFirst,
 }: {
   designer: AdminDesigner
   copy: PlanCopies
+  canSample: boolean
+  /* 플랜마다 포함 항목 등록(plan-setup.tsx) — 페이지가 그려 넘긴다 */
+  planSetup?: React.ReactNode
   /* 임시 비밀번호로 들어온 경우 — 먼저 바꾸도록 다이얼로그를 띄워 둔다 */
   openPasswordAtFirst?: boolean
 }) {
@@ -30,7 +35,9 @@ export function SettingsPanel({
 
   return (
     <div className="space-y-8">
-      <PlanForm designer={d} copy={copy} />
+      <PlanForm designer={d} copy={copy} canSample={canSample} />
+
+      {planSetup}
 
       <hr className="border-neutral-200" />
 

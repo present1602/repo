@@ -2,10 +2,11 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { DesignerList } from '@/components/designer-list'
 import { listPublicDesigners, collectTags } from '@/lib/public-designers'
-import { listVisibleSpecialties } from '@/lib/specialties'
+import { listVisibleSpecialtyModes } from '@/lib/specialties'
 import { listFeatureIds } from '@/lib/explore-features'
 import { getPlanCopies, getScopePrompt, listDesignerPremiums } from '@/lib/site-settings'
 import { offersOf } from '@/lib/inquiry-types'
+import { hiddenScopes } from '@/lib/plans'
 
 export const metadata: Metadata = {
   title: '탐색 · SOOM',
@@ -44,7 +45,7 @@ function ExploreLoading() {
 async function ExploreContent() {
   const [designers, managed, featureIds, scopePrompt, copies] = await Promise.all([
     listPublicDesigners(),
-    listVisibleSpecialties(),
+    listVisibleSpecialtyModes(),
     listFeatureIds('feature1'),
     getScopePrompt(),
     getPlanCopies(),
@@ -61,15 +62,19 @@ async function ExploreContent() {
   /* 어드민이 정한 목록을 쓴다(011_specialties.sql). 비어 있으면 —
      마이그레이션 전이거나 아직 하나도 등록하지 않았으면 — 지금까지처럼
      디자이너가 적어 둔 값을 모아 쓴다. 필터가 통째로 비는 것보다 낫다. */
-  const tags = managed.length > 0 ? managed : collectTags(designers)
+  const tags = managed.length > 0 ? managed.map((s) => s.name) : collectTags(designers)
+  /* 분야별 의뢰 범위(039_specialty_scope_mode.sql) — 모아 쓴 태그는 없으니 choice 로 본다 */
+  const scopeModes = Object.fromEntries(managed.map((s) => [s.name, s.scope_mode]))
 
   return (
     <DesignerList
       designers={designers}
       tags={tags}
+      scopeModes={scopeModes}
       featureIds={featureIds}
       scopePrompt={scopePrompt}
       offers={offers}
+      hiddenScopes={hiddenScopes(copies)}
     />
   )
 }

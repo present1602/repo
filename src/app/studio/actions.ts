@@ -14,7 +14,17 @@ import {
   MAX_BIO,
   checkPublicReady,
 } from '@/lib/portfolio-limits'
-import { isDesignPrice, isPremiumPrice, isLogoPrice, formatPrice } from '@/lib/plans'
+import {
+  isDesignPrice,
+  isPremiumPrice,
+  isLogoPrice,
+  formatPrice,
+  slotOf,
+  type PlanTier,
+  type RegisteredOption,
+} from '@/lib/plans'
+import { replaceSlotOptions, slotOpenFor } from '@/lib/plan-options-db'
+import { SCOPES, type Scope } from '@/lib/scopes'
 import { listVisibleSpecialties } from '@/lib/specialties'
 import { MAX_TAGS } from '@/lib/specialty-shape'
 
@@ -40,6 +50,31 @@ function refresh(id?: string) {
   revalidatePath('/studio')
   revalidatePath('/explore')
   if (id) revalidatePath(`/designers/${id}`)
+}
+
+/* ─────────── 포함 항목 ───────────
+
+   디자이너가 플랜마다 어드민이 만든 템플릿을 골라 숫자까지 넣어 등록한다
+   (037_plan_details.sql). 받는 유형만, 프리미엄은 켜진 것만. 작업 기간은 어드민 몫이다. */
+export async function setMyPlanOptions(
+  plan: Scope,
+  tier: PlanTier,
+  options: RegisteredOption[],
+): Promise<Result> {
+  const { id } = await guard()
+
+  if (!SCOPES.includes(plan) || (tier !== 'basic' && tier !== 'premium')) {
+    return fail('알 수 없는 플랜입니다.')
+  }
+
+  const closed = await slotOpenFor(id, plan, tier, { requireAccepted: true })
+  if (closed) return fail(closed)
+
+  const err = await replaceSlotOptions(id, slotOf(plan, tier), options)
+  if (err) return fail(err)
+
+  refresh(id)
+  return { ok: true }
 }
 
 /* ─────────── 로그인 ─────────── */

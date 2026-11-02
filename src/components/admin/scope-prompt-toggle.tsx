@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { setScopePrompt, type Result } from '@/app/admin/settings/actions'
+import { setScopePrompt, setShowDuration, type Result } from '@/app/admin/settings/actions'
 
 /* 탐색의 의뢰유형 묻기 */
 export function ScopePromptToggle({ enabled }: { enabled: boolean }) {
@@ -18,6 +18,23 @@ export function ScopePromptToggle({ enabled }: { enabled: boolean }) {
       보여줍니다.
       <br />
       끄면 둘 다 나오지 않고 디자이너 목록을 바로 보여줍니다.
+    </SettingSwitch>
+  )
+}
+
+/* 작업 기간 노출 — 끄면 플랜에 넣어 둔 기간이 상세 화면에 모두 나가지 않는다 */
+export function ShowDurationToggle({ enabled }: { enabled: boolean }) {
+  return (
+    <SettingSwitch
+      title="작업 기간 노출"
+      enabled={enabled}
+      save={setShowDuration}
+      toastOn="작업 기간을 보여줘요"
+      toastOff="작업 기간을 숨겼어요"
+    >
+      켜면 디자이너 상세의 의뢰 패널에 유형별 작업 기간(예: 3–5일)이 나갑니다.
+      <br />
+      끄면 아래 문구와 디자이너별로 넣어 둔 기간이 모두 나가지 않습니다.
     </SettingSwitch>
   )
 }

@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { Navbar } from './navbar'
+import type { InquiryType } from '@/lib/inquiry-types'
 
 /* 사이트 바를 붙일지 말지 정한다(site-footer.tsx 와 같은 방침).
 
@@ -13,10 +14,10 @@ import { Navbar } from './navbar'
    메뉴(탐색·의뢰하기)가 위에 붙으면 관리 화면과 사이트가 섞여 보인다. */
 const HIDDEN = ['/admin', '/designers/proposal']
 
-export function SiteNavbar() {
+export function SiteNavbar({ hiddenTypes = [] }: { hiddenTypes?: InquiryType[] }) {
   const pathname = usePathname() ?? ''
 
   if (HIDDEN.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null
 
-  return <Navbar />
+  return <Navbar hiddenTypes={hiddenTypes} />
 }

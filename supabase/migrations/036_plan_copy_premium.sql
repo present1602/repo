@@ -53,10 +53,11 @@ create trigger plan_copy_touch_updated_at
   for each row execute function public.touch_updated_at();
 
 -- 처음 값 — 이미 있으면 건드리지 않는다(다시 실행해도 어드민이 고친 문구가 남는다).
--- 메인 시안의 기본은 지금까지 쓰던 site_settings 의 문구를 옮겨 온다.
+-- 메인 시안의 기본은 지금까지 쓰던 site_settings 의 이름만 옮겨 온다 —
+-- 설명('고객측에서 디자인할 화면에…')은 더 쓰지 않아 비워 둔다.
 -- 옛 '프리미엄 플랜'(premium_plan_*)은 유형에 매이지 않은 임시 문구라 옮기지 않는다.
 insert into public.plan_copy (plan, tier, name, description)
-select 'sample', 'basic', left(design_plan_name, 40), design_plan_desc
+select 'sample', 'basic', left(design_plan_name, 40), ''
   from public.site_settings where id
 on conflict (plan, tier) do nothing;
 

@@ -61,6 +61,11 @@ export const INQUIRY_TYPE_SCOPE: Record<InquiryType, Scope> = {
   '프로젝트 의뢰': 'with_dev',
 }
 
+/* 거꾸로 — 디자이너 쪽 유형에서 의뢰 폼의 유형으로 */
+export const SCOPE_INQUIRY_TYPE = Object.fromEntries(
+  Object.entries(INQUIRY_TYPE_SCOPE).map(([t, s]) => [s, t]),
+) as Record<Scope, InquiryType>
+
 /* 디자이너에게 보내는 폼의 유형과 시작가 — 받지 않는 유형은 빠진다.
    메인 시안·로고는 디자이너가 고른 시작가, 디자인 전체·프로젝트는 어드민이 정한 최소가다.
    premium 은 유형 전체·디자이너별 스위치가 모두 켜졌을 때만 실린다(livePremium). */
@@ -95,6 +100,8 @@ export function offersOf(
   for (const t of INQUIRY_TYPES) {
     const scope = INQUIRY_TYPE_SCOPE[t]
     if (!acceptsScope(d, scope)) continue
+    /* 사이트에서 숨긴 플랜은 빼낸다(038_plan_visibility.sql) */
+    if (premium && !premium.copies[scope].visible) continue
 
     const live = premium ? livePremium(premium.copies, premium.premiums, scope) : null
     offers[t] = {

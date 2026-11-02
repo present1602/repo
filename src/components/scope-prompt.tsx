@@ -11,9 +11,12 @@ import { SCOPES, SCOPE_HINTS, SCOPE_LABELS, type Scope } from '@/lib/scopes'
    고르지 않고 닫을 수도 있다. 강제로 막으면 둘러보러 온 사람이 되돌아간다. */
 export function ScopePrompt({
   current = null,
+  scopes = SCOPES,
   onPick,
   onSkip,
 }: {
+  /* 고를 수 있는 유형 — 사이트에서 숨긴 플랜은 빠진다(038_plan_visibility.sql) */
+  scopes?: readonly Scope[]
   /* 다시 열었을 때 지금 고른 유형 — 표시해 두어야 무엇에서 바꾸는지 보인다 */
   current?: Scope | null
   onPick: (s: Scope) => void
@@ -35,7 +38,7 @@ export function ScopePrompt({
         </p>
 
         <div className="mt-6 space-y-2.5">
-          {SCOPES.map((s) => (
+          {scopes.map((s) => (
             <button
               key={s}
               type="button"

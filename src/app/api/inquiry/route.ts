@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { sendAdminMail } from '@/lib/admin-mail'
 import { supabaseAdmin, supabaseConfigured, INQUIRY_FILES_BUCKET } from '@/lib/supabase-admin'
 import { allowedEmails } from '@/lib/admin-auth'
-import { isInquiryPlanTier, isInquiryType } from '@/lib/inquiry-types'
+import { INQUIRY_TYPE_SCOPE, isInquiryPlanTier, isInquiryType } from '@/lib/inquiry-types'
+import { getPlanCopies } from '@/lib/site-settings'
 
 /* 의뢰 문의 접수.
 
@@ -95,6 +96,10 @@ export async function POST(req: Request) {
     }
     if (!inquiryType) {
       return bad('의뢰 유형을 골라 주세요.')
+    }
+    /* 사이트에서 숨긴 플랜은 받지 않는다 — 화면에서 뺐어도 예전 화면이나 직접 보낸 요청이 올 수 있다 */
+    if (!(await getPlanCopies())[INQUIRY_TYPE_SCOPE[inquiryType]].visible) {
+      return bad('지금은 받지 않는 의뢰 유형입니다. 새로고침 후 다시 골라 주세요.')
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return bad('이메일 주소를 확인해 주세요.')

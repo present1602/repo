@@ -2,11 +2,18 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Specialty } from '@/lib/specialty-shape'
+import {
+  SPECIALTY_SCOPE_MODES,
+  SPECIALTY_SCOPE_MODE_LABELS,
+  isSpecialtyScopeMode,
+  type Specialty,
+} from '@/lib/specialty-shape'
 import {
   addSpecialty,
   renameSpecialty,
   setSpecialtyVisible,
+  setSpecialtyScopeMode,
+  setSpecialtyAllowSample,
   reorderSpecialties,
   deleteSpecialty,
 } from '@/app/admin/settings/actions'
@@ -198,7 +205,42 @@ export function SpecialtyManager({ specialties }: { specialties: Specialty[] }) 
                     </span>
                   </div>
 
-                  <div className="flex shrink-0 gap-1.5">
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {/* 의뢰 범위 — '고객이 선택'일 때만 탐색 제목 옆에 필터가 나온다 */}
+                    <select
+                      value={s.scope_mode}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        if (isSpecialtyScopeMode(v)) act(() => setSpecialtyScopeMode(s.id, v))
+                      }}
+                      disabled={pending}
+                      aria-label={`${s.name} 의뢰 범위`}
+                      className="h-[26px] rounded-md border border-neutral-300 bg-white px-1.5 text-[11px] font-medium text-neutral-700 disabled:opacity-50"
+                    >
+                      {SPECIALTY_SCOPE_MODES.map((m) => (
+                        <option key={m} value={m}>
+                          {SPECIALTY_SCOPE_MODE_LABELS[m]}
+                        </option>
+                      ))}
+                    </select>
+                    {/* 켜면 이 분야를 고른 디자이너가 메인 시안 의뢰를 받을지 고를 수 있다 */}
+                    <label className="flex cursor-pointer items-center gap-1 rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700">
+                      <input
+                        type="checkbox"
+                        checked={s.allow_sample}
+                        disabled={pending}
+                        onChange={(e) => {
+                          const on = e.target.checked
+                          const ask = on
+                            ? `'${s.name}' 분야에 메인시안 우선 의뢰를 허용할까요?\n이 분야를 고른 디자이너의 메인시안 의뢰가 공개 화면에 나갑니다.`
+                            : `'${s.name}' 분야의 메인시안 우선 허용을 끌까요?\n이 분야만 고른 디자이너는 메인시안 의뢰가 공개 화면에서 빠집니다.`
+                          if (!confirm(ask)) return
+                          act(() => setSpecialtyAllowSample(s.id, on))
+                        }}
+                        className="accent-violet-600"
+                      />
+                      메인시안 우선 허용
+                    </label>
                     <button
                       onClick={() => setEditing(s.id)}
                       disabled={pending}
@@ -215,7 +257,7 @@ export function SpecialtyManager({ specialties }: { specialties: Specialty[] }) 
                     </button>
                     <button
                       onClick={() => {
-                        if (!confirm(`'${s.name}' 분야를 지울까요?`)) return
+                        if (!confirm(`'${s.name}' 분야를 지울까요?\n이 분야를 고른 디자이너에게서도 빠집니다.`)) return
                         act(() => deleteSpecialty(s.id), '지웠습니다.')
                       }}
                       disabled={pending}
@@ -232,8 +274,10 @@ export function SpecialtyManager({ specialties }: { specialties: Specialty[] }) 
       )}
 
       <p className="mt-3 text-xs text-neutral-400">
-        손잡이를 끌어 탐색 화면에 보이는 차례를 바꿉니다. 쓰는 디자이너가 있는 분야는 지울 수
-        없으니 노출을 꺼 주세요 — 끄면 필터에서만 빠지고 프로필 표기는 남습니다.
+        손잡이를 끌어 탐색 화면에 보이는 차례를 바꿉니다. 의뢰 범위가 &lsquo;고객이 선택&rsquo;인
+        분야만 탐색 제목 옆에 &lsquo;전체 | 디자인 | 디자인 + 개발&rsquo; 필터가 나옵니다.
+        &lsquo;메인시안 우선 허용&rsquo;을 켠 분야를 고른 디자이너만 메인시안 의뢰를 받을 수 있습니다. 쓰는
+        디자이너가 있는 분야는 숨긴 뒤에 지울 수 있고, 지우면 그 디자이너들에게서도 빠집니다.
       </p>
     </section>
   )

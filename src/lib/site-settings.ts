@@ -1,23 +1,50 @@
 import 'server-only'
 import { supabaseAdmin } from './supabase-admin'
-import { FALLBACK_PLAN_COPIES, type DesignerPremiums, type PlanCopies } from './plans'
+import {
+  FALLBACK_PLAN_COPIES,
+  isPlanSlot,
+  type DesignerPlanDetails,
+  type DesignerPlanOptions,
+  type OptionTemplate,
+  type PlanSlot,
+  type DesignerPremiums,
+  type PlanCopies,
+  type PlanTier,
+} from './plans'
 import { isScope, type Scope } from './scopes'
 
 /* 사이트 전역 설정 — 플랜 문구와 화면 스위치.
    site_settings 는 한 줄짜리 테이블이다(id = true). */
 
-type CopyRow = { plan: string; tier: string; name: string; description: string; enabled?: boolean }
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/* 플랜 문구 — 유형 × 단계마다 한 줄(036_plan_copy_premium.sql).
-   빠진 줄은 기본 문구로 메운다 — 표가 비어도 카드 제목이 사라지지 않게.
-   enabled 칸이 없는 DB(036 의 이전 판)에서는 그것만 빼고 다시 묻는다 — 프리미엄은 꺼진 것으로 본다. */
+type CopyRow = {
+  plan: string
+  tier: string
+  name: string
+  description: string
+  enabled?: boolean
+  duration?: string
+  visible?: boolean
+}
+
+/* 마이그레이션 판마다 없는 칸 — 실패 메시지에 이름이 나오면 그것만 빼고 다시 묻는다.
+   036 의 이전 판에는 enabled 가, 037 전에는 duration 이, 038 전에는 visible 이 없다. */
+const OPTIONAL_COPY_COLS = ['visible', 'duration', 'enabled']
+
+/* 플랜 문구 — 유형 × 단계마다 한 줄(036_plan_copy_premium.sql),
+   작업 기간(037_plan_details.sql)까지.
+   빠진 줄은 기본 문구로 메운다 — 표가 비어도 카드 제목이 사라지지 않게. */
 export async function getPlanCopies(): Promise<PlanCopies> {
   if (!supabaseAdmin) return FALLBACK_PLAN_COPIES
   const db = supabaseAdmin
 
-  let r = await db.from('plan_copy').select('plan, tier, name, description, enabled')
-  if (r.error?.message.includes('enabled')) {
-    r = await db.from('plan_copy').select('plan, tier, name, description')
+  let cols = ['plan', 'tier', 'name', 'description', ...OPTIONAL_COPY_COLS]
+  let r = await db.from('plan_copy').select(cols.join(', '))
+  for (const c of OPTIONAL_COPY_COLS) {
+    if (!r.error?.message.includes(c)) continue
+    cols = cols.filter((x) => x !== c)
+    r = await db.from('plan_copy').select(cols.join(', '))
   }
 
   if (r.error) {
@@ -26,20 +53,70 @@ export async function getPlanCopies(): Promise<PlanCopies> {
     return FALLBACK_PLAN_COPIES
   }
 
-  /* 한 단계 깊이까지 복사한다 — 기본값 객체를 그대로 고쳐 쓰면 다음 요청에 섞인다 */
+  /* 새 객체로 만든다 — 기본값 객체를 그대로 고쳐 쓰면 다음 요청에 섞인다 */
   const copies = Object.fromEntries(
-    Object.entries(FALLBACK_PLAN_COPIES).map(([plan, tiers]) => [plan, { ...tiers }]),
-  ) as PlanCopies
+    Object.entries(FALLBACK_PLAN_COPIES).map(([plan, t]) => [
+      plan,
+      { basic: { ...t.basic }, premium: { ...t.premium }, visible: t.visible },
+    ]),
+  ) as unknown as PlanCopies
 
-  for (const row of (r.data ?? []) as CopyRow[]) {
+  for (const row of (r.data ?? []) as unknown as CopyRow[]) {
     if (!isScope(row.plan)) continue
+    const base = { name: row.name, desc: row.description, duration: row.duration ?? '' }
     if (row.tier === 'basic') {
-      copies[row.plan].basic = { name: row.name, desc: row.description }
+      copies[row.plan].basic = base
+      /* 칸이 없으면(038 전) 보여준다 — 지금까지 다 보였다 */
+      copies[row.plan].visible = row.visible ?? true
     } else if (row.tier === 'premium') {
-      copies[row.plan].premium = { name: row.name, desc: row.description, enabled: row.enabled ?? false }
+      copies[row.plan].premium = { ...base, enabled: row.enabled ?? false }
     }
   }
+
   return copies
+}
+
+/* 작업 기간을 공개 화면에 보여주는지(037_plan_details.sql). 읽지 못하면 꺼진 것으로 본다. */
+export async function getShowDuration(): Promise<boolean> {
+  if (!supabaseAdmin) return false
+
+  const { data, error } = await supabaseAdmin
+    .from('site_settings')
+    .select('show_duration')
+    .eq('id', true)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[settings] 작업 기간 노출 조회 실패:', error.message)
+    return false
+  }
+  return (data?.show_duration as boolean | undefined) ?? false
+}
+
+/* 한 디자이너의 작업 기간 덮어쓰기. 표가 없으면(037 전) 비운다. */
+export async function getDesignerPlanDetails(designerId: string): Promise<DesignerPlanDetails> {
+  if (!supabaseAdmin) return {}
+
+  const { data, error } = await supabaseAdmin
+    .from('designer_plan_details')
+    .select('plan, tier, duration')
+    .eq('designer_id', designerId)
+
+  if (error) {
+    console.error('[settings] 디자이너 플랜 상세 조회 실패:', error.message)
+    return {}
+  }
+
+  const details: DesignerPlanDetails = {}
+  for (const row of (data ?? []) as {
+    plan: string
+    tier: string
+    duration: string | null
+  }[]) {
+    if (!isScope(row.plan) || (row.tier !== 'basic' && row.tier !== 'premium')) continue
+    ;(details[row.plan] ??= {})[row.tier as PlanTier] = { duration: row.duration }
+  }
+  return details
 }
 
 /* 탐색에서 의뢰유형을 묻는지(034_scope_prompt_toggle.sql).
@@ -111,4 +188,64 @@ export async function getDesignerPremiums(designerId: string): Promise<DesignerP
     if (isScope(row.plan)) premiums[row.plan as Scope] = toSetting(row)
   }
   return premiums
+}
+
+/* 포함 항목 템플릿 — 어드민이 만든 차례대로(037_plan_details.sql). 표가 없으면 비운다.
+
+   designerId 를 주면 공통 템플릿과 그 디자이너 전용을 함께, 안 주면 공통만.
+   only: 'designer' 면 그 디자이너 전용만(어드민의 전용 항목 관리 칸). */
+export async function listOptionTemplates(
+  opts: { designerId?: string; only?: 'designer' } = {},
+): Promise<OptionTemplate[]> {
+  if (!supabaseAdmin) return []
+
+  /* id 는 주소에서 오기도 한다 — 조건 문자열(.or)에 그대로 끼우므로 uuid 모양만 받는다 */
+  const designerId = opts.designerId && UUID_RE.test(opts.designerId) ? opts.designerId : null
+
+  let q = supabaseAdmin.from('option_templates').select('id, template, targets, designer_id')
+  if (designerId && opts.only === 'designer') q = q.eq('designer_id', designerId)
+  else if (designerId) q = q.or(`designer_id.is.null,designer_id.eq.${designerId}`)
+  else q = q.is('designer_id', null)
+
+  /* 공통 먼저, 전용은 뒤에 — 같은 차례 안에서는 만든 순서 */
+  const { data, error } = await q
+    .order('designer_id', { nullsFirst: true })
+    .order('sort_order')
+    .order('created_at')
+
+  if (error) {
+    console.error('[settings] 포함 항목 템플릿 조회 실패:', error.message)
+    return []
+  }
+  return (
+    (data ?? []) as { id: string; template: string; targets: string[] | null; designer_id: string | null }[]
+  ).map((t) => ({
+    id: t.id,
+    template: t.template,
+    targets: t.targets ? (t.targets.filter(isPlanSlot) as PlanSlot[]) : null,
+    designerId: t.designer_id,
+  }))
+}
+
+/* 한 디자이너가 플랜마다 등록한 포함 항목. 처음 가입하면 비어 있다. */
+export async function getDesignerPlanOptions(designerId: string): Promise<DesignerPlanOptions> {
+  if (!supabaseAdmin) return {}
+
+  const { data, error } = await supabaseAdmin
+    .from('designer_plan_options')
+    .select('plan, tier, template_id, n')
+    .eq('designer_id', designerId)
+
+  if (error) {
+    console.error('[settings] 디자이너 포함 항목 조회 실패:', error.message)
+    return {}
+  }
+
+  const options: DesignerPlanOptions = {}
+  for (const row of (data ?? []) as { plan: string; tier: string; template_id: string; n: number | null }[]) {
+    const slot = `${row.plan}:${row.tier}`
+    if (!isPlanSlot(slot)) continue
+    ;(options[slot] ??= []).push({ templateId: row.template_id, n: row.n })
+  }
+  return options
 }
