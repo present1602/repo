@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { PublicDesignerCard, PublicWork } from '@/lib/designer-shape'
 import { displayNameOf } from '@/lib/display-name'
@@ -8,7 +8,7 @@ import { Img } from './img'
 import { WorkModal } from './work-modal'
 import { ScopePrompt } from './scope-prompt'
 import { InquiryButton } from './inquiry/inquiry-button'
-import { offersOf, type InquiryOffers } from '@/lib/inquiry-types'
+import type { CategoryChoice, InquiryScope } from '@/lib/inquiry-choices'
 import { isSearchable, searchHint } from '@/lib/search-term'
 
 /* 기본 카드가 보여주는 작업 수 — 썸네일 줄과 다이얼로그 모두 이만큼만 */
@@ -16,35 +16,42 @@ const SPOTLIGHT_MAX = 4
 import { SCOPES, SCOPE_LABELS, acceptsScope, type Scope } from '@/lib/scopes'
 import type { SpecialtyScopeMode } from '@/lib/specialty-shape'
 
-/* 제목 옆 의뢰 범위 필터 — 디자인 의뢰·프로젝트 의뢰를 받는 디자이너로 거른다 */
+/* 제목 옆 의뢰 범위 필터 — 의뢰 폼에서 그 범위를 고를 수 있는 디자이너로 거른다.
+   폼과 같은 선택지(designerChoices)를 보므로 탐색에 남은 디자이너는 폼에서도 그 범위가 열린다 */
 const REACHES = [
   { key: 'all', label: '전체', scope: null },
-  { key: 'design', label: '디자인', scope: 'full_design' },
-  { key: 'design_dev', label: '디자인 + 개발', scope: 'with_dev' },
-] as const satisfies readonly { key: string; label: string; scope: Scope | null }[]
+  { key: 'design', label: '디자인', scope: 'design' },
+  { key: 'design_dev', label: '디자인 + 개발', scope: 'design_dev' },
+] as const satisfies readonly { key: string; label: string; scope: InquiryScope | null }[]
 type Reach = (typeof REACHES)[number]['key']
 
 export function DesignerList({
   designers,
   tags: allTags,
   scopeModes = {},
+  descriptions = {},
+  allDesc = '',
   featureIds = [],
   scopePrompt = true,
-  offers,
+  choices,
   hiddenScopes = [],
 }: {
   designers: PublicDesignerCard[]
   tags: string[]
   /* 분야 이름 → 의뢰 범위(039_specialty_scope_mode.sql). 없는 분야는 choice 로 본다 */
   scopeModes?: Record<string, SpecialtyScopeMode>
+  /* 제목 아래 문구 — 분야 이름 → 문구, '전체'는 allDesc(0002_specialty_description.sql).
+     비어 있으면 아무것도 보여주지 않는다 */
+  descriptions?: Record<string, string>
+  allDesc?: string
   /* 어드민이 위쪽에 썸네일 줄 카드(feature1)로 올린 디자이너, 차례대로.
      나머지는 기본 카드(대표 작업 한 장)로 그 아래에 선다(032_explore_features.sql). */
   featureIds?: string[]
   /* 의뢰유형을 묻는지 — 어드민 설정에서 끄면 묻는 창도, 제목 옆 표시도
      나오지 않는다(034_scope_prompt_toggle.sql) */
   scopePrompt?: boolean
-  /* 디자이너 id → 의뢰 폼의 유형·금액(offersOf). 프리미엄까지 담으려고 서버에서 만들어 온다 */
-  offers?: Record<string, InquiryOffers>
+  /* 디자이너 id → 의뢰 폼의 분야·범위·금액(designerChoices). 프리미엄까지 담으려고 서버에서 만들어 온다 */
+  choices?: Record<string, CategoryChoice[]>
   /* 사이트에서 숨긴 플랜(038_plan_visibility.sql) — 팝업·필터에서 빼고, 이것만 받는 디자이너는 목록에서 뺀다 */
   hiddenScopes?: Scope[]
 }) {
@@ -115,12 +122,23 @@ export function DesignerList({
   const showReach = !tag || (scopeModes[tag] ?? 'choice') === 'choice'
   const reachScope = showReach ? REACHES.find((r) => r.key === reach)!.scope : null
 
+  /* 이 디자이너의 의뢰 폼에 그 범위가 있는지 — 분야를 골랐으면 그 분야 안에서만 본다.
+     선택지가 없으면(어드민 미리보기) 예전 스위치로 본다 */
+  const offersScope = useCallback(
+    (d: PublicDesignerCard, s: InquiryScope) => {
+      const mine = choices?.[d.id]
+      if (!mine) return acceptsScope(d, s === 'design_dev' ? 'with_dev' : 'full_design')
+      return mine.some((c) => (!tag || c.name === tag) && c.options.some((o) => o.key === s))
+    },
+    [choices, tag],
+  )
+
   const list = useMemo(() => {
     const needle = searching ? term.toLowerCase() : ''
     const byEmail = emailHits.q === term ? emailHits.ids : null
     const hit = shown.filter((d) => {
       if (tag && !d.tags.includes(tag)) return false
-      if (reachScope && !acceptsScope(d, reachScope)) return false
+      if (reachScope && !offersScope(d, reachScope)) return false
       if (!needle) return true
       /* 이름·한 줄 소개·분야까지 함께 본다. 이름이 비어 있는 계정도 있으므로
          표시명으로 맞춘다 — 화면에 보이는 글자로 검색되는 게 자연스럽다.
@@ -134,7 +152,7 @@ export function DesignerList({
       .filter((d) => featureRank.has(d.id))
       .sort((a, b) => featureRank.get(a.id)! - featureRank.get(b.id)!)
     return [...up, ...hit.filter((d) => !featureRank.has(d.id))]
-  }, [shown, tag, reachScope, term, searching, emailHits, featureRank])
+  }, [shown, tag, reachScope, offersScope, term, searching, emailHits, featureRank])
 
   /* 썸네일 다이얼로그는 목록 순서대로 디자이너들의 작업을 한 줄로 잇는다 —
      한 사람의 끝에서 넘기면 그 사람의 처음이 아니라 다음 디자이너의 첫 작업이 나온다.
@@ -253,9 +271,9 @@ export function DesignerList({
                   </button>
                 )}
               </div>
-              <p className="mt-1 text-sm text-neutral-500">
-                {list.length}명 · 작업물로 먼저 확인하세요
-              </p>
+              {(tag ? descriptions[tag] : allDesc) && (
+                <p className="mt-1 text-sm text-neutral-500">{tag ? descriptions[tag] : allDesc}</p>
+              )}
             </div>
           </div>
 
@@ -294,14 +312,14 @@ export function DesignerList({
               <DesignerCard
                 key={d.id}
                 designer={d}
-                offers={offers?.[d.id]}
+                choices={choices?.[d.id]}
                 onOpenWork={(i) => setOpenAt(starts.get(d.id)! + i)}
               />
             ) : (
               <DesignerSpotlight
                 key={d.id}
                 designer={d}
-                offers={offers?.[d.id]}
+                choices={choices?.[d.id]}
                 onOpenWork={(i) => setOpenAt(starts.get(d.id)! + i)}
               />
             ),
@@ -357,12 +375,12 @@ export function DesignerList({
    베껴 두면 한쪽만 고쳐져 "실제로 이렇게 보인다"가 거짓이 된다. */
 export function DesignerCard({
   designer: d,
-  offers,
+  choices,
   onOpenWork,
 }: {
   designer: PublicDesignerCard
-  /* 의뢰 폼의 유형·금액 — 없으면(어드민 미리보기) 프리미엄 없이 여기서 만든다 */
-  offers?: InquiryOffers
+  /* 의뢰 폼의 분야·범위·금액 — 없으면(어드민 미리보기) 폼이 일반 선택지를 받아 온다 */
+  choices?: CategoryChoice[]
   /* 넘겨 주면 다이얼로그를 목록이 띄운다 — 다음 디자이너까지 이어 넘기려면
      모달이 카드 하나보다 위에 있어야 한다. 없으면(어드민 미리보기) 카드가 띄운다. */
   onOpenWork?: (i: number) => void
@@ -420,7 +438,7 @@ export function DesignerCard({
           <InquiryButton
             designerId={d.id}
             designerName={name}
-            offers={offers ?? offersOf(d)}
+            choices={choices}
             className="rounded-lg bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-violet-600"
           />
         </div>
@@ -494,11 +512,11 @@ export function DesignerCard({
    그보다 많으면 끝에 "+N" 을 두어 프로필에서 마저 보게 한다. */
 function DesignerSpotlight({
   designer: d,
-  offers,
+  choices,
   onOpenWork,
 }: {
   designer: PublicDesignerCard
-  offers?: InquiryOffers
+  choices?: CategoryChoice[]
   onOpenWork: (i: number) => void
 }) {
   const href = `/designers/${d.id}`
@@ -617,7 +635,7 @@ function DesignerSpotlight({
             <InquiryButton
               designerId={d.id}
               designerName={name}
-              offers={offers ?? offersOf(d)}
+              choices={choices}
               className="rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
             />
           </div>

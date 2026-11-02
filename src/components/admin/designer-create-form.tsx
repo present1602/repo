@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import { createDesigner } from '@/app/admin/designers/actions'
 import { Field, input } from './form-bits'
 import { SpecialtyPicker } from './specialty-picker'
+import type { SpecialtyOption } from '@/lib/specialty-shape'
 import { NAME_MAX, nameError } from '@/lib/display-name'
 
-/* specialties — 전문 분야 선택지. 설정에서 켜 둔 것(011_specialties.sql) */
-export function DesignerCreateForm({ specialties }: { specialties: string[] }) {
+/* specialties — 전문 분야 선택지. 숨긴 분야까지 전부, 메뉴 노출 분야가 앞 */
+export function DesignerCreateForm({ specialties }: { specialties: SpecialtyOption[] }) {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [oneLiner, setOneLiner] = useState('')

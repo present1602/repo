@@ -138,6 +138,27 @@ export async function getScopePrompt(): Promise<boolean> {
   return (data?.scope_prompt as boolean | undefined) ?? true
 }
 
+/* 탐색 '전체'일 때 제목 아래 문구(0002_specialty_description.sql). 읽지 못하면 빈 글자 —
+   화면은 그때 문구를 비운다. */
+export async function getExploreDesc(): Promise<string> {
+  if (!supabaseAdmin) return ''
+
+  const { data, error } = await supabaseAdmin
+    .from('site_settings')
+    .select('explore_desc')
+    .eq('id', true)
+    .maybeSingle()
+
+  if (error) {
+    if (!error.message.includes('explore_desc')) {
+      console.error('[settings] 탐색 문구 조회 실패:', error.message)
+    }
+    return ''
+  }
+
+  return (data?.explore_desc as string | undefined) ?? ''
+}
+
 type PremiumRow = { designer_id: string; plan: string; price: number; enabled?: boolean }
 
 /* 디자이너별 프리미엄 줄 — enabled 칸이 없는 DB(036 의 이전 판)에서는 빼고 다시 묻는다.

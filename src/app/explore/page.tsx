@@ -2,10 +2,10 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { DesignerList } from '@/components/designer-list'
 import { listPublicDesigners, collectTags } from '@/lib/public-designers'
-import { listVisibleSpecialtyModes } from '@/lib/specialties'
+import { listCategoryMetas, listExploreSpecialties } from '@/lib/specialties'
 import { listFeatureIds } from '@/lib/explore-features'
-import { getPlanCopies, getScopePrompt, listDesignerPremiums } from '@/lib/site-settings'
-import { offersOf } from '@/lib/inquiry-types'
+import { getExploreDesc, getPlanCopies, getScopePrompt, listDesignerPremiums } from '@/lib/site-settings'
+import { designerChoices } from '@/lib/inquiry-choices'
 import { hiddenScopes } from '@/lib/plans'
 
 export const metadata: Metadata = {
@@ -43,20 +43,22 @@ function ExploreLoading() {
 }
 
 async function ExploreContent() {
-  const [designers, managed, featureIds, scopePrompt, copies] = await Promise.all([
+  const [designers, managed, metas, featureIds, scopePrompt, copies, exploreDesc] = await Promise.all([
     listPublicDesigners(),
-    listVisibleSpecialtyModes(),
+    listExploreSpecialties(),
+    listCategoryMetas(),
     listFeatureIds('feature1'),
     getScopePrompt(),
     getPlanCopies(),
+    getExploreDesc(),
   ])
 
-  /* 카드의 의뢰 폼 — 디자이너마다 받는 유형·금액. 프리미엄을 켠 유형이
+  /* 카드의 의뢰 폼 — 디자이너마다 분야·범위·금액(inquiry-choices.ts). 프리미엄을 켠 유형이
      하나라도 있을 때만 디자이너별 프리미엄을 더 읽는다(없으면 쓸 데가 없다). */
   const anyPremium = Object.values(copies).some((c) => c.premium.enabled)
   const premiums = anyPremium ? await listDesignerPremiums() : {}
-  const offers = Object.fromEntries(
-    designers.map((d) => [d.id, offersOf(d, { copies, premiums: premiums[d.id] ?? {} })]),
+  const choices = Object.fromEntries(
+    designers.map((d) => [d.id, designerChoices(d, metas, { copies, premiums: premiums[d.id] ?? {} })]),
   )
 
   /* 어드민이 정한 목록을 쓴다(011_specialties.sql). 비어 있으면 —
@@ -65,15 +67,19 @@ async function ExploreContent() {
   const tags = managed.length > 0 ? managed.map((s) => s.name) : collectTags(designers)
   /* 분야별 의뢰 범위(039_specialty_scope_mode.sql) — 모아 쓴 태그는 없으니 choice 로 본다 */
   const scopeModes = Object.fromEntries(managed.map((s) => [s.name, s.scope_mode]))
+  /* 제목 아래 문구 — 분야별(0002). '전체'는 exploreDesc */
+  const descriptions = Object.fromEntries(managed.map((s) => [s.name, s.description]))
 
   return (
     <DesignerList
       designers={designers}
       tags={tags}
       scopeModes={scopeModes}
+      descriptions={descriptions}
+      allDesc={exploreDesc}
       featureIds={featureIds}
       scopePrompt={scopePrompt}
-      offers={offers}
+      choices={choices}
       hiddenScopes={hiddenScopes(copies)}
     />
   )

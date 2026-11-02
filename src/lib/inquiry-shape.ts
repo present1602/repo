@@ -31,8 +31,11 @@ export type InquiryRow = {
   /* 013 이전에 들어온 문의는 비어 있다 */
   phone: string | null
   message: string
-  /* 014 이전에 들어온 문의는 비어 있다 */
+  /* 014 이전에 들어온 문의는 비어 있다. 0003 부터는 고른 범위
+     (메인화면 시안 먼저 의뢰 / 디자인 / 프로젝트 의뢰) */
   inquiry_type: string | null
+  /* 고른 분야(0003_inquiry_category.sql). 그 전 문의와 0003 전 DB 에서는 비거나 undefined */
+  category?: string | null
   /* 기본·프리미엄(036_plan_copy_premium.sql) — 프리미엄을 고를 수 있던 문의만.
      036 전에는 select('*') 에 없어 undefined 로 온다. */
   plan_tier?: 'basic' | 'premium' | null

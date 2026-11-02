@@ -5,6 +5,7 @@ import { getAdminUser } from '@/lib/admin-auth'
 import { supabaseConfigured } from '@/lib/supabase-admin'
 import {
   getPlanCopies,
+  getExploreDesc,
   getScopePrompt,
   getShowDuration,
   listOptionTemplates,
@@ -43,12 +44,13 @@ export default async function AdminSettingsPage(props: PageProps<'/admin/setting
 
   /* 서로 기다릴 이유가 없다. 탭마다 필요한 것만 읽는다 —
      포함 항목 템플릿 탭도 프리미엄을 켠 플랜을 알아야 해서 플랜 문구를 함께 읽는다 */
-  const [copies, specialties, scopePrompt, showDuration, templates] = await Promise.all([
+  const [copies, specialties, scopePrompt, showDuration, templates, exploreDesc] = await Promise.all([
     tab === 'general' ? null : getPlanCopies(),
     tab === 'general' ? listAllSpecialties() : null,
     tab === 'general' ? getScopePrompt() : null,
     tab === 'general' ? getShowDuration() : null,
     tab === 'options' ? listOptionTemplates() : null,
+    tab === 'general' ? getExploreDesc() : null,
   ])
 
   return (
@@ -93,7 +95,7 @@ export default async function AdminSettingsPage(props: PageProps<'/admin/setting
           <>
             <ScopePromptToggle enabled={scopePrompt!} />
             <ShowDurationToggle enabled={showDuration!} />
-            <SpecialtyManager specialties={specialties!} />
+            <SpecialtyManager specialties={specialties!} exploreDesc={exploreDesc!} />
           </>
         )}
 

@@ -20,7 +20,9 @@ import {
   slotOf,
 } from '@/lib/plans'
 import { acceptsScope, SCOPES, type Scope } from '@/lib/scopes'
-import { offersOf, SCOPE_INQUIRY_TYPE } from '@/lib/inquiry-types'
+import { SCOPE_INQUIRY_TYPE } from '@/lib/inquiry-types'
+import { designerChoices } from '@/lib/inquiry-choices'
+import { listCategoryMetas } from '@/lib/specialties'
 import { Img } from '@/components/img'
 import { WorkGallery } from '@/components/work-gallery'
 import { PlanPanel, type PanelEntry } from '@/components/plan-panel'
@@ -54,7 +56,7 @@ export default function DesignerDetailPage(props: PageProps<'/designers/[id]'>) 
 async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>['params'] }) {
   const { id } = await params
   /* 플랜 문구·프리미엄·기간은 디자이너 조회를 기다릴 필요가 없어 동시에 받는다 */
-  const [d, copies, premiums, planDetails, showDuration, templates, planOptions] = await Promise.all([
+  const [d, copies, premiums, planDetails, showDuration, templates, planOptions, metas] = await Promise.all([
     getPublicDesigner(id),
     getPlanCopies(),
     getDesignerPremiums(id),
@@ -62,6 +64,7 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
     getShowDuration(),
     listOptionTemplates({ designerId: id }),
     getDesignerPlanOptions(id),
+    listCategoryMetas(),
   ])
   if (!d) notFound()
 
@@ -173,7 +176,7 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
             <PlanPanel
               designerId={d.id}
               designerName={name}
-              offers={offersOf(d, { copies, premiums })}
+              choices={designerChoices(d, metas, { copies, premiums })}
               entries={entries}
             />
           </aside>

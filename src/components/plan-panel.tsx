@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import type { InquiryOffers, InquiryType } from '@/lib/inquiry-types'
+import type { InquiryType } from '@/lib/inquiry-types'
+import { INQUIRY_TYPE_SCOPE_KEY, type CategoryChoice } from '@/lib/inquiry-choices'
 import { InquiryModal } from './inquiry/inquiry-modal'
 
 /* 고른 유형의 한 단계 — 이름·금액·설명·작업 기간·포함 항목 */
@@ -39,12 +40,13 @@ function roEuro(word: string) {
 export function PlanPanel({
   designerId,
   designerName,
-  offers,
+  choices,
   entries,
 }: {
   designerId: string
   designerName: string
-  offers: InquiryOffers
+  /* 의뢰 폼의 분야·범위·금액(designerChoices) */
+  choices: CategoryChoice[]
   entries: PanelEntry[]
 }) {
   const [pickedKey, setPickedKey] = useState(entries[0]?.key ?? '')
@@ -109,8 +111,8 @@ export function PlanPanel({
         <InquiryModal
           designerId={designerId}
           designerName={designerName}
-          offers={offers}
-          initialType={open.type}
+          choices={choices}
+          initialScope={open.type ? INQUIRY_TYPE_SCOPE_KEY[open.type] : undefined}
           onClose={() => setOpen(null)}
         />
       )}

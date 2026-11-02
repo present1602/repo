@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server'
 import { sendAdminMail } from '@/lib/admin-mail'
 import { supabaseAdmin, supabaseConfigured, INQUIRY_FILES_BUCKET } from '@/lib/supabase-admin'
 import { allowedEmails } from '@/lib/admin-auth'
-import { INQUIRY_TYPE_SCOPE, isInquiryPlanTier, isInquiryType } from '@/lib/inquiry-types'
+import { INQUIRY_TYPE_SCOPE, isInquiryPlanTier, type InquiryType } from '@/lib/inquiry-types'
+import { SCOPE_INQUIRY_TYPE, isInquiryScope, scopesOf } from '@/lib/inquiry-choices'
 import { getPlanCopies } from '@/lib/site-settings'
+import { listCategoryMetas } from '@/lib/specialties'
 
 /* 의뢰 문의 접수.
 
@@ -80,10 +82,11 @@ export async function POST(req: Request) {
     const email = String(form.get('email') ?? '').trim()
     const phone = String(form.get('phone') ?? '').trim()
     const message = String(form.get('message') ?? '').trim()
-    /* 화면의 라디오 값만 받아들인다 — 임의 문자열이 그대로 저장되면
-       어드민 목록의 유형 칸이 쓸모없어진다(inquiry-types.ts) */
-    const rawType = String(form.get('inquiryType') ?? '').trim()
-    const inquiryType = isInquiryType(rawType) ? rawType : ''
+    /* 분야와 범위(0003_inquiry_category.sql) — 화면이 보낸 값을 그대로 믿지 않고
+       아래에서 분야 설정과 맞춰 본다. 범위는 inquiry_type 글자로 남는다 */
+    const category = String(form.get('category') ?? '').trim()
+    const rawScope = String(form.get('scope') ?? '').trim()
+    const scope = isInquiryScope(rawScope) ? rawScope : null
     /* 기본·프리미엄 — 프리미엄이 있는 유형을 골랐을 때만 온다. 그 밖에는 null */
     const rawTier = String(form.get('planTier') ?? '').trim()
     const planTier = isInquiryPlanTier(rawTier) ? rawTier : null
@@ -94,12 +97,23 @@ export async function POST(req: Request) {
     if (!name || !email || !phone || !message) {
       return bad('성함, 이메일, 연락처, 문의내용은 필수입니다.')
     }
-    if (!inquiryType) {
-      return bad('의뢰 유형을 골라 주세요.')
-    }
-    /* 사이트에서 숨긴 플랜은 받지 않는다 — 화면에서 뺐어도 예전 화면이나 직접 보낸 요청이 올 수 있다 */
-    if (!(await getPlanCopies())[INQUIRY_TYPE_SCOPE[inquiryType]].visible) {
-      return bad('지금은 받지 않는 의뢰 유형입니다. 새로고침 후 다시 골라 주세요.')
+
+    /* 분야가 하나라도 있으면 분야·범위를 골라야 한다. 분야가 아예 없으면(설정 전)
+       고를 것이 없었으므로 유형 없이 받는다 */
+    /* 의뢰 유형은 탐색 메뉴에 나오는 분야뿐이다 — 숨긴 분야는 받지 않는다 */
+    const metas = (await listCategoryMetas()).filter((m) => m.visible)
+    let inquiryType: InquiryType | null = null
+    if (metas.length > 0) {
+      const meta = metas.find((m) => m.name === category)
+      if (!meta) return bad('무엇을 만드는지 골라 주세요. 새로고침 후 다시 시도해 주세요.')
+      if (!scope || !scopesOf(meta).includes(scope)) {
+        return bad('맡길 범위를 골라 주세요.')
+      }
+      inquiryType = SCOPE_INQUIRY_TYPE[scope]
+      /* 사이트에서 숨긴 플랜은 받지 않는다 — 화면에서 뺐어도 예전 화면이나 직접 보낸 요청이 올 수 있다 */
+      if (!(await getPlanCopies())[INQUIRY_TYPE_SCOPE[inquiryType]].visible) {
+        return bad('지금은 받지 않는 의뢰 유형입니다. 새로고침 후 다시 골라 주세요.')
+      }
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return bad('이메일 주소를 확인해 주세요.')
@@ -185,34 +199,41 @@ export async function POST(req: Request) {
     }
 
     /* ── DB 저장: 여기까지 왔으면 접수는 안전하다 ── */
-    const { data: row, error: dbErr } = await db
-      .from('inquiries')
-      .insert({
-        name,
-        email,
-        phone,
-        message,
-        inquiry_type: inquiryType,
-        /* 036 전 DB 에는 칸이 없다 — 그때는 프리미엄이 공개되지 않아 값도 오지 않는다 */
-        ...(planTier ? { plan_tier: planTier } : {}),
-        designer_id: designerId || null,
-        designer_name: designerName || null,
-        files: uploaded,
-        submit_key: submitKey || null,
-      })
-      .select('id')
-      .single()
+    const fields = {
+      name,
+      email,
+      phone,
+      message,
+      inquiry_type: inquiryType,
+      /* 036 전 DB 에는 칸이 없다 — 그때는 프리미엄이 공개되지 않아 값도 오지 않는다 */
+      ...(planTier ? { plan_tier: planTier } : {}),
+      designer_id: designerId || null,
+      designer_name: designerName || null,
+      files: uploaded,
+      submit_key: submitKey || null,
+    }
+    const insert = (row: Record<string, unknown>) =>
+      db.from('inquiries').insert(row).select('id').single()
 
-    if (dbErr) {
+    let { data: row, error: dbErr } = await insert(
+      inquiryType ? { ...fields, category } : fields,
+    )
+    /* 0003 전 DB 에는 category 칸이 없다 — 접수를 잃지 않게 분야 없이 다시 넣는다 */
+    if (dbErr?.message.includes('category')) {
+      console.warn('[inquiry] category 칸 없음(0003 전) — 분야 없이 저장:', category)
+      ;({ data: row, error: dbErr } = await insert(fields))
+    }
+
+    if (dbErr || !row) {
       /* 유니크 제약 위반 = 동시에 들어온 중복 제출 */
-      if (dbErr.code === '23505') {
+      if (dbErr?.code === '23505') {
         return NextResponse.json({ ok: true, duplicate: true })
       }
       console.error('[inquiry] DB 저장 실패 — 접수 내용:', {
-        name, email, message, designerName, uploaded, error: dbErr.message,
+        name, email, message, designerName, uploaded, error: dbErr?.message,
       })
       /* 012 마이그레이션 전이면 테이블이 없다 */
-      if (/inquiries/i.test(dbErr.message)) {
+      if (/inquiries/i.test(dbErr?.message ?? '')) {
         return bad('문의 접수가 아직 준비되지 않았습니다. 관리자에게 알려 주세요.', 503)
       }
       return bad('접수 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.', 500)
@@ -224,8 +245,11 @@ export async function POST(req: Request) {
     const to = allowedEmails()
     let mailed = false
 
-    /* 프리미엄을 골랐으면 유형 옆에 붙인다 — 메일 제목만 보고도 견적이 갈린다 */
-    const typeLabel = planTier === 'premium' ? `${inquiryType} · 프리미엄` : inquiryType
+    /* 분야·범위를 한 줄로, 프리미엄을 골랐으면 그 옆에 — 메일 제목만 보고도 견적이 갈린다 */
+    const typeLabel =
+      [inquiryType ? category : '', inquiryType ?? '일반 문의', planTier === 'premium' ? '프리미엄' : '']
+        .filter(Boolean)
+        .join(' · ')
 
     if (process.env.RESEND_API_KEY && to.length > 0) {
       try {

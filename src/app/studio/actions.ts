@@ -25,7 +25,7 @@ import {
 } from '@/lib/plans'
 import { replaceSlotOptions, slotOpenFor } from '@/lib/plan-options-db'
 import { SCOPES, type Scope } from '@/lib/scopes'
-import { listVisibleSpecialties } from '@/lib/specialties'
+import { listSpecialtyNames } from '@/lib/specialties'
 import { MAX_TAGS } from '@/lib/specialty-shape'
 
 export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string }
@@ -151,7 +151,7 @@ export async function updateProfile(input: ProfileInput): Promise<Result> {
     return fail(`소개글은 ${MAX_BIO}자 이내로 입력해 주세요.`)
   }
 
-  const allowed = await listVisibleSpecialties()
+  const allowed = await listSpecialtyNames()
   if (allowed.length > 0 && parseTags(input.tags).length > MAX_TAGS) {
     return fail(`전문 분야는 ${MAX_TAGS}개까지 고를 수 있습니다.`)
   }
@@ -159,7 +159,7 @@ export async function updateProfile(input: ProfileInput): Promise<Result> {
   const patch: Record<string, unknown> = {
     one_liner: input.oneLiner.trim() || null,
     bio: bio || null,
-    /* 어드민이 켜 둔 분야만 남긴다(011_specialties.sql). 서버 액션은
+    /* 어드민이 만든 분야만 남긴다 — 숨긴 분야도 고를 수 있다(탐색 사이드바에서만 빠진다). 서버 액션은
        누구나 부를 수 있으므로 화면이 보낸 값을 그대로 믿지 않는다 —
        아무 글자나 들어오면 탐색 필터가 다시 지저분해진다.
        목록이 비어 있으면(마이그레이션 전) 거르지 않고 지금까지처럼 둔다. */

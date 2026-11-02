@@ -5,6 +5,7 @@ import { getAdminUser } from '@/lib/admin-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import {
   MAX_OPTION_TEMPLATE,
+  isContractPrice,
   MAX_PLAN_DESC,
   MAX_PLAN_DURATION,
   MAX_PLAN_NAME,
@@ -136,6 +137,39 @@ export async function setScopePrompt(enabled: boolean): Promise<Result> {
   return { ok: true }
 }
 
+/* 탐색 제목 아래 문구 — 분야별(specialties.description)·전체(site_settings.explore_desc).
+   0002_specialty_description.sql 의 check 제약과 같은 길이다. */
+const MAX_EXPLORE_DESC = 200
+
+function cleanDesc(text: string): string | null {
+  const clean = text.trim()
+  return clean.length > MAX_EXPLORE_DESC ? null : clean
+}
+
+function descFail(message: string, what: string) {
+  console.error(`[settings] ${what} 변경 실패:`, message)
+  return fail(
+    /description|explore_desc/.test(message)
+      ? '0002_specialty_description.sql 을 먼저 실행해 주세요.'
+      : '저장에 실패했습니다.',
+  )
+}
+
+/* '전체'일 때 문구 */
+export async function setExploreDesc(text: string): Promise<Result> {
+  const db = await guard()
+
+  const clean = cleanDesc(text)
+  if (clean == null) return fail(`문구는 ${MAX_EXPLORE_DESC}자 이내로 입력해 주세요.`)
+
+  const { error } = await db.from('site_settings').update({ explore_desc: clean }).eq('id', true)
+  if (error) return descFail(error.message, '탐색 문구')
+
+  revalidatePath('/admin/settings')
+  revalidatePath('/explore')
+  return { ok: true }
+}
+
 /* ─────────── 전문 분야 ───────────
 
    탐색 사이드바의 필터이자 디자이너가 고르는 선택지다(011_specialties.sql).
@@ -243,8 +277,8 @@ export async function renameSpecialty(id: string, name: string): Promise<Result>
   return { ok: true }
 }
 
-/* 켜고 끄기 — 끄면 탐색 필터와 디자이너 선택지에서 빠진다.
-   이미 고른 디자이너의 tags 는 건드리지 않는다. 다시 켜면 그대로 돌아온다. */
+/* 켜고 끄기 — 끄면 탐색 사이드바에서만 빠진다. 디자이너는 계속 고를 수 있고
+   프로필에도 나간다. 이미 고른 디자이너의 tags 는 건드리지 않는다. */
 export async function setSpecialtyVisible(id: string, visible: boolean): Promise<Result> {
   const db = await guard()
 
@@ -255,6 +289,44 @@ export async function setSpecialtyVisible(id: string, visible: boolean): Promise
   }
 
   refreshSpecialties()
+  return { ok: true }
+}
+
+/* 분야를 고르면 탐색 제목 아래에 나가는 문구 — 비우면 나가지 않는다 */
+export async function setSpecialtyDescription(id: string, text: string): Promise<Result> {
+  const db = await guard()
+
+  const clean = cleanDesc(text)
+  if (clean == null) return fail(`문구는 ${MAX_EXPLORE_DESC}자 이내로 입력해 주세요.`)
+
+  const { error } = await db.from('specialties').update({ description: clean }).eq('id', id)
+  if (error) return descFail(error.message, '분야 문구')
+
+  refreshSpecialties()
+  return { ok: true }
+}
+
+/* 범위가 정해진 분야의 시작가(0003) — null 이면 디자이너의 범위 가격을 쓴다.
+   본 계약 시작가와 같은 범위로 막는다(isContractPrice) */
+export async function setSpecialtyPriceFrom(id: string, price: number | null): Promise<Result> {
+  const db = await guard()
+
+  if (price != null && !isContractPrice(price)) {
+    return fail('시작가는 10,000원 이상 1억 원 이하로 입력해 주세요.')
+  }
+
+  const { error } = await db.from('specialties').update({ price_from: price }).eq('id', id)
+  if (error) {
+    console.error('[specialties] 시작가 변경 실패:', error.message)
+    return fail(
+      error.message.includes('price_from')
+        ? '0003_inquiry_category.sql 을 먼저 실행해 주세요.'
+        : '변경에 실패했습니다.',
+    )
+  }
+
+  refreshSpecialties()
+  revalidatePath('/designers/[id]', 'page')
   return { ok: true }
 }
 

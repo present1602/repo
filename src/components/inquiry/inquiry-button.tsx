@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { InquiryModal } from './inquiry-modal'
-import type { InquiryOffers } from '@/lib/inquiry-types'
+import type { CategoryChoice } from '@/lib/inquiry-choices'
 
 /* 디자이너 상세의 의뢰 버튼.
 
@@ -11,13 +11,13 @@ import type { InquiryOffers } from '@/lib/inquiry-types'
 export function InquiryButton({
   designerId,
   designerName,
-  offers,
+  choices,
   className,
 }: {
   designerId: string
   designerName: string
-  /* 이 디자이너가 받는 유형과 시작가 — 폼의 유형·금액이 이것으로 바뀐다 */
-  offers?: InquiryOffers
+  /* 이 디자이너의 분야·범위·금액(designerChoices). 없으면(어드민 미리보기) 일반 선택지 */
+  choices?: CategoryChoice[]
   className?: string
 }) {
   const [open, setOpen] = useState(false)
@@ -39,7 +39,7 @@ export function InquiryButton({
         <InquiryModal
           designerId={designerId}
           designerName={designerName}
-          offers={offers}
+          choices={choices}
           onClose={() => setOpen(false)}
         />
       )}

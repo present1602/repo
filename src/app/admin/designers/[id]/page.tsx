@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
 import { getDesignerById, listWorks } from '@/lib/designers-db'
 import { getDesignerCardPreview } from '@/lib/public-designers'
-import { listVisibleSpecialties } from '@/lib/specialties'
+import { listSpecialtyOptions } from '@/lib/specialties'
 import {
   getDesignerPlanDetails,
   getDesignerPlanOptions,
@@ -48,7 +48,7 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
     await Promise.all([
       listWorks(id),
       getDesignerCardPreview(id),
-      listVisibleSpecialties(),
+      listSpecialtyOptions(),
       getDesignerPremiums(id),
       getPlanCopies(),
       getDesignerPlanDetails(id),

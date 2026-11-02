@@ -1,44 +1,24 @@
 'use client'
 
-import { useState } from 'react'
-import {
-  Consent,
-  Dialog,
-  Done,
-  Field,
-  FileField,
-  RadioCard,
-  ReadonlyRow,
-  inputCls,
-} from './form-bits'
-import {
-  INQUIRY_TYPES,
-  INQUIRY_TYPE_HINTS,
-  INQUIRY_TYPE_WAS,
-  INQUIRY_TYPE_TIPS,
-  type InquiryOffers,
-  type InquiryPlanTier,
-  type InquiryType,
-} from '@/lib/inquiry-types'
-import { formatPrice } from '@/lib/plans'
-
-/* '49,000원~' → 49000 */
-const wonOf = (s: string) => Number(s.replace(/\D/g, ''))
+import { useEffect, useState } from 'react'
+import { Consent, Dialog, Done, Field, FileField, ReadonlyRow, inputCls } from './form-bits'
+import type { CategoryChoice, InquiryScope, ScopeOption } from '@/lib/inquiry-choices'
+import { getGeneralInquiryChoices } from '@/app/inquiry-actions'
 
 /* 유형 카드 안의 기본·프리미엄 전환 한 칸.
    라디오 label 안에 있으므로 type="button" — 폼을 보내지 않고, 누름이
-   라디오 선택을 흔들지 않는다(이미 이 유형이 골라져 있을 때만 보인다). */
+   라디오 선택을 흔들지 않는다(이미 이 범위가 골라져 있을 때만 보인다). */
 function TierButton({
   label,
   title,
-  price,
+  priceLabel,
   on,
   onPick,
 }: {
   label: string
   /* 프리미엄 이름(어드민 설정) — 무엇이 더해지는지 이름으로 알린다 */
   title?: string
-  price: number
+  priceLabel: string
   on: boolean
   onPick: () => void
 }) {
@@ -56,59 +36,83 @@ function TierButton({
       }`}
     >
       <span className="block text-xs font-semibold">{label}</span>
-      <span className="mt-0.5 block text-xs">{formatPrice(price)}~</span>
+      <span className="mt-0.5 block text-xs">{priceLabel}</span>
     </button>
   )
+}
+
+/* 분야 버튼 줄 — 1~3개는 한 줄, 4개는 2×2, 5개 이상은 3열로 왼쪽부터 채운다 */
+const CATEGORY_COLS: Record<number, string> = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3' }
+function categoryCols(n: number) {
+  return CATEGORY_COLS[n <= 3 ? n : n === 4 ? 2 : 3]
 }
 
 /* 의뢰·문의 폼.
 
    보낸 내용은 /api/inquiry 로 가서 DB 에 쌓이고 어드민에게 메일이 간다.
 
-   designerName 을 주면 "문의하기"(누구에게인지는 아래 디자이너 줄이 보여준다),
-   없으면 일반 의뢰로 연다 —
-   네비바의 '의뢰하기'는 아직 상대가 정해지지 않은 상태로 열린다. */
+   먼저 무엇을 만드는지(분야)를 고르고, 그 분야에서 맡길 범위
+   (메인 시안 먼저 / 디자인만 / 디자인 + 개발)를 고른다(inquiry-choices.ts).
+   범위가 하나뿐인 분야는 묻지 않고 한 줄로 보여준다.
+
+   designerName 을 주면 그 디자이너에게 보내는 폼이고, 선택지(choices)도
+   그 디자이너 설정으로 걸러 온다. 없으면 일반 의뢰 — 네비바·홈의 '의뢰하기'는
+   상대가 정해지지 않은 채 열리고, 선택지는 열 때 서버에서 받아 온다. */
 export function InquiryModal({
   designerId,
   designerName,
-  offers,
-  initialType,
-  hiddenTypes = [],
+  choices: given,
+  initialScope,
   onClose,
 }: {
   designerId?: string
   designerName?: string
-  /* 그 디자이너가 받는 유형과 시작가(offersOf) — 없으면 모든 유형을 기본 금액으로 */
-  offers?: InquiryOffers
-  /* 처음부터 골라 둘 유형 — 상세의 의뢰 패널에서 고른 것 */
-  initialType?: InquiryType
-  /* 사이트에서 숨긴 플랜의 유형 — 디자이너가 정해지지 않은 폼(네비바)에서 뺀다.
-     디자이너에게 보내는 폼은 offers 가 이미 걸러 온다 */
-  hiddenTypes?: InquiryType[]
+  /* 그 디자이너의 분야·범위·금액(designerChoices) — 없으면 일반 선택지를 받아 온다 */
+  choices?: CategoryChoice[]
+  /* 처음부터 골라 둘 범위 — 상세의 의뢰 패널에서 고른 것. 분야를 고르면 그 안에 있을 때 골라진다 */
+  initialScope?: InquiryScope
   onClose: () => void
 }) {
-  /* 받는 유형이 하나도 없으면 다 보여준다 — 고를 게 없는 폼은 보낼 수가 없다 */
-  const types =
-    offers && Object.keys(offers).length > 0
-      ? INQUIRY_TYPES.filter((t) => offers[t] != null)
-      : INQUIRY_TYPES.filter((t) => !hiddenTypes.includes(t))
+  const [fetched, setFetched] = useState<CategoryChoice[] | null>(null)
+  const choices = given ?? fetched
+
+  /* 일반 폼 — 열 때 한 번 받아 온다. 실패하면 분야 없이 보낼 수 있게 빈 목록으로 둔다 */
+  useEffect(() => {
+    if (given) return
+    let alive = true
+    getGeneralInquiryChoices()
+      .then((c) => alive && setFetched(c))
+      .catch(() => alive && setFetched([]))
+    return () => {
+      alive = false
+    }
+  }, [given])
+
   const [done, setDone] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
-  /* 고른 유형과 단계 — 프리미엄이 있는 유형을 고르면 카드 안에 전환이 펼쳐진다.
-     유형을 바꾸면 기본으로 돌아간다 — 다른 유형의 프리미엄을 따라오면 안 된다. */
-  /* 처음부터 골라 둘 유형 — 넘겨받은 것, 아니면 받는 유형이 하나뿐일 때 그것.
-     고를 게 없는데 누르게 하지 않는다 */
-  const only =
-    initialType && (types as readonly string[]).includes(initialType)
-      ? initialType
-      : offers && types.length === 1
-        ? types[0]
-        : null
-  const [picked, setPicked] = useState<InquiryType | null>(only)
-  const [tier, setTier] = useState<InquiryPlanTier>('basic')
-  const pickedOffer = picked ? offers?.[picked] : undefined
+  /* 고른 분야·범위·단계. 분야를 바꾸면 범위는 다시 고른다 — 다른 분야의 범위를
+     따라오면 안 된다. 분야가 하나뿐이면 처음부터 골라 둔다. */
+  const [picked, setPicked] = useState<string | null>(null)
+  const [scope, setScope] = useState<InquiryScope | null>(null)
+  const [tier, setTier] = useState<'basic' | 'premium'>('basic')
+
+  const catName = picked ?? (choices?.length === 1 ? choices[0].name : null)
+  const cat = choices?.find((c) => c.name === catName) ?? null
+  const single = cat?.options.length === 1 ? cat.options[0] : null
+  const scopeKey: InquiryScope | null =
+    single?.key ??
+    (scope && cat?.options.some((o) => o.key === scope) ? scope : null) ??
+    (initialScope && cat?.options.some((o) => o.key === initialScope) ? initialScope : null)
+  const option: ScopeOption | null = cat?.options.find((o) => o.key === scopeKey) ?? null
+
+  const pickCategory = (name: string) => {
+    setPicked(name)
+    setScope(null)
+    setTier('basic')
+    setError('')
+  }
 
   /* 한 번 열면 끝까지 같은 키를 쓴다 — 느린 응답에 다시 눌러도
      서버가 같은 접수로 보고 두 번 저장하지 않는다(012_inquiries.sql). */
@@ -117,6 +121,12 @@ export function InquiryModal({
   const send = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (sending) return
+
+    /* 분야는 버튼이라 required 로 막을 수 없다 — 여기서 짚는다 */
+    if (choices && choices.length > 0 && !cat) {
+      setError('무엇을 만드는지 먼저 골라 주세요.')
+      return
+    }
 
     setSending(true)
     setError('')
@@ -181,64 +191,124 @@ export function InquiryModal({
             </p>
           </div>
 
-          {/* 무엇을 맡기려는지 먼저 고른다 — 답변도 견적도 여기서 갈린다 */}
-          <fieldset className="mt-6">
-            <legend className="mb-2 text-xs font-medium text-neutral-700">
-              의뢰 유형 <span className="text-red-600">*</span>
-            </legend>
-            <div className="grid gap-2 md:grid-cols-2">
-              {types.map((t) => {
-                const offer = offers?.[t]
-                const price = offer?.price
-                const was = INQUIRY_TYPE_WAS[t]
-                const premium = offer?.premium
-                const checked = picked === t
-                return (
-                  <RadioCard
-                    key={t}
-                    defaultChecked={t === only}
-                    name="inquiryType"
-                    value={t}
-                    hint={price != null ? `${formatPrice(price)}~` : INQUIRY_TYPE_HINTS[t]}
-                    /* 할인 전 금액은 그 디자이너 시작가보다 클 때만 — 아니면 할인이 아니다 */
-                    was={was && (price == null || wonOf(was) > price) ? was : undefined}
-                    tip={INQUIRY_TYPE_TIPS[t]}
-                    onChange={() => {
-                      setPicked(t)
-                      setTier('basic')
-                    }}
-                  >
-                    {/* 프리미엄이 있는 유형 — 고르기 전에는 있다는 것만, 고르면
-                        카드 안에서 기본·프리미엄을 바꾼다 */}
-                    {premium && !checked && (
-                      <span className="mt-1 block text-[11px] text-violet-700">
-                        프리미엄 {formatPrice(premium.price)}~ 선택 가능
+          {/* 무엇을 만드는지 먼저 고른다 — 맡길 범위도, 견적도 여기서 갈린다 */}
+          {choices == null ? (
+            <p className="mt-6 text-sm text-neutral-400">의뢰 유형을 불러오는 중…</p>
+          ) : (
+            choices.length > 0 && (
+              <div className="mt-6 space-y-4">
+                <fieldset>
+                  <legend className="mb-2 text-xs font-medium text-neutral-700">
+                    무엇을 만드나요? <span className="text-red-600">*</span>
+                  </legend>
+                  <div className={`grid gap-2 ${categoryCols(choices.length)}`}>
+                    {choices.map((c) => {
+                      const on = c.name === catName
+                      return (
+                        <button
+                          key={c.name}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => pickCategory(c.name)}
+                          className={`min-h-12 rounded-lg border px-3 py-3 text-left text-sm transition ${
+                            on
+                              ? 'border-violet-600 bg-violet-50 font-semibold text-violet-700 ring-1 ring-violet-600'
+                              : 'border-neutral-300 font-medium hover:bg-neutral-50'
+                          }`}
+                        >
+                          {c.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {cat && <input type="hidden" name="category" value={cat.name} />}
+                </fieldset>
+
+                {/* 고른 분야의 범위 — 여럿이면 라디오, 하나면 한 줄 */}
+                {cat && single && (
+                  <div className="flex items-start justify-between gap-3 rounded-xl bg-neutral-50 px-4 py-3.5 ring-1 ring-neutral-200">
+                    <div className="min-w-0">
+                      <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-700">
+                        {single.label}
                       </span>
-                    )}
-                    {premium && checked && price != null && (
-                      <span className="mt-3 grid grid-cols-2 gap-1 rounded-lg bg-violet-100 p-1">
-                        <TierButton
-                          label="기본"
-                          price={price}
-                          on={tier === 'basic'}
-                          onPick={() => setTier('basic')}
-                        />
-                        <TierButton
-                          label="프리미엄"
-                          title={premium.name}
-                          price={premium.price}
-                          on={tier === 'premium'}
-                          onPick={() => setTier('premium')}
-                        />
-                      </span>
-                    )}
-                  </RadioCard>
-                )
-              })}
-            </div>
-            {/* 프리미엄을 고를 수 있던 유형일 때만 보낸다 — 아니면 서버가 null 로 둔다 */}
-            {pickedOffer?.premium && <input type="hidden" name="planTier" value={tier} />}
-          </fieldset>
+                      <p className="mt-1.5 text-xs leading-relaxed text-neutral-600">{single.desc}</p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold">{single.priceLabel}</span>
+                    <input type="hidden" name="scope" value={single.key} />
+                  </div>
+                )}
+
+                {cat && !single && (
+                  <fieldset className="rounded-xl bg-neutral-50 p-3 ring-1 ring-neutral-200 md:p-4">
+                    <legend className="sr-only">어디까지 맡길까요?</legend>
+                    <p aria-hidden className="mb-2.5 text-xs font-medium text-neutral-700">
+                      어디까지 맡길까요? <span className="text-red-600">*</span>
+                    </p>
+                    <div className="space-y-2">
+                      {cat.options.map((o) => {
+                        const checked = o.key === scopeKey
+                        return (
+                          <label
+                            key={o.key}
+                            className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 bg-white p-3 transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50"
+                          >
+                            <input
+                              required
+                              type="radio"
+                              name="scope"
+                              value={o.key}
+                              checked={checked}
+                              onChange={() => {
+                                setScope(o.key)
+                                setTier('basic')
+                              }}
+                              className="mt-0.5 shrink-0 accent-violet-600"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-baseline justify-between gap-3">
+                                <span className="text-sm font-medium">{o.label}</span>
+                                <span className="shrink-0 text-sm font-semibold text-neutral-800">
+                                  {o.priceLabel}
+                                </span>
+                              </span>
+                              <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
+                                {o.desc}
+                              </span>
+                              {o.premium && !checked && (
+                                <span className="mt-1 block text-[11px] text-violet-700">
+                                  프리미엄 {o.premium.priceLabel} 선택 가능
+                                </span>
+                              )}
+                              {o.premium && checked && (
+                                <span className="mt-3 grid grid-cols-2 gap-1 rounded-lg bg-violet-100 p-1">
+                                  <TierButton
+                                    label="기본"
+                                    priceLabel={o.priceLabel}
+                                    on={tier === 'basic'}
+                                    onPick={() => setTier('basic')}
+                                  />
+                                  <TierButton
+                                    label="프리미엄"
+                                    title={o.premium.name}
+                                    priceLabel={o.premium.priceLabel}
+                                    on={tier === 'premium'}
+                                    onPick={() => setTier('premium')}
+                                  />
+                                </span>
+                              )}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </fieldset>
+                )}
+
+                {/* 프리미엄을 고를 수 있던 범위일 때만 보낸다 — 아니면 서버가 null 로 둔다 */}
+                {option?.premium && <input type="hidden" name="planTier" value={tier} />}
+              </div>
+            )
+          )}
 
           <div className="mt-6 grid gap-6 md:grid-cols-2 md:gap-7">
             <Field label="성함 (회사명)" req>

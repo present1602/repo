@@ -14,6 +14,9 @@ import {
   setSpecialtyVisible,
   setSpecialtyScopeMode,
   setSpecialtyAllowSample,
+  setSpecialtyDescription,
+  setSpecialtyPriceFrom,
+  setExploreDesc,
   reorderSpecialties,
   deleteSpecialty,
 } from '@/app/admin/settings/actions'
@@ -23,8 +26,16 @@ type Notice = { kind: 'ok' | 'error'; text: string } | null
 /* 전문 분야 관리(011_specialties.sql).
 
    이 목록이 탐색 사이드바의 필터이자 디자이너 프로필의 선택지다.
-   순서는 끌어서 바꾸고, 이름을 고치면 쓰던 디자이너의 tags 도 함께 바뀐다. */
-export function SpecialtyManager({ specialties }: { specialties: Specialty[] }) {
+   순서는 끌어서 바꾸고, 이름을 고치면 쓰던 디자이너의 tags 도 함께 바뀐다.
+   분야마다, 그리고 '전체'에 탐색 제목 아래 문구를 적는다(0002_specialty_description.sql). */
+export function SpecialtyManager({
+  specialties,
+  exploreDesc,
+}: {
+  specialties: Specialty[]
+  /* '전체'일 때 탐색 제목 아래 문구 */
+  exploreDesc: string
+}) {
   const [notice, setNotice] = useState<Notice>(null)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
@@ -135,6 +146,18 @@ export function SpecialtyManager({ specialties }: { specialties: Specialty[] }) 
         </button>
       </form>
 
+      {/* '전체'일 때 문구 — 분야 문구와 같은 자리에 나간다 */}
+      <div className="mt-4 rounded-xl bg-neutral-50 px-3.5 py-3 ring-1 ring-neutral-200">
+        <p className="text-xs font-medium text-neutral-600">전체 문구</p>
+        <DescField
+          key={exploreDesc}
+          value={exploreDesc}
+          disabled={pending}
+          placeholder="탐색 '전체'에서 제목 아래에 나갈 문구 — 비우면 나오지 않음"
+          onSave={(text) => act(() => setExploreDesc(text), '전체 문구를 저장했습니다.')}
+        />
+      </div>
+
       {specialties.length === 0 ? (
         <p className="mt-4 rounded-xl border border-dashed border-neutral-300 py-12 text-center text-sm text-neutral-500">
           아직 등록된 분야가 없습니다.
@@ -203,6 +226,26 @@ export function SpecialtyManager({ specialties }: { specialties: Specialty[] }) 
                       {s.used ?? 0}명
                       {!s.visible && <span className="ml-1.5 text-neutral-500">· 숨김</span>}
                     </span>
+                    <DescField
+                      key={s.description}
+                      value={s.description}
+                      disabled={pending}
+                      placeholder="탐색 제목 아래 문구 — 비우면 나오지 않음"
+                      onSave={(text) =>
+                        act(() => setSpecialtyDescription(s.id, text), `'${s.name}' 문구를 저장했습니다.`)
+                      }
+                    />
+                    {/* 범위가 정해진 분야만 — 고르는 분야는 디자이너의 범위 가격을 쓴다 */}
+                    {s.scope_mode !== 'choice' && (
+                      <PriceField
+                        key={String(s.price_from)}
+                        value={s.price_from}
+                        disabled={pending}
+                        onSave={(price) =>
+                          act(() => setSpecialtyPriceFrom(s.id, price), `'${s.name}' 시작가를 저장했습니다.`)
+                        }
+                      />
+                    )}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1.5">
@@ -274,12 +317,93 @@ export function SpecialtyManager({ specialties }: { specialties: Specialty[] }) 
       )}
 
       <p className="mt-3 text-xs text-neutral-400">
-        손잡이를 끌어 탐색 화면에 보이는 차례를 바꿉니다. 의뢰 범위가 &lsquo;고객이 선택&rsquo;인
+        손잡이를 끌어 탐색 화면에 보이는 차례를 바꿉니다. 숨긴 분야는 탐색 사이드바에서만
+        빠지고, 디자이너는 계속 고를 수 있으며 프로필에도 나옵니다. 의뢰 범위가 &lsquo;고객이 선택&rsquo;인
         분야만 탐색 제목 옆에 &lsquo;전체 | 디자인 | 디자인 + 개발&rsquo; 필터가 나옵니다.
         &lsquo;메인시안 우선 허용&rsquo;을 켠 분야를 고른 디자이너만 메인시안 의뢰를 받을 수 있습니다. 쓰는
         디자이너가 있는 분야는 숨긴 뒤에 지울 수 있고, 지우면 그 디자이너들에게서도 빠집니다.
       </p>
     </section>
+  )
+}
+
+/* 탐색 제목 아래 문구 한 칸 — 고친 뒤 칸을 벗어나거나 Enter 를 누르면 저장한다.
+   서버 값이 바뀌면 key 로 새로 그려 입력이 따라온다. */
+function DescField({
+  value,
+  disabled,
+  placeholder,
+  onSave,
+}: {
+  value: string
+  disabled: boolean
+  placeholder: string
+  onSave: (text: string) => void
+}) {
+  const [text, setText] = useState(value)
+  const save = () => {
+    if (text.trim() !== value) onSave(text)
+  }
+
+  return (
+    <input
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={save}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          save()
+        }
+        if (e.key === 'Escape') setText(value)
+      }}
+      disabled={disabled}
+      maxLength={200}
+      placeholder={placeholder}
+      className="mt-1.5 h-8 w-full min-w-0 rounded-md border border-neutral-200 bg-white px-2.5 text-xs text-neutral-700 outline-none ring-violet-500 placeholder:text-neutral-400 focus:ring-2 disabled:opacity-60"
+    />
+  )
+}
+
+/* 분야 시작가 한 칸 — 의뢰 폼에서 이 분야 금액으로 나간다. 비우면 디자이너 가격.
+   DescField 와 같이 칸을 벗어나거나 Enter 로 저장한다 */
+function PriceField({
+  value,
+  disabled,
+  onSave,
+}: {
+  value: number | null
+  disabled: boolean
+  onSave: (price: number | null) => void
+}) {
+  const [text, setText] = useState(value == null ? '' : String(value))
+  const save = () => {
+    const digits = text.replace(/\D/g, '')
+    const next = digits ? Number(digits) : null
+    if (next !== value) onSave(next)
+  }
+
+  return (
+    <label className="mt-1.5 flex items-center gap-2 text-[11px] text-neutral-500">
+      <span className="shrink-0">의뢰 시작가</span>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            save()
+          }
+          if (e.key === 'Escape') setText(value == null ? '' : String(value))
+        }}
+        disabled={disabled}
+        inputMode="numeric"
+        placeholder="비우면 디자이너 가격"
+        className="h-8 w-40 min-w-0 rounded-md border border-neutral-200 bg-white px-2.5 text-xs text-neutral-700 outline-none ring-violet-500 placeholder:text-neutral-400 focus:ring-2 disabled:opacity-60"
+      />
+      <span className="shrink-0">원</span>
+    </label>
   )
 }
 

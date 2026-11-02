@@ -1,6 +1,7 @@
 import 'server-only'
 import { supabaseAdmin } from './supabase-admin'
-import type { Specialty, SpecialtyScopeMode } from './specialty-shape'
+import type { Specialty, SpecialtyOption, SpecialtyScopeMode } from './specialty-shape'
+import type { CategoryMeta } from './inquiry-choices'
 
 /* 전문 분야 목록 조회(011_specialties.sql).
 
@@ -8,12 +9,14 @@ import type { Specialty, SpecialtyScopeMode } from './specialty-shape'
    한곳에서 읽어야 둘이 어긋나지 않는다. */
 
 const COLS = 'id, name, sort_order, visible'
-/* 039 전에는 없다 — 실패 메시지에 이름이 나오면 빼고 다시 묻는다(site-settings.ts 와 같은 방식) */
-const OPTIONAL_COLS = ['scope_mode', 'allow_sample']
+/* 039·0002·0003 전에는 없다 — 실패 메시지에 이름이 나오면 빼고 다시 묻는다(site-settings.ts 와 같은 방식) */
+const OPTIONAL_COLS = ['scope_mode', 'allow_sample', 'description', 'price_from']
 
-type Row = Omit<Specialty, 'scope_mode' | 'allow_sample'> & {
+type Row = Omit<Specialty, 'scope_mode' | 'allow_sample' | 'description' | 'price_from'> & {
   scope_mode?: SpecialtyScopeMode
   allow_sample?: boolean
+  description?: string
+  price_from?: number | null
 }
 
 /* 화면에 내보낼 순서로 정렬한다 — sort_order 가 같으면 이름순(한글 기준).
@@ -24,7 +27,7 @@ function byOrder(a: Specialty, b: Specialty) {
 }
 
 /* 분야 줄을 읽는다. 039 전이면 scope_mode 는 choice(지금까지 그랬다),
-   allow_sample 은 꺼진 것으로 채운다. */
+   allow_sample 은 꺼진 것으로, 0002 전이면 description 은 빈 글자로 채운다. */
 async function readSpecialties(visibleOnly: boolean) {
   const db = supabaseAdmin!
   const ask = (cols: string[]) => {
@@ -49,7 +52,13 @@ async function readSpecialties(visibleOnly: boolean) {
   }
 
   return ((r.data ?? []) as unknown as Row[])
-    .map((s) => ({ ...s, scope_mode: s.scope_mode ?? 'choice', allow_sample: s.allow_sample ?? false }))
+    .map((s) => ({
+      ...s,
+      scope_mode: s.scope_mode ?? 'choice',
+      allow_sample: s.allow_sample ?? false,
+      description: s.description ?? '',
+      price_from: s.price_from ?? null,
+    }))
     .sort(byOrder)
 }
 
@@ -85,12 +94,51 @@ export async function listVisibleSpecialties(): Promise<string[]> {
   return (await readSpecialties(true))?.map((s) => s.name) ?? []
 }
 
-/* 탐색용 — 켜 둔 분야의 이름과 의뢰 범위, 차례대로(039_specialty_scope_mode.sql) */
-export async function listVisibleSpecialtyModes(): Promise<
-  { name: string; scope_mode: SpecialtyScopeMode }[]
+/* 디자이너가 고르는 선택지 — 숨긴 분야까지 전부, 차례대로.
+   숨김은 탐색 사이드바에서만 빼는 것이라 디자이너는 계속 고를 수 있고 프로필에도 나간다. */
+export async function listSpecialtyNames(): Promise<string[]> {
+  if (!supabaseAdmin) return []
+  return (await readSpecialties(false))?.map((s) => s.name) ?? []
+}
+
+/* 선택 화면용 — 숨긴 분야까지 전부. 메뉴에 나오는(visible) 분야를 앞에 세운다 —
+   디자이너가 탐색에서 찾히는 분야를 먼저 보고 고르게. 각각 안에서는 설정 차례대로. */
+export async function listSpecialtyOptions(): Promise<SpecialtyOption[]> {
+  if (!supabaseAdmin) return []
+  const list = (await readSpecialties(false)) ?? []
+  return [...list.filter((s) => s.visible), ...list.filter((s) => !s.visible)].map((s) => ({
+    name: s.name,
+    visible: s.visible,
+  }))
+}
+
+/* 의뢰 폼용 — 숨긴 분야까지 전부, 설정 차례대로(inquiry-choices.ts).
+   일반 폼은 이 중 노출 분야만, 디자이너 폼은 그 디자이너가 고른 분야만 쓴다. */
+export async function listCategoryMetas(): Promise<CategoryMeta[]> {
+  if (!supabaseAdmin) return []
+  return (
+    (await readSpecialties(false))?.map((s) => ({
+      name: s.name,
+      visible: s.visible,
+      scope_mode: s.scope_mode,
+      allow_sample: s.allow_sample,
+      price_from: s.price_from,
+    })) ?? []
+  )
+}
+
+/* 탐색용 — 켜 둔 분야의 이름·의뢰 범위(039)·제목 아래 문구(0002), 차례대로 */
+export async function listExploreSpecialties(): Promise<
+  { name: string; scope_mode: SpecialtyScopeMode; description: string }[]
 > {
   if (!supabaseAdmin) return []
-  return (await readSpecialties(true))?.map((s) => ({ name: s.name, scope_mode: s.scope_mode })) ?? []
+  return (
+    (await readSpecialties(true))?.map((s) => ({
+      name: s.name,
+      scope_mode: s.scope_mode,
+      description: s.description,
+    })) ?? []
+  )
 }
 
 /* 어드민용 — 꺼 둔 것까지 전부. 각 분야를 쓰는 디자이너 수를 함께 센다.

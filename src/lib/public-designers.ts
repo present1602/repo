@@ -15,7 +15,7 @@ import type {
   FeedDesigner,
   FeedWork,
 } from './designer-shape'
-import { listSampleSpecialties } from './specialties'
+import { listSampleSpecialties, listSpecialtyNames } from './specialties'
 import { sampleAllowed } from './specialty-shape'
 
 /* 로그인 없이 보이는 화면(탐색·상세)이 쓰는 조회.
@@ -159,8 +159,11 @@ async function selectDesigners<T extends object>(
   }
   if (r.error || !r.data) return r
 
-  const allowed = await sampleSpecialties()
-  return { ...r, data: r.data.map((d) => gateSample({ ...SCOPE_DEFAULTS, ...d }, allowed)) }
+  const [allowed, known] = await Promise.all([sampleSpecialties(), specialtyNames()])
+  return {
+    ...r,
+    data: r.data.map((d) => knownTags(gateSample({ ...SCOPE_DEFAULTS, ...d }, allowed), known)),
+  }
 }
 
 /* 메인 시안 우선 의뢰는 어드민이 허용한 분야(039)를 고른 디자이너만 받는다.
@@ -168,6 +171,18 @@ async function selectDesigners<T extends object>(
    탐색 필터·의뢰 패널·의뢰 폼이 모두 이 값을 보므로 여기서 한 번에 거른다.
    요청 하나에서 여러 번 불려도 한 번만 묻는다. */
 const sampleSpecialties = cache(listSampleSpecialties)
+
+/* 공개 화면에는 분야 목록에 있는 태그만 내보낸다(숨긴 분야 포함).
+   분야 이름을 DB 에서 직접 바꾸면 디자이너 tags 에 옛 이름이 남는다 — 그 이름이
+   카드에 나가면 어느 필터에도 걸리지 않는 낯선 글자가 된다.
+   목록이 비어 있으면(011 전이거나 하나도 없으면) 거르지 않는다. */
+const specialtyNames = cache(listSpecialtyNames)
+
+function knownTags<D>(d: D, known: string[]): D {
+  const tags = (d as { tags?: string[] }).tags
+  if (!tags || known.length === 0) return d
+  return { ...d, tags: tags.filter((t) => known.includes(t)) }
+}
 
 function gateSample<D extends { scope_sample: boolean }>(d: D, allowed: string[] | null): D {
   const tags = (d as { tags?: string[] }).tags ?? []
@@ -185,8 +200,8 @@ async function selectDesigner<T extends object>(
   }
   if (r.error || !r.data) return r
 
-  const allowed = await sampleSpecialties()
-  return { ...r, data: gateSample({ ...SCOPE_DEFAULTS, ...r.data }, allowed) }
+  const [allowed, known] = await Promise.all([sampleSpecialties(), specialtyNames()])
+  return { ...r, data: knownTags(gateSample({ ...SCOPE_DEFAULTS, ...r.data }, allowed), known) }
 }
 
 /* 탐색 목록 — 공개 디자이너 + 카드용 썸네일.

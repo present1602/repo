@@ -143,6 +143,11 @@ function InquiryItem({
                 미확인
               </span>
             )}
+            {q.category && (
+              <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-medium text-violet-800">
+                {q.category}
+              </span>
+            )}
             {q.inquiry_type && (
               <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-700">
                 {q.inquiry_type}

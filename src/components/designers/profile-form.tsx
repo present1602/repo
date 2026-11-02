@@ -14,6 +14,7 @@ import { MAX_TAGS } from '@/lib/specialty-shape'
 import { NAME_MAX, nameError } from '@/lib/display-name'
 import { updateProfile, updateAvatar, setProfilePublic } from '@/app/studio/actions'
 import { Img } from '@/components/img'
+import type { SpecialtyOption } from '@/lib/specialty-shape'
 
 export function ProfileForm({
   designer: d,
@@ -21,8 +22,8 @@ export function ProfileForm({
   works,
 }: {
   designer: AdminDesigner
-  /* 고를 수 있는 분야 — 어드민이 켜 둔 것만 온다(011_specialties.sql) */
-  options: string[]
+  /* 고를 수 있는 분야 — 숨긴 분야까지 전부, 메뉴(탐색 사이드바)에 나오는 분야가 앞 */
+  options: SpecialtyOption[]
   /* 공개 조건을 재는 데 쓴다 — 작업 수와 AI 표기를 센다 */
   works: Pick<WorkRow, 'visible' | 'ai_used'>[]
 }) {
@@ -41,7 +42,7 @@ export function ProfileForm({
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
-  const orphans = picked.filter((t) => !options.includes(t))
+  const orphans = picked.filter((t) => !options.some((o) => o.name === t))
 
   /* 관리자가 이름을 정해줬으면 잠겨 있다 — 변경은 관리자에게 요청한다 */
   const locked = d.name_locked
@@ -151,7 +152,7 @@ export function ProfileForm({
             </p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
-              {options.map((name) => {
+              {options.map(({ name, visible }) => {
                 const on = picked.includes(name)
                 /* 상한에 닿으면 켜져 있는 것만 끌 수 있다 */
                 const blocked = !on && picked.length >= MAX_TAGS
@@ -163,7 +164,10 @@ export function ProfileForm({
                         ? 'border-violet-600 bg-violet-50 font-medium text-violet-700'
                         : blocked
                           ? 'border-neutral-200 text-neutral-300'
-                          : 'cursor-pointer border-neutral-300 hover:bg-neutral-50'
+                          : /* 메뉴에 나오는 분야는 옅은 보라 테두리로 가른다 */
+                            visible
+                            ? 'cursor-pointer border-violet-300 hover:bg-violet-50/60'
+                            : 'cursor-pointer border-neutral-300 hover:bg-neutral-50'
                     }`}
                   >
                     <input
@@ -182,6 +186,13 @@ export function ProfileForm({
                 )
               })}
             </div>
+          )}
+
+          {options.some((o) => o.visible) && (
+            <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
+              <span className="mr-1 inline-block size-2 rounded-sm border border-violet-400 align-middle" />
+              보라 테두리는 탐색 메뉴에 나오는 분야입니다. 나머지도 고를 수 있고 프로필에 표시됩니다.
+            </p>
           )}
 
           {/* 목록에서 빠진 분야를 쓰고 있으면 알려준다 — 어드민이 이름을

@@ -10,7 +10,7 @@ import {
 } from '@/lib/site-settings'
 import { acceptsScope, SCOPES } from '@/lib/scopes'
 import { PlanSetup, type SetupSlot } from '@/components/plan-setup'
-import { listSampleSpecialties, listVisibleSpecialties } from '@/lib/specialties'
+import { listSampleSpecialties, listSpecialtyOptions } from '@/lib/specialties'
 import { sampleAllowed } from '@/lib/specialty-shape'
 import { displayName } from '@/lib/display-name'
 import { logout } from './actions'
@@ -30,7 +30,7 @@ export default async function DesignerHomePage() {
   const [works, planCopy, specialties, sampleTags, templates, planOptions, premiums] = await Promise.all([
     listWorks(d.id),
     getPlanCopies(),
-    listVisibleSpecialties(),
+    listSpecialtyOptions(),
     listSampleSpecialties(),
     listOptionTemplates({ designerId: d.id }),
     getDesignerPlanOptions(d.id),

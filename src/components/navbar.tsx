@@ -3,14 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { InquiryModal } from '@/components/inquiry/inquiry-modal'
-import type { InquiryType } from '@/lib/inquiry-types'
 
 /* 사이트 공통 바.
 
    좌측 메뉴는 두지 않는다 — 홈으로 가는 길은 SOOM 로고가 맡고,
    그 밖에 모든 화면에서 갈 곳은 탐색과 의뢰뿐이라 우측에 모았다.
    메뉴가 다시 필요해지면 로고와 우측 묶음 사이에 nav 를 넣으면 된다. */
-export function Navbar({ hiddenTypes = [] }: { hiddenTypes?: InquiryType[] }) {
+export function Navbar() {
   const [inquiry, setInquiry] = useState(false)
 
   return (
@@ -49,7 +48,7 @@ export function Navbar({ hiddenTypes = [] }: { hiddenTypes?: InquiryType[] }) {
       {/* 모달은 헤더 밖에 둔다 — 헤더가 sticky 라 그 안의 fixed 는
           뷰포트가 아니라 헤더를 기준으로 자리잡는다(56px 안에 갇힌다).
           position 이 static 이 아닌 조상은 fixed 의 기준이 된다. */}
-      {inquiry && <InquiryModal hiddenTypes={hiddenTypes} onClose={() => setInquiry(false)} />}
+      {inquiry && <InquiryModal onClose={() => setInquiry(false)} />}
     </>
   )
 }

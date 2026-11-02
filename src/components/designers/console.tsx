@@ -7,6 +7,7 @@ import type { PlanCopies } from '@/lib/plans'
 import { ProfileForm } from './profile-form'
 import { PortfolioManager } from './portfolio-manager'
 import { SettingsPanel } from './settings-panel'
+import type { SpecialtyOption } from '@/lib/specialty-shape'
 
 type Tab = 'profile' | 'portfolio' | 'settings'
 
@@ -23,8 +24,8 @@ export function DesignerConsole({
   designer: AdminDesigner
   works: WorkRow[]
   planCopy: PlanCopies
-  /* 고를 수 있는 전문 분야 — 어드민이 켜 둔 것만 온다(011_specialties.sql) */
-  specialties: string[]
+  /* 고를 수 있는 전문 분야 — 어드민이 만든 것 전부. 숨긴 분야도 고를 수 있다 */
+  specialties: SpecialtyOption[]
   /* 메인 시안 우선 의뢰를 허용한 분야(039)를 골랐는지 — 아니면 그 스위치를 보여주지 않는다 */
   canSample: boolean
   /* 설정 탭의 포함 항목 등록 — 서버에서 받은 템플릿·등록 값으로 페이지가 그려 넘긴다 */

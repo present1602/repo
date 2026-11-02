@@ -9,18 +9,24 @@ export type Specialty = {
   /* 화면에 보이는 이름이자 designers.tags 에 담기는 값 */
   name: string
   sort_order: number
-  /* 끄면 탐색 필터와 디자이너 선택지에서 빠진다.
-     이미 그 분야를 고른 디자이너의 tags 는 건드리지 않는다. */
+  /* 끄면 탐색 사이드바에서만 빠진다. 디자이너는 계속 고를 수 있고 프로필에도 나간다. */
   visible: boolean
   /* 의뢰 범위(039_specialty_scope_mode.sql) — choice 일 때만 탐색 제목 옆에
      '전체 | 디자인 | 디자인 + 개발' 필터가 나온다 */
   scope_mode: SpecialtyScopeMode
   /* 이 분야에서 '메인 시안만 먼저 의뢰'를 받을 수 있는지(039). 디자이너별 scope_sample 과 둘 다 켜져야 한다 */
   allow_sample: boolean
+  /* 탐색에서 이 분야를 고르면 제목 아래에 나가는 문구(0002). 비면 나가지 않는다 */
+  description: string
+  /* 범위가 정해진 분야의 시작가(원, 0003). 비면 디자이너의 범위 가격을 쓴다 */
+  price_from: number | null
   /* 이 분야를 고른 디자이너 수 — 어드민 목록에서만 채워진다.
      끄거나 이름을 바꾸기 전에 영향 범위를 보여주는 값이다. */
   used?: number
 }
+
+/* 디자이너가 고르는 선택지 한 칸 — visible 이면 탐색 사이드바(메뉴)에 나오는 분야다 */
+export type SpecialtyOption = { name: string; visible: boolean }
 
 /* 039 의 check 제약과 같은 값 — 함께 고쳐야 한다 */
 export const SPECIALTY_SCOPE_MODES = ['choice', 'design', 'design_dev'] as const

@@ -106,7 +106,7 @@ function MenuBody({ email, unreadInquiries = 0, unreadApplications = 0 }: MenuPr
 
   return (
     <>
-      <Link href="/admin" className="flex items-center gap-2 text-sm font-bold tracking-tight">
+      <Link href="/" className="flex items-center gap-2 text-sm font-bold tracking-tight">
         <span className="grid size-6 place-items-center rounded-md bg-violet-600 text-[11px] text-white">
           S
         </span>

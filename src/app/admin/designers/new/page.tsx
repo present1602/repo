@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
-import { listVisibleSpecialties } from '@/lib/specialties'
+import { listSpecialtyOptions } from '@/lib/specialties'
 import { DesignerCreateForm } from '@/components/admin/designer-create-form'
 
 export const metadata: Metadata = {
@@ -16,7 +16,7 @@ export default async function NewDesignerPage() {
   const user = await getAdminUser()
   if (!user) redirect('/admin/login')
 
-  const specialties = await listVisibleSpecialties()
+  const specialties = await listSpecialtyOptions()
 
   return (
     <main className="min-w-0 flex-1 px-5 py-6 md:px-8">

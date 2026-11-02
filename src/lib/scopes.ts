@@ -31,8 +31,7 @@ export const SCOPE_HINTS: Record<Scope, string> = {
 /* 이 디자이너가 그 유형을 받는지.
 
    메인 시안도 본인이 끌 수 있다(019_scope_sample_optional.sql) —
-   본계약 건만 받으려는 디자이너가 있다.
-   로고는 033_logo_design.sql — 033 전 DB 에서는 값이 없어 꺼진 것으로 본다. */
+   본계약 건만 받으려는 디자이너가 있다. */
 export function acceptsScope(
   d: {
     scope_sample: boolean
@@ -43,7 +42,9 @@ export function acceptsScope(
   scope: Scope,
 ): boolean {
   if (scope === 'sample') return d.scope_sample
-  if (scope === 'logo') return d.scope_logo ?? false
-  if (scope === 'full_design') return d.scope_full_design
+  /* 디자인 의뢰·로고 스위치는 내렸다 — 디자인은 고른 분야로 받고(늘 받음),
+     로고는 분야('로고/일러스트' 등)가 맡는다. 칸(scope_full_design·scope_logo)은 남겨 둔다 */
+  if (scope === 'logo') return false
+  if (scope === 'full_design') return true
   return d.scope_with_dev
 }

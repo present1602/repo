@@ -10,8 +10,6 @@ import {
   formatPrice,
   formatPriceRange,
   DESIGN_PRICES,
-  DEFAULT_LOGO_PRICE,
-  LOGO_PRICE_MAX,
   DEFAULT_PRICE_MAX,
   MIN_PRICE_MAX,
   MAX_PRICE_MAX,
@@ -39,6 +37,7 @@ import {
 } from '@/app/admin/designers/actions'
 import { Field, input, ghostButton } from './form-bits'
 import { SpecialtyPicker } from './specialty-picker'
+import type { SpecialtyOption } from '@/lib/specialty-shape'
 import { DESIGNER_TABS, type DesignerTab } from './designer-tabs'
 import { PlanSetup, type SetupSlot } from '@/components/plan-setup'
 import { OptionTemplateManager } from './option-template-manager'
@@ -75,8 +74,8 @@ export function DesignerDetail({
   templates: OptionTemplate[]
   planOptions: DesignerPlanOptions
   designer: AdminDesigner
-  /* 전문 분야 선택지 — 설정에서 켜 둔 것(011_specialties.sql) */
-  specialties: string[]
+  /* 전문 분야 선택지 — 숨긴 분야까지 전부, 메뉴 노출 분야가 앞 */
+  specialties: SpecialtyOption[]
   /* 유형별 프리미엄 — 디자이너마다 켜짐과 금액, 어드민만 정한다(036_plan_copy_premium.sql) */
   premiums: DesignerPremiums
   /* 설정에서 프리미엄을 켠 유형 — 켜진 유형만 디자이너별로 켤 수 있다 */
@@ -212,11 +211,12 @@ export function DesignerDetail({
               copies={copies}
               designerId={d.id}
             />
-            {/* 받지 않는 유형도 미리 채워 둘 수 있게 넷 다. 프리미엄은 설정에서 켠 플랜만 */}
+            {/* 받지 않는 유형도 미리 채워 둘 수 있게 전부. 로고는 분야가 맡아 뺐다.
+                프리미엄은 설정에서 켠 플랜만 */}
             <PlanSetup
               mode="admin"
               designerId={d.id}
-              slots={SCOPES.flatMap((s): SetupSlot[] => [
+              slots={SCOPES.filter((s) => s !== 'logo').flatMap((s): SetupSlot[] => [
                 { scope: s, tier: 'basic' },
                 ...(premiumOn[s] ? [{ scope: s, tier: 'premium' as const }] : []),
               ])}
@@ -481,12 +481,8 @@ function PlanSummary({
   /* 요약 — 유형마다 받는지, 기본 금액, 프리미엄 금액 */
   const rows: { s: Scope; on: boolean; base: string }[] = [
     { s: 'sample', on: d.scope_sample, base: formatPriceRange(d.design_price, d.price_max) },
-    {
-      s: 'logo',
-      on: d.scope_logo ?? false,
-      base: formatPriceRange(d.logo_price ?? DEFAULT_LOGO_PRICE, LOGO_PRICE_MAX),
-    },
-    { s: 'full_design', on: d.scope_full_design, base: `${formatPrice(fullNow)}~` },
+    /* 디자인 의뢰는 고른 분야로 늘 받는다 — 로고는 분야가 맡아 줄에서 뺐다 */
+    { s: 'full_design', on: true, base: `${formatPrice(fullNow)}~` },
     { s: 'with_dev', on: d.scope_with_dev, base: `${formatPrice(projectNow)}~` },
   ]
 
@@ -608,7 +604,7 @@ function PlanSummary({
             설정에서 프리미엄을 켠 유형만 켤 수 있습니다. 꺼도 금액은 남아 있습니다.
           </p>
           <div className="mt-3 space-y-2.5">
-            {SCOPES.map((s) => {
+            {SCOPES.filter((s) => s !== 'logo').map((s) => {
               const allowed = premiumOn[s]
               const on = premium[s].on
               return (
@@ -677,11 +673,11 @@ function ScopeSection({
   const [pending, start] = useTransition()
   const router = useRouter()
 
-  const current: Record<Scope, boolean> = {
+  /* 디자인 의뢰·로고 스위치는 내렸다 — 디자인은 고른 분야로 늘 받고, 로고는 분야가 맡는다.
+     어드민이 고르는 것은 메인 시안과 디자인 + 개발 승인뿐이다 */
+  const TOGGLES = ['sample', 'with_dev'] as const
+  const current: Record<(typeof TOGGLES)[number], boolean> = {
     sample: d.scope_sample,
-    /* 033 전에는 칸이 없어 undefined 로 온다 — 꺼진 것으로 본다 */
-    logo: d.scope_logo ?? false,
-    full_design: d.scope_full_design,
     with_dev: d.scope_with_dev,
   }
 
@@ -712,10 +708,11 @@ function ScopeSection({
     <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
       <h2 className="text-sm font-semibold">의뢰 유형</h2>
       <p className="mt-1 text-xs leading-relaxed text-neutral-500">
-        이 디자이너가 받을 의뢰입니다. 끈 유형은 탐색 필터·상세 카드·의뢰 폼에서 빠집니다.
+        고른 전문 분야의 디자인 의뢰는 기본으로 받습니다. 여기서는 그 위에 얹는 의뢰를 엽니다 —
+        끈 유형은 탐색 필터·의뢰 폼에서 빠집니다.
       </p>
 
-      {SCOPES.map((s) => (
+      {TOGGLES.map((s) => (
         <ScopeCheck
           key={s}
           label={SCOPE_LABELS[s]}
@@ -725,13 +722,6 @@ function ScopeSection({
           onChange={(on) => toggle(s, on)}
         />
       ))}
-
-      {/* 넷 다 끄면 탐색에 나오지 않는다(designer-list.tsx) — 모르고 끄지 않게 알린다 */}
-      {!SCOPES.some((s) => current[s]) && (
-        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800">
-          받는 유형이 없어 탐색 목록에 나오지 않습니다. 프로필 링크로만 열립니다.
-        </p>
-      )}
     </section>
   )
 }
@@ -818,7 +808,7 @@ function ProfileForm({
   onNotice,
 }: {
   designer: AdminDesigner
-  specialties: string[]
+  specialties: SpecialtyOption[]
   onNotice: (n: Notice) => void
 }) {
   const [email, setEmail] = useState(d.email)
