@@ -3,7 +3,6 @@ import { supabaseAdmin } from './supabase-admin'
 import {
   FALLBACK_PLAN_COPIES,
   isBucket,
-  isOptionsMode,
   isPlanSlot,
   type DesignerOptionSetup,
   type DesignerPlanDetails,
@@ -274,16 +273,20 @@ export async function getDesignerPlanOptions(designerId: string): Promise<Design
   return options
 }
 
-/* 한 디자이너의 기본 단계 포함 항목 — 방식(공통·분야별)과 목록(0004_plan_options_by_category.sql).
+/* 한 디자이너의 기본 단계 포함 항목 — 공통·개별 목록마다 고른 템플릿과 직접 적은 항목(0004·0005).
 
    0004 전이면 null — 호출부는 예전 플랜별 목록(getDesignerPlanOptions)의 기본 칸을 쓴다.
-   방식 칸만 없으면 공통으로 본다. */
+   0005 전이면 직접 적은 항목만 비운다. */
 export async function getDesignerOptionSetup(designerId: string): Promise<DesignerOptionSetup | null> {
   if (!supabaseAdmin) return null
 
-  const [rows, me] = await Promise.all([
+  const [rows, custom] = await Promise.all([
     supabaseAdmin.from('designer_category_options').select('bucket, template_id, n').eq('designer_id', designerId),
-    supabaseAdmin.from('designers').select('plan_options_mode').eq('id', designerId).maybeSingle(),
+    supabaseAdmin
+      .from('designer_custom_options')
+      .select('id, bucket, text')
+      .eq('designer_id', designerId)
+      .order('created_at'),
   ])
 
   if (rows.error) {
@@ -292,12 +295,18 @@ export async function getDesignerOptionSetup(designerId: string): Promise<Design
     }
     return null
   }
+  if (custom.error && !custom.error.message.includes('designer_custom_options')) {
+    console.error('[settings] 직접 입력 포함 항목 조회 실패:', custom.error.message)
+  }
 
-  const raw = (me.data as { plan_options_mode?: string } | null)?.plan_options_mode ?? ''
-  const buckets: DesignerOptionSetup['buckets'] = {}
+  const setup: DesignerOptionSetup = { buckets: {}, custom: {} }
   for (const row of (rows.data ?? []) as { bucket: string; template_id: string; n: number | null }[]) {
     if (!isBucket(row.bucket)) continue
-    ;(buckets[row.bucket] ??= []).push({ templateId: row.template_id, n: row.n })
+    ;(setup.buckets[row.bucket] ??= []).push({ templateId: row.template_id, n: row.n })
   }
-  return { mode: isOptionsMode(raw) ? raw : 'common', buckets }
+  for (const row of (custom.data ?? []) as { id: string; bucket: string; text: string }[]) {
+    if (!isBucket(row.bucket)) continue
+    ;(setup.custom[row.bucket] ??= []).push({ id: row.id, text: row.text })
+  }
+  return setup
 }

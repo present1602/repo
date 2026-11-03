@@ -27,11 +27,16 @@ import {
   MAX_CONTRACT_PRICE,
   MAX_PLAN_DURATION,
   slotOf,
-  type OptionsMode,
   type PlanTier,
   type RegisteredOption,
 } from '@/lib/plans'
-import { replaceBucketOptions, replaceSlotOptions, saveOptionsMode, slotOpenFor } from '@/lib/plan-options-db'
+import {
+  addCustomOption,
+  removeCustomOption,
+  replaceBucketOptions,
+  replaceSlotOptions,
+  slotOpenFor,
+} from '@/lib/plan-options-db'
 
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
    페이지에서 막았더라도 여기서 권한을 다시 확인해야 한다. */
@@ -471,10 +476,22 @@ export async function setDesignerBucketOptions(
   return { ok: true }
 }
 
-export async function setDesignerOptionsMode(id: string, mode: OptionsMode, seed: string[]): Promise<Result> {
+/* 직접 적은 포함 항목 — 어드민이 대신 더하거나 지운다(0005) */
+export async function addDesignerCustomOption(id: string, bucket: string, text: string): Promise<Result> {
   await guard()
 
-  const err = await saveOptionsMode(id, mode, seed)
+  const err = await addCustomOption(id, bucket, text)
+  if (err) return fail(err)
+
+  refresh(id)
+  revalidatePath('/studio')
+  return { ok: true }
+}
+
+export async function removeDesignerCustomOption(id: string, optionId: string): Promise<Result> {
+  await guard()
+
+  const err = await removeCustomOption(id, optionId)
   if (err) return fail(err)
 
   refresh(id)

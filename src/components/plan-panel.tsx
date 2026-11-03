@@ -43,19 +43,24 @@ export function PlanPanel({
   designerName,
   choices,
   entries,
+  preview,
 }: {
   designerId: string
   designerName: string
   /* 의뢰 폼의 분야·범위·금액(designerChoices) */
   choices: CategoryChoice[]
   entries: PanelEntry[]
+  /* 스튜디오 미리보기 — 따라오지 않고, 버튼을 눌러도 폼을 열지 않는다 */
+  preview?: boolean
 }) {
   const [pickedKey, setPickedKey] = useState(entries[0]?.key ?? '')
   const [open, setOpen] = useState<{ category?: string; scope?: InquiryScope } | null>(null)
   const picked = entries.find((e) => e.key === pickedKey) ?? entries[0]
 
   return (
-    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 lg:sticky lg:top-20">
+    <section
+      className={`rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 ${preview ? '' : 'lg:sticky lg:top-20'}`}
+    >
       {entries.length > 0 && picked && (
         <>
           <div className="flex items-baseline justify-between gap-2">
@@ -90,7 +95,7 @@ export function PlanPanel({
 
           <button
             type="button"
-            onClick={() => setOpen({ category: picked.category, scope: picked.scope })}
+            onClick={() => !preview && setOpen({ category: picked.category, scope: picked.scope })}
             className="mt-4 w-full rounded-xl bg-violet-600 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-violet-700"
           >
             {picked.basic.name}
@@ -101,7 +106,7 @@ export function PlanPanel({
 
       <button
         type="button"
-        onClick={() => setOpen({})}
+        onClick={() => !preview && setOpen({})}
         className={
           entries.length > 0
             ? 'mt-2 w-full rounded-xl px-4 py-3 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50'

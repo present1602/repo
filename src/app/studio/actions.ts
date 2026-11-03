@@ -18,11 +18,16 @@ import {
   isDesignPrice,
   formatPrice,
   slotOf,
-  type OptionsMode,
   type PlanTier,
   type RegisteredOption,
 } from '@/lib/plans'
-import { replaceBucketOptions, replaceSlotOptions, saveOptionsMode, slotOpenFor } from '@/lib/plan-options-db'
+import {
+  addCustomOption,
+  removeCustomOption,
+  replaceBucketOptions,
+  replaceSlotOptions,
+  slotOpenFor,
+} from '@/lib/plan-options-db'
 import { SCOPES, type Scope } from '@/lib/scopes'
 import { listCategoryMetas } from '@/lib/specialties'
 import { MAX_TAGS } from '@/lib/specialty-shape'
@@ -87,11 +92,21 @@ export async function setMyBucketOptions(bucket: string, options: RegisteredOpti
   return { ok: true }
 }
 
-/* 포함 항목 방식 — 분야별로 바꾸면 비어 있는 분야 칸(seed)에 공통 목록을 복사해 둔다 */
-export async function setMyOptionsMode(mode: OptionsMode, seed: string[]): Promise<Result> {
+/* 직접 적은 포함 항목 — 더하면 바로 저장된다(0005) */
+export async function addMyCustomOption(bucket: string, text: string): Promise<Result> {
   const { id } = await guard()
 
-  const err = await saveOptionsMode(id, mode, seed)
+  const err = await addCustomOption(id, bucket, text)
+  if (err) return fail(err)
+
+  refresh(id)
+  return { ok: true }
+}
+
+export async function removeMyCustomOption(optionId: string): Promise<Result> {
+  const { id } = await guard()
+
+  const err = await removeCustomOption(id, optionId)
   if (err) return fail(err)
 
   refresh(id)
@@ -233,10 +248,8 @@ export type RequestSettingsInput = {
   profileTags: string[]
   /* 메인화면 의뢰 시작가 — 보기 중에서 고른다 */
   designPrice: number
-  /* 고객이 선택하는 분야(web/app)의 디자인·프로젝트 의뢰(0004) — 하나는 켜져 있어야 한다.
-     메인화면 시안 의뢰(scope_sample)는 어드민만 바꾸므로 받지 않는다 */
-  scopeFullDesign: boolean
-  scopeWithDev: boolean
+  /* 의뢰 유형은 받지 않는다 — 디자인·프로젝트는 고객이 고르는 옵션이고,
+     메인화면 시안 의뢰(scope_sample)는 어드민만 바꾼다 */
 }
 
 /* 설정 탭의 가격 플랜 — 의뢰 받는 분야·프로필 태그와 그 분야의 의뢰 유형·금액을 한 번에 저장한다.
@@ -269,13 +282,6 @@ export async function updateRequestSettings(input: RequestSettingsInput): Promis
     return fail(`의뢰 받는 분야와 프로필 태그는 합쳐서 ${MAX_TAGS}개까지 고를 수 있습니다.`)
   }
 
-  const choice = picked.filter((m) => m.scope_mode === 'choice')
-  if (choice.length > 0 && !input.scopeFullDesign && !input.scopeWithDev) {
-    return fail(
-      `${choice.map((m) => m.name).join(', ')} 분야는 디자인 의뢰나 프로젝트 의뢰 중 하나를 선택해 주세요.`,
-    )
-  }
-
   /* 시작가는 바꿀 때만 본다 — 메인 시안 분야를 고르지 않아 칸이 잠겨 있으면 저장된 값이 그대로 온다.
      상한을 넘으면 공개 화면에 "99,000 ~ 49,000원" 같은 뒤집힌 범위가 나간다 */
   if (input.designPrice !== me.design_price) {
@@ -292,8 +298,6 @@ export async function updateRequestSettings(input: RequestSettingsInput): Promis
     .update({
       tags,
       design_price: input.designPrice,
-      scope_full_design: input.scopeFullDesign,
-      scope_with_dev: input.scopeWithDev,
     })
     .eq('id', id)
 

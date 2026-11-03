@@ -135,17 +135,11 @@ export type OptionTemplate = {
 export type RegisteredOption = { templateId: string; n: number | null }
 export type DesignerPlanOptions = Partial<Record<PlanSlot, RegisteredOption[]>>
 
-/* 기본 단계 포함 항목의 방식과 자리(0004_plan_options_by_category.sql).
-     common      — 모든 의뢰에 같은 목록 하나(COMMON_BUCKET)
-     by_category — 분야(·그 안의 범위)마다 따로(bucketOf)
+/* 기본 단계 포함 항목의 자리(0004·0005).
+     공통 항목 — 모든 의뢰 유형에 먼저 나간다(COMMON_BUCKET)
+     개별 항목 — 분야(·그 안의 범위)마다, 공통 다음에 나간다(bucketOf)
+   목록마다 어드민 템플릿에서 고른 것(RegisteredOption)과 직접 적은 것(CustomOption)이 있다.
    프리미엄 단계는 지금처럼 플랜마다(DesignerPlanOptions) 등록한다. */
-export const OPTIONS_MODES = ['common', 'by_category'] as const
-export type OptionsMode = (typeof OPTIONS_MODES)[number]
-
-export function isOptionsMode(v: string): v is OptionsMode {
-  return (OPTIONS_MODES as readonly string[]).includes(v)
-}
-
 export const COMMON_BUCKET = 'common'
 /* 분야별 목록에 오는 플랜 — 로고는 분야('로고/일러스트')가 맡아 없다 */
 export type BucketPlan = Exclude<Scope, 'logo'>
@@ -171,10 +165,18 @@ export function templateAllowsBucket(t: OptionTemplate, bucket: string): boolean
   return templateAllows(t, slotOf(plan, 'basic'))
 }
 
+/* 디자이너가 직접 적은 항목(0005) — 그 목록에만 있다 */
+export type CustomOption = { id: string; text: string }
+
+/* 0005 의 check 제약과 같은 값 */
+export const MAX_CUSTOM_TEXT = 80
+export const MAX_CUSTOM_PER_BUCKET = 10
+
 export type DesignerOptionSetup = {
-  mode: OptionsMode
-  /* bucket → 등록한 항목 */
+  /* bucket → 템플릿에서 고른 항목 */
   buckets: Record<string, RegisteredOption[]>
+  /* bucket → 직접 적은 항목, 적은 차례대로. 0005 전이면 비어 있다 */
+  custom: Record<string, CustomOption[]>
 }
 
 export const N_TOKEN = '{n}'
@@ -273,3 +275,18 @@ export const MAX_PLAN_DESC = 500
 export const MAX_PLAN_DURATION = 40
 export const MAX_OPTION_N = 999
 export const MAX_OPTION_TEMPLATE = 80
+
+/* 한 의뢰 유형(분야·범위)에 나갈 포함 항목 — 공통 항목 다음에 개별 항목.
+   목록마다 템플릿 항목(템플릿 차례) 다음에 직접 적은 항목(적은 차례). 같은 글은 한 번만. */
+export function setupItems(
+  setup: DesignerOptionSetup,
+  bucket: string,
+  slot: PlanSlot,
+  templates: OptionTemplate[],
+): string[] {
+  const listOf = (b: string) => [
+    ...resolveTier({ name: '', desc: '', duration: '' }, undefined, false, slot, templates, setup.buckets[b]).items,
+    ...(setup.custom[b] ?? []).map((c) => c.text),
+  ]
+  return [...new Set([...listOf(COMMON_BUCKET), ...(bucket === COMMON_BUCKET ? [] : listOf(bucket))])]
+}

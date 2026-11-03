@@ -7,6 +7,7 @@ import type { CategoryMeta } from '@/lib/inquiry-choices'
 import { PlanForm } from './plan-form'
 import { ChangePasswordDialog } from './change-password-dialog'
 import { LogoutButton } from './logout-button'
+import { DetailPreview, OptionDraftsContext, type OptionDrafts, type OptionPreview } from '../option-setup'
 
 /* 설정 탭 — 가격 플랜과 계정 관리를 한 화면에 모은다.
    비밀번호는 자주 건드리는 값이 아니라 버튼 하나로 두고 다이얼로그에서 바꾼다. */
@@ -17,6 +18,7 @@ export function SettingsPanel({
   optionSetup,
   planSetup,
   openPasswordAtFirst,
+  preview,
 }: {
   designer: AdminDesigner
   copy: PlanCopies
@@ -28,7 +30,13 @@ export function SettingsPanel({
   planSetup?: React.ReactNode
   /* 임시 비밀번호로 들어온 경우 — 먼저 바꾸도록 다이얼로그를 띄워 둔다 */
   openPasswordAtFirst?: boolean
+  /* 오른쪽 칸의 상세 페이지 미리보기 재료 — 없으면 한 칸으로 */
+  preview?: OptionPreview
 }) {
+  /* 포함 항목 칸에서 고친 체크 — 저장 전에도 미리보기에 비친다 */
+  const [drafts, setDrafts] = useState<OptionDrafts | null>(null)
+  /* 가격 플랜에서 고친 의뢰 받는 분야 — 끄면 미리보기에서 그 유형이 바로 빠진다 */
+  const [picked, setPicked] = useState<string[] | null>(null)
   const [pwOpen, setPwOpen] = useState(Boolean(openPasswordAtFirst))
   const [toast, setToast] = useState<string | null>(null)
 
@@ -40,39 +48,49 @@ export function SettingsPanel({
   }, [toast])
 
   return (
-    <div className="space-y-8">
-      <PlanForm designer={d} copy={copy} categories={categories} />
+    /* 왼쪽은 설정, 오른쪽은 상세 페이지 미리보기 — 미리보기는 가격 플랜 옆에서 시작해
+       포함 항목까지 스크롤해도 오른쪽 위에 붙어 따라온다. 좁은 화면에서는 맨 위에 한 번 */
+    <div className={preview ? 'grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_400px]' : ''}>
+      {preview && (
+        <aside className="xl:sticky xl:top-20 xl:order-last">
+          <DetailPreview preview={preview} drafts={drafts} picked={picked} />
+        </aside>
+      )}
 
-      {optionSetup}
+      <div className="min-w-0 space-y-8">
+        <PlanForm designer={d} copy={copy} categories={categories} onPicked={setPicked} />
 
-      {planSetup}
+        <OptionDraftsContext value={setDrafts}>{optionSetup}</OptionDraftsContext>
 
-      <hr className="border-neutral-200" />
+        {planSetup}
 
-      <section>
-        <h2 className="text-sm font-semibold">계정</h2>
-        <p className="mt-1 text-xs text-neutral-500">
-          로그인에 쓰는 비밀번호를 변경하거나 로그아웃합니다.
-        </p>
+        <hr className="border-neutral-200" />
 
-        <div className="mt-3.5 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setPwOpen(true)}
-            className="rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
-          >
-            비밀번호 변경
-          </button>
+        <section>
+          <h2 className="text-sm font-semibold">계정</h2>
+          <p className="mt-1 text-xs text-neutral-500">
+            로그인에 쓰는 비밀번호를 변경하거나 로그아웃합니다.
+          </p>
 
-          <LogoutButton className="rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100" />
+          <div className="mt-3.5 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setPwOpen(true)}
+              className="rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
+            >
+              비밀번호 변경
+            </button>
 
-          {d.temp_password && (
-            <span className="text-xs text-amber-700">
-              아직 임시 비밀번호를 쓰고 있습니다.
-            </span>
-          )}
-        </div>
-      </section>
+            <LogoutButton className="rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100" />
+
+            {d.temp_password && (
+              <span className="text-xs text-amber-700">
+                아직 임시 비밀번호를 쓰고 있습니다.
+              </span>
+            )}
+          </div>
+        </section>
+      </div>
 
       {pwOpen && (
         <ChangePasswordDialog

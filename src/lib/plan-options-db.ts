@@ -2,13 +2,13 @@ import 'server-only'
 import { supabaseAdmin } from './supabase-admin'
 import {
   COMMON_BUCKET,
+  MAX_CUSTOM_PER_BUCKET,
+  MAX_CUSTOM_TEXT,
   MAX_OPTION_N,
   isBucket,
-  isOptionsMode,
   needsN,
   templateAllows,
   templateAllowsBucket,
-  type OptionsMode,
   type OptionTemplate,
   type PlanSlot,
   type PlanTier,
@@ -138,7 +138,10 @@ async function checkOptions(
 const NO_TABLE = '포함 항목 표가 아직 없습니다. 0004_plan_options_by_category.sql 을 먼저 적용해 주세요.'
 
 /* 기본 단계 포함 항목 한 목록(공통 또는 분야·범위 하나)을 통째로 바꾼다(0004).
-   받은 목록이 그 자리의 전부다. 분야를 아직 고르지 않았어도 미리 채워 둘 수 있다. */
+   받은 목록이 그 자리의 전부다. 분야를 아직 고르지 않았어도 미리 채워 둘 수 있다.
+
+   공통과 개별은 겹치지 않는다 — 개별 목록에는 공통에 없는 템플릿만 들어가고,
+   공통에 새로 체크한 템플릿은 개별 목록들에서 빠진다(공통으로 옮겨 간다). */
 export async function replaceBucketOptions(
   designerId: string,
   bucket: string,
@@ -147,8 +150,23 @@ export async function replaceBucketOptions(
   if (!isBucket(bucket)) return '알 수 없는 포함 항목 자리입니다.'
   const db = supabaseAdmin!
 
-  const checked = await checkOptions(designerId, options, (t) => templateAllowsBucket(t, bucket))
-  if (typeof checked === 'string') return checked
+  const checkedAll = await checkOptions(designerId, options, (t) => templateAllowsBucket(t, bucket))
+  if (typeof checkedAll === 'string') return checkedAll
+
+  let checked = checkedAll
+  if (bucket !== COMMON_BUCKET) {
+    const { data, error: readErr } = await db
+      .from('designer_category_options')
+      .select('template_id')
+      .eq('designer_id', designerId)
+      .eq('bucket', COMMON_BUCKET)
+    if (readErr) {
+      console.error('[plan-options] 공통 항목 조회 실패:', readErr.message)
+      return readErr.message.includes('designer_category_options') ? NO_TABLE : '저장에 실패했습니다.'
+    }
+    const common = new Set(((data ?? []) as { template_id: string }[]).map((r) => r.template_id))
+    checked = checkedAll.filter((o) => !common.has(o.templateId))
+  }
 
   const { error: delErr } = await db
     .from('designer_category_options')
@@ -169,50 +187,83 @@ export async function replaceBucketOptions(
       return '저장에 실패했습니다.'
     }
   }
+
+  if (bucket === COMMON_BUCKET && checked.length > 0) {
+    const { error: moveErr } = await db
+      .from('designer_category_options')
+      .delete()
+      .eq('designer_id', designerId)
+      .neq('bucket', COMMON_BUCKET)
+      .in(
+        'template_id',
+        checked.map((o) => o.templateId),
+      )
+    if (moveErr) console.error('[plan-options] 개별 목록에서 공통 항목 빼기 실패:', moveErr.message)
+  }
   return null
 }
 
-/* 포함 항목 방식을 바꾼다. 분야별로 바꿀 때는 아직 비어 있는 분야 칸(seed)에
-   공통 목록을 복사해 둔다 — 빈 화면에서 다시 시작하지 않게. 이미 채운 칸은 건드리지 않는다. */
-export async function saveOptionsMode(
-  designerId: string,
-  mode: OptionsMode,
-  seed: string[],
-): Promise<string | null> {
-  if (!isOptionsMode(mode)) return '알 수 없는 방식입니다.'
+const NO_CUSTOM_TABLE = '직접 입력 표가 아직 없습니다. 0005_custom_options.sql 을 먼저 적용해 주세요.'
+
+/* 직접 적은 포함 항목 하나를 더한다(0005) — 그 목록(공통 또는 의뢰 유형 하나)에만 들어간다.
+   같은 글이 이미 있거나 한 목록에 너무 많으면 막는다.
+
+   공통과 개별은 겹치지 않는다 — 공통에 있는 글은 개별에 더할 수 없고,
+   공통에 더한 글은 개별 목록들에서 빠진다(공통으로 옮겨 간다). */
+export async function addCustomOption(designerId: string, bucket: string, raw: string): Promise<string | null> {
+  if (!isBucket(bucket)) return '알 수 없는 포함 항목 자리입니다.'
+  const text = raw.trim().replace(/\s+/g, ' ')
+  if (!text) return '항목을 입력해 주세요.'
+  if (text.length > MAX_CUSTOM_TEXT) return `항목은 ${MAX_CUSTOM_TEXT}자 이내로 입력해 주세요.`
   const db = supabaseAdmin!
 
-  const { error } = await db.from('designers').update({ plan_options_mode: mode }).eq('id', designerId)
-  if (error) {
-    console.error('[plan-options] 포함 항목 방식 저장 실패:', error.message)
-    return error.message.includes('plan_options_mode') ? NO_TABLE : '저장에 실패했습니다.'
-  }
-
-  const targets = [...new Set(seed)].filter((b) => isBucket(b) && b !== COMMON_BUCKET)
-  if (mode !== 'by_category' || targets.length === 0) return null
-
   const { data, error: readErr } = await db
-    .from('designer_category_options')
-    .select('bucket, template_id, n')
+    .from('designer_custom_options')
+    .select('bucket, text')
     .eq('designer_id', designerId)
+    .in('bucket', [...new Set([bucket, COMMON_BUCKET])])
   if (readErr) {
-    console.error('[plan-options] 포함 항목 조회 실패:', readErr.message)
-    return null
+    console.error('[plan-options] 직접 입력 조회 실패:', readErr.message)
+    return readErr.message.includes('designer_custom_options') ? NO_CUSTOM_TABLE : '저장에 실패했습니다.'
+  }
+  const rows = (data ?? []) as { bucket: string; text: string }[]
+  const mine = rows.filter((r) => r.bucket === bucket)
+  if (mine.some((r) => r.text === text)) return '이미 있는 항목입니다.'
+  if (bucket !== COMMON_BUCKET && rows.some((r) => r.bucket === COMMON_BUCKET && r.text === text)) {
+    return '공통 항목에 이미 있는 항목입니다.'
+  }
+  if (mine.length >= MAX_CUSTOM_PER_BUCKET) {
+    return `직접 입력은 한 목록에 ${MAX_CUSTOM_PER_BUCKET}개까지 더할 수 있습니다.`
   }
 
-  const rows = (data ?? []) as { bucket: string; template_id: string; n: number | null }[]
-  const filled = new Set(rows.map((r) => r.bucket))
-  const common = rows.filter((r) => r.bucket === COMMON_BUCKET)
-  const copies = targets
-    .filter((b) => !filled.has(b))
-    .flatMap((bucket) => common.map((r) => ({ designer_id: designerId, bucket, template_id: r.template_id, n: r.n })))
+  const { error } = await db.from('designer_custom_options').insert({ designer_id: designerId, bucket, text })
+  if (error) {
+    console.error('[plan-options] 직접 입력 저장 실패:', error.message)
+    return '저장에 실패했습니다.'
+  }
 
-  if (copies.length > 0) {
-    const { error: insErr } = await db.from('designer_category_options').upsert(copies, {
-      onConflict: 'designer_id,bucket,template_id',
-      ignoreDuplicates: true,
-    })
-    if (insErr) console.error('[plan-options] 공통 항목 복사 실패:', insErr.message)
+  if (bucket === COMMON_BUCKET) {
+    const { error: moveErr } = await db
+      .from('designer_custom_options')
+      .delete()
+      .eq('designer_id', designerId)
+      .neq('bucket', COMMON_BUCKET)
+      .eq('text', text)
+    if (moveErr) console.error('[plan-options] 개별 목록에서 공통 항목 빼기 실패:', moveErr.message)
+  }
+  return null
+}
+
+/* 직접 적은 항목 하나를 지운다 — 그 디자이너의 것만 */
+export async function removeCustomOption(designerId: string, id: string): Promise<string | null> {
+  const { error } = await supabaseAdmin!
+    .from('designer_custom_options')
+    .delete()
+    .eq('designer_id', designerId)
+    .eq('id', id)
+  if (error) {
+    console.error('[plan-options] 직접 입력 지우기 실패:', error.message)
+    return '삭제에 실패했습니다.'
   }
   return null
 }

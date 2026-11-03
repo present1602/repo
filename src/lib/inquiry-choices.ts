@@ -20,7 +20,7 @@ import {
   type PlanCopies,
 } from './plans'
 import type { InquiryType } from './inquiry-types'
-import { acceptsDesign, type Scope } from './scopes'
+import type { Scope } from './scopes'
 import type { SpecialtyScopeMode } from './specialty-shape'
 
 export const INQUIRY_SCOPES = ['sample', 'design', 'design_dev'] as const
@@ -121,15 +121,13 @@ type DesignerPrices = Pick<
 /* 이 디자이너가 이 분야에서 그 범위를 받는지(0004_plan_options_by_category.sql).
      메인 시안      — 어드민 스위치(scope_sample). 허용 분야는 scopesOf 가 이미 거른다
      범위가 정해진 분야(랜딩·로고) — 분야를 고르면 받는다
-     고객이 선택하는 분야(web/app) — 디자이너가 켠 디자인·프로젝트(하나는 켜져 있다) */
+     고객이 선택하는 분야(web/app) — 디자인·프로젝트 둘 다. 고객이 의뢰할 때 고르는 옵션이라
+       디자이너가 따로 켜고 끄지 않는다 */
 export function designerAllows(
   d: Pick<DesignerPrices, 'scope_sample' | 'scope_full_design' | 'scope_with_dev'>,
   scope: InquiryScope,
-  meta: Pick<CategoryMeta, 'scope_mode'>,
 ): boolean {
-  if (scope === 'sample') return d.scope_sample
-  if (meta.scope_mode !== 'choice') return true
-  return scope === 'design' ? acceptsDesign(d) : d.scope_with_dev
+  return scope === 'sample' ? d.scope_sample : true
 }
 
 /* 이 디자이너가 이 분야에서 받는 범위 — 스튜디오·상세 패널의 분야별 포함 항목 칸 */
@@ -137,7 +135,14 @@ export function designerScopesOf(
   d: Pick<DesignerPrices, 'scope_sample' | 'scope_full_design' | 'scope_with_dev'>,
   meta: Pick<CategoryMeta, 'scope_mode' | 'allow_sample'>,
 ): InquiryScope[] {
-  return scopesOf(meta).filter((s) => designerAllows(d, s, meta))
+  return scopesOf(meta).filter((s) => designerAllows(d, s))
+}
+
+/* 의뢰 받는 분야의 차례 — 탐색 메뉴에 나오는 분야만, 고객이 범위를 고르는 분야(web/app)를 맨 앞에.
+   그 분야가 메인 시안·디자인·프로젝트를 다 품어 가장 먼저 보여야 한다. 나머지는 어드민 차례대로 */
+export function menuCategories<T extends Pick<CategoryMeta, 'visible' | 'scope_mode'>>(metas: T[]): T[] {
+  const menu = metas.filter((m) => m.visible)
+  return [...menu.filter((m) => m.scope_mode === 'choice'), ...menu.filter((m) => m.scope_mode !== 'choice')]
 }
 
 type Source = { copies: PlanCopies; premiums?: DesignerPremiums }
@@ -183,7 +188,7 @@ function build(
 /* 디자이너가 정해지지 않은 폼(네비바·홈) — 탐색 메뉴에 나오는 분야 전부, 기본 금액 */
 export function generalChoices(metas: CategoryMeta[], copies: PlanCopies): CategoryChoice[] {
   return build(
-    metas.filter((m) => m.visible),
+    menuCategories(metas),
     { copies },
     {
       sample: `${formatPrice(DEFAULT_DESIGN_PRICE)}~`,
@@ -208,7 +213,7 @@ export function designerChoices(
   metas: CategoryMeta[],
   source: Source,
 ): CategoryChoice[] {
-  const menu = metas.filter((m) => m.visible)
+  const menu = menuCategories(metas)
   const mine = menu.filter((m) => d.tags.includes(m.name))
   return build(
     mine.length > 0 ? mine : menu,
@@ -218,7 +223,7 @@ export function designerChoices(
       design: `${formatPrice(d.full_design_price)}~`,
       design_dev: `${formatPrice(d.project_price)}~`,
     },
-    (s, meta) => designerAllows(d, s, meta),
+    (s) => designerAllows(d, s),
   )
 }
 
@@ -237,8 +242,7 @@ export function optionCategories(
   metas: CategoryMeta[],
   copies: PlanCopies,
 ): OptionCategory[] {
-  return metas
-    .filter((m) => m.visible)
+  return menuCategories(metas)
     .map((m) => ({
       id: m.id,
       name: m.name,

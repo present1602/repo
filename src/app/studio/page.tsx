@@ -4,14 +4,17 @@ import { getDesignerUser } from '@/lib/designer-auth'
 import { listWorks } from '@/lib/designers-db'
 import {
   getDesignerOptionSetup,
+  getDesignerPlanDetails,
   getDesignerPlanOptions,
   getDesignerPremiums,
   getPlanCopies,
+  getShowDuration,
   listOptionTemplates,
 } from '@/lib/site-settings'
 import { acceptsScope, SCOPES } from '@/lib/scopes'
+import { DEFAULT_FULL_DESIGN_PRICE, DEFAULT_PROJECT_PRICE } from '@/lib/plans'
 import { PlanSetup, type SetupSlot } from '@/components/plan-setup'
-import { OptionSetup } from '@/components/option-setup'
+import { OptionSetup, type OptionPreview } from '@/components/option-setup'
 import { listCategoryMetas } from '@/lib/specialties'
 import { optionCategories } from '@/lib/inquiry-choices'
 import { displayName } from '@/lib/display-name'
@@ -29,7 +32,7 @@ export default async function DesignerHomePage() {
   const d = await getDesignerUser()
   if (!d) redirect('/studio/login')
 
-  const [works, planCopy, metas, templates, planOptions, premiums, optionSetup] =
+  const [works, planCopy, metas, templates, planOptions, premiums, optionSetup, planDetails, showDuration] =
     await Promise.all([
       listWorks(d.id),
       getPlanCopies(),
@@ -38,7 +41,16 @@ export default async function DesignerHomePage() {
       getDesignerPlanOptions(d.id),
       getDesignerPremiums(d.id),
       getDesignerOptionSetup(d.id),
+      getDesignerPlanDetails(d.id),
+      getShowDuration(),
     ])
+  /* 0004 전 계정은 범위 가격이 비어 있다 — 공개 화면(public-designers.ts)처럼 기본값으로 */
+  const tagged = {
+    ...d,
+    tags: d.tags ?? [],
+    full_design_price: d.full_design_price ?? DEFAULT_FULL_DESIGN_PRICE,
+    project_price: d.project_price ?? DEFAULT_PROJECT_PRICE,
+  }
 
   /* 기본 단계 포함 항목 — 공통 또는 의뢰 받는 분야마다(0004) */
   const options = (
@@ -46,10 +58,36 @@ export default async function DesignerHomePage() {
       mode="designer"
       designerId={d.id}
       setup={optionSetup}
-      categories={optionCategories({ ...d, tags: d.tags ?? [] }, metas, planCopy)}
+      categories={optionCategories(tagged, metas, planCopy)}
       templates={templates}
     />
   )
+
+  /* 설정 탭 오른쪽의 상세 페이지 의뢰 패널 미리보기 — 금액·유형은 저장된 값,
+     포함 항목 체크는 화면에서 고친 값(option-setup.tsx 의 OptionDraftsContext) */
+  const preview: OptionPreview = {
+    designerId: d.id,
+    designerName: displayName(d),
+    /* 미리보기는 브라우저로 넘어간다 — 가격·스위치·분야만 골라 보낸다(비밀번호 해시 등은 빼고) */
+    designer: {
+      tags: tagged.tags,
+      design_price: tagged.design_price,
+      price_max: tagged.price_max,
+      full_design_price: tagged.full_design_price,
+      project_price: tagged.project_price,
+      scope_sample: tagged.scope_sample,
+      scope_full_design: tagged.scope_full_design,
+      scope_with_dev: tagged.scope_with_dev,
+    },
+    metas,
+    copies: planCopy,
+    premiums,
+    planDetails,
+    showDuration,
+    templates,
+    planOptions,
+    optionSetup,
+  }
 
   /* 프리미엄 포함 항목 — 사이트에 보이고 받는 유형 중 유형 전체와 이 디자이너의
      프리미엄이 모두 켜졌을 때만(어드민이 켠다) */
@@ -101,6 +139,7 @@ export default async function DesignerHomePage() {
         planCopy={planCopy}
         categories={metas}
         optionSetup={options}
+        preview={preview}
         planSetup={planSetup}
         header={header}
         footer={footer}

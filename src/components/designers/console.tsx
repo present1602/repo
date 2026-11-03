@@ -7,6 +7,7 @@ import type { PlanCopies } from '@/lib/plans'
 import { ProfileForm } from './profile-form'
 import { PortfolioManager } from './portfolio-manager'
 import { SettingsPanel } from './settings-panel'
+import type { OptionPreview } from '../option-setup'
 import type { CategoryMeta } from '@/lib/inquiry-choices'
 
 type Tab = 'profile' | 'portfolio' | 'settings'
@@ -17,6 +18,7 @@ export function DesignerConsole({
   planCopy,
   categories,
   optionSetup,
+  preview,
   planSetup,
   header,
   footer,
@@ -29,6 +31,8 @@ export function DesignerConsole({
   /* 설정 탭의 포함 항목 등록 — 서버에서 받은 템플릿·등록 값으로 페이지가 그려 넘긴다.
      optionSetup 은 공통·분야별(기본), planSetup 은 프리미엄 */
   optionSetup: React.ReactNode
+  /* 설정 탭 오른쪽의 상세 페이지 미리보기 재료 */
+  preview?: OptionPreview
   planSetup: React.ReactNode
   /* 이름 줄. 본문 칸 안에 들어가야 좌측 메뉴와 윗선이 맞는다 —
      페이지에서 그려 넘긴다(서버에서 받은 값을 쓰는 부분이 섞여 있다). */
@@ -68,7 +72,7 @@ export function DesignerConsole({
       <main className="min-w-0 flex-1">
         {/* 포트폴리오는 썸네일을 보는 화면이라 조금 넓게 — 폼 탭은 읽기 좋은 폭을 지킨다 */}
         <div
-          className={`mx-auto px-5 py-8 md:px-8 md:py-10 ${tab === 'portfolio' ? 'max-w-6xl' : 'max-w-4xl'}`}
+          className={`mx-auto px-5 py-8 md:px-8 md:py-10 ${tab === 'portfolio' ? 'max-w-6xl' : tab === 'settings' ? 'max-w-7xl' : 'max-w-4xl'}`}
         >
           {/* 좁은 화면에는 좌측 메뉴가 없어 로그아웃이 갈 곳이 없다 —
               이름 줄 옆에 둔다. 넓은 화면에서는 사이드바 아래에만 있다. */}
@@ -114,6 +118,7 @@ export function DesignerConsole({
                 copy={planCopy}
                 categories={categories}
                 optionSetup={optionSetup}
+                preview={preview}
                 planSetup={planSetup}
                 openPasswordAtFirst={temp}
               />

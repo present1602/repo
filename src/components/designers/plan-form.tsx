@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import {
@@ -8,12 +8,10 @@ import {
   DEFAULT_PROJECT_PRICE,
   designPriceOptions,
   formatPrice,
-  formatPriceRange,
   type PlanCopies,
 } from '@/lib/plans'
-import { acceptsDesign } from '@/lib/scopes'
-import { MAX_TAGS, SPECIALTY_SCOPE_MODE_LABELS } from '@/lib/specialty-shape'
-import type { CategoryMeta } from '@/lib/inquiry-choices'
+import { MAX_TAGS } from '@/lib/specialty-shape'
+import { menuCategories, type CategoryMeta } from '@/lib/inquiry-choices'
 import { updateRequestSettings } from '@/app/studio/actions'
 
 /* 설정 탭의 가격 플랜(0004_plan_options_by_category.sql).
@@ -26,20 +24,24 @@ import { updateRequestSettings } from '@/app/studio/actions'
 
    유형마다 주인이 다르다 —
      메인화면 시안 의뢰  어드민만 켜고 끈다. 디자이너는 시작가만 고른다
-     디자인·프로젝트     고객이 선택하는 분야(web/app)에서 디자이너가 켠다. 하나는 켜져 있어야 한다
+     디자인·프로젝트     고객이 선택하는 분야(web/app)에서 고객이 고르는 옵션. 분야를 고르면 둘 다 받는다
      범위가 정해진 분야  (랜딩·로고) 분야를 고르면 받는다. 금액은 어드민 몫이라 보기만 한다 */
 export function PlanForm({
   designer: d,
   copy,
   categories: all,
+  onPicked,
 }: {
   designer: AdminDesigner
   copy: PlanCopies
   /* 어드민이 만든 분야 전부, 설정 차례대로. 메뉴에 나오는(visible) 것은 의뢰 받는 분야,
      나머지는 프로필 태그로만 고른다 */
   categories: CategoryMeta[]
+  /* 고친 의뢰 받는 분야를 저장 전에 알린다 — 설정 탭 미리보기가 바로 따라 바뀌게 */
+  onPicked?: (names: string[]) => void
 }) {
-  const categories = all.filter((c) => c.visible)
+  /* web/app 처럼 고객이 범위를 고르는 분야가 맨 앞(menuCategories) */
+  const categories = menuCategories(all)
   const hidden = all.filter((c) => !c.visible)
   const initialPicked = categories.filter((c) => d.tags.includes(c.name)).map((c) => c.name)
   const initialExtra = hidden.filter((c) => d.tags.includes(c.name)).map((c) => c.name)
@@ -47,12 +49,11 @@ export function PlanForm({
   const orphans = d.tags.filter((t) => !all.some((c) => c.name === t))
 
   const [picked, setPicked] = useState<string[]>(initialPicked)
+  useEffect(() => {
+    onPicked?.(picked)
+  }, [onPicked, picked])
   const [extra, setExtra] = useState<string[]>(initialExtra)
   const [designPrice, setDesignPrice] = useState(d.design_price)
-  /* 0004 전 값(둘 다 꺼짐)은 디자인을 받는 것으로 본다 — 지금까지 늘 받았다 */
-  const initialDesign = acceptsDesign(d)
-  const [fullDesign, setFullDesign] = useState(initialDesign)
-  const [withDev, setWithDev] = useState(d.scope_with_dev)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, start] = useTransition()
   const router = useRouter()
@@ -63,32 +64,20 @@ export function PlanForm({
     list.includes(name) ? list.filter((n) => n !== name) : [...list, name]
   const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((n) => b.includes(n))
 
-  /* 고객이 선택하는 분야를 골랐으면 디자인·프로젝트 중 하나는 켜져 있어야 한다 */
-  const needsReach = categories.some((c) => c.scope_mode === 'choice' && picked.includes(c.name))
-  const reachMissing = needsReach && !fullDesign && !withDev
-
   const dirty =
     !sameSet(picked, initialPicked) ||
     !sameSet(extra, initialExtra) ||
     orphans.length > 0 ||
-    designPrice !== d.design_price ||
-    fullDesign !== initialDesign ||
-    withDev !== d.scope_with_dev
+    designPrice !== d.design_price
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     setMsg(null)
-    if (reachMissing) {
-      setMsg({ ok: false, text: '디자인 의뢰나 프로젝트 의뢰 중 하나는 선택해 주세요.' })
-      return
-    }
     start(async () => {
       const r = await updateRequestSettings({
         categories: picked,
         profileTags: extra,
         designPrice,
-        scopeFullDesign: fullDesign,
-        scopeWithDev: withDev,
       })
       if (!r.ok) {
         setMsg({ ok: false, text: r.error })
@@ -183,18 +172,32 @@ export function PlanForm({
             {all.map(({ name, visible }) => {
               if (visible) {
                 const on = picked.includes(name)
+                if (!on) {
+                  return (
+                    <span
+                      key={name}
+                      title="위 의뢰 받는 분야에서 고르면 함께 켜져요"
+                      className="rounded-full border border-dashed border-neutral-200 px-3 py-1 text-xs text-neutral-300"
+                    >
+                      #{name}
+                    </span>
+                  )
+                }
+                /* 켜진 것은 여기서 끌 수 없다 — 눌렀을 때 아무 일도 없으면 고장으로 읽히므로 이유를 알린다 */
                 return (
-                  <span
+                  <button
                     key={name}
-                    title="위 의뢰 받는 분야에서 고르면 함께 켜져요"
-                    className={`rounded-full border px-3 py-1 text-xs ${
-                      on
-                        ? 'border-violet-200 bg-violet-50 font-medium text-violet-700'
-                        : 'border-dashed border-neutral-200 text-neutral-300'
-                    }`}
+                    type="button"
+                    aria-pressed
+                    onClick={() =>
+                      window.alert(
+                        '의뢰 받는 분야로 체크된 전문 분야 태그는 해제할 수 없습니다.\n먼저 의뢰 받는 분야를 해제해 주세요.',
+                      )
+                    }
+                    className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700"
                   >
                     #{name}
-                  </span>
+                  </button>
                 )
               }
               const on = extra.includes(name)
@@ -243,17 +246,7 @@ export function PlanForm({
                 on ? 'border-neutral-200 bg-white' : 'border-neutral-200 bg-neutral-50'
               }`}
             >
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className={`text-sm font-semibold ${on ? '' : 'text-neutral-400'}`}>{c.name}</h3>
-                <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-500">
-                  {SPECIALTY_SCOPE_MODE_LABELS[c.scope_mode]}
-                </span>
-                {!on && (
-                  <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
-                    미선택
-                  </span>
-                )}
-              </div>
+              <h3 className={`text-sm font-semibold ${on ? '' : 'text-neutral-400'}`}>{c.name}</h3>
               {!on && (
                 <p className="mt-1 text-[11px] text-neutral-400">
                   위에서 {c.name}을(를) 선택하면 설정할 수 있어요.
@@ -261,17 +254,79 @@ export function PlanForm({
               )}
 
               <div className="mt-3 space-y-2">
-                {/* 메인화면 시안 의뢰 — 받을지는 어드민 몫, 시작가만 디자이너가 고른다 */}
+                {c.scope_mode === 'choice' ? (
+                  /* 고객이 범위를 고르는 분야 — 디자인·프로젝트는 고객이 의뢰할 때 고르는 옵션이라
+                     디자이너는 따로 고르지 않는다. 분야를 고르면 둘 다 받으므로 한 줄로 묶는다 */
+                  <div
+                    className={`flex items-start gap-2.5 rounded-lg border border-neutral-200 bg-white p-3 ${
+                      on ? '' : 'opacity-60'
+                    }`}
+                  >
+                    <span className="mt-0.5 shrink-0">
+                      <LockedCheck on={on} />
+                    </span>
+                    <span className="min-w-0 flex-1 space-y-1">
+                      {(
+                        [
+                          ['full_design', fullPrice],
+                          ['with_dev', projectPrice],
+                        ] as const
+                      )
+                        .filter(([plan]) => copy[plan].visible)
+                        .map(([plan, price]) => (
+                          <span key={plan} className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{copy[plan].basic.name}</span>
+                            <span className="ml-auto text-xs text-neutral-500">{formatPrice(price)}~</span>
+                          </span>
+                        ))}
+                      <span className="block text-xs leading-relaxed text-neutral-500">
+                        고객이 의뢰할 때 둘 중 하나를 고릅니다. 개발은 SOOM 개발자와 함께합니다.
+                      </span>
+                    </span>
+                  </div>
+                ) : (
+                  /* 범위가 정해진 분야 — 분야를 고르면 받는다. 금액은 분야 시작가, 없으면 디자이너 범위 가격 */
+                  <Row
+                    dim={!on}
+                    check={
+                      <span className="mt-0.5 shrink-0">
+                        <LockedCheck on={on} />
+                      </span>
+                    }
+                    title={c.scope_mode === 'design_dev' ? `${c.name} 개발` : c.name}
+                    price={`${formatPrice(
+                      c.price_from ?? (c.scope_mode === 'design_dev' ? projectPrice : fullPrice),
+                    )}~`}
+                    hint={
+                      c.scope_mode === 'design_dev'
+                        ? '디자인 후 개발은 SOOM 이 이어받습니다. 금액은 관리자가 정합니다.'
+                        : '이 분야를 고르면 받습니다. 금액은 관리자가 정합니다.'
+                    }
+                  />
+                )}
+
+                {/* 메인화면 시안 의뢰 — 받을지는 어드민 몫, 시작가만 디자이너가 고른다.
+                    본계약 위에 얹는 의뢰라서 아래에 둔다 */}
                 {showSample && (
                   <Row
                     dim={!on}
-                    check={<LockedCheck on={d.scope_sample} />}
+                    check={
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.alert('메인화면 의뢰만 따로 받고 싶지 않은 경우에는 관리자에게 문의해 주세요.')
+                        }
+                        className="mt-0.5 shrink-0"
+                      >
+                        <LockedCheck on={d.scope_sample} active={on} />
+                      </button>
+                    }
                     title={copy.sample.basic.name}
-                    badge="관리자 설정"
                     hint={
-                      d.scope_sample
-                        ? '이 분야를 받으면 함께 받습니다. 변경은 관리자에게 문의해 주세요.'
-                        : '관리자가 꺼 두었습니다.'
+                      ''
+                      // d.scope_sample
+                      //   ? '이 분야를 받으면 함께 받습니다. 변경은 관리자에게 문의해 주세요.'
+                      //   : '관리자가 꺼 두었습니다.'
                     }
                   >
                     <div className="mt-2.5 flex flex-wrap items-end gap-3">
@@ -297,78 +352,14 @@ export function PlanForm({
                       <span className="pb-2 text-neutral-400">~</span>
                       <div className="min-w-0">
                         <span className="mb-1 block text-[11px] font-medium text-neutral-600">
-                          상한 <span className="font-normal text-neutral-400">(관리자 설정)</span>
+                          상한
                         </span>
                         <p className="flex h-9 items-center rounded-lg bg-neutral-100 px-3 text-sm font-medium text-neutral-500">
                           {formatPrice(d.price_max)}
                         </p>
                       </div>
                     </div>
-                    <p className="mt-2 text-[11px] text-neutral-400">
-                      공개 프로필에는 {formatPriceRange(designPrice, d.price_max)}으로 보입니다.
-                    </p>
                   </Row>
-                )}
-
-                {c.scope_mode === 'choice' ? (
-                  <>
-                    {copy.full_design.visible && (
-                      <Row
-                        dim={!on}
-                        check={
-                          <input
-                            type="checkbox"
-                            checked={fullDesign}
-                            disabled={!on}
-                            onChange={(e) => setFullDesign(e.target.checked)}
-                            className="mt-0.5 shrink-0 accent-violet-600"
-                          />
-                        }
-                        title={copy.full_design.basic.name}
-                        price={`${formatPrice(fullPrice)}~`}
-                        hint="디자인까지 맡는 의뢰입니다. 금액은 관리자가 정합니다."
-                        selectable
-                      />
-                    )}
-                    {copy.with_dev.visible && (
-                      <Row
-                        dim={!on}
-                        check={
-                          <input
-                            type="checkbox"
-                            checked={withDev}
-                            disabled={!on}
-                            onChange={(e) => setWithDev(e.target.checked)}
-                            className="mt-0.5 shrink-0 accent-violet-600"
-                          />
-                        }
-                        title={copy.with_dev.basic.name}
-                        price={`${formatPrice(projectPrice)}~`}
-                        hint="SOOM 개발자와 팀이 되어 개발까지 맡는 의뢰입니다. 금액은 관리자가 정합니다."
-                        selectable
-                      />
-                    )}
-                    {on && reachMissing && (
-                      <p className="text-[11px] text-red-600">
-                        디자인 의뢰나 프로젝트 의뢰 중 하나는 선택해야 합니다. 둘 다 선택해도 됩니다.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  /* 범위가 정해진 분야 — 분야를 고르면 받는다. 금액은 분야 시작가, 없으면 디자이너 범위 가격 */
-                  <Row
-                    dim={!on}
-                    check={<LockedCheck on={on} />}
-                    title={c.scope_mode === 'design_dev' ? `${c.name} 개발` : c.name}
-                    price={`${formatPrice(
-                      c.price_from ?? (c.scope_mode === 'design_dev' ? projectPrice : fullPrice),
-                    )}~`}
-                    hint={
-                      c.scope_mode === 'design_dev'
-                        ? '디자인 후 개발은 SOOM 이 이어받습니다. 금액은 관리자가 정합니다.'
-                        : '이 분야를 고르면 받습니다. 금액은 관리자가 정합니다.'
-                    }
-                  />
                 )}
               </div>
             </section>
@@ -440,13 +431,14 @@ function Row({
 
 /* 디자이너가 바꿀 수 없는 체크 — disabled 체크박스는 브라우저가 흐리게 칠해 꺼진 것처럼
    보이므로, 같은 자리에 같은 크기로 그려 켜짐이 분명하게 한다 */
-function LockedCheck({ on }: { on: boolean }) {
+function LockedCheck({ on, active = true }: { on: boolean; active?: boolean }) {
   return (
     <span
       role="img"
       aria-label={on ? '선택됨 (변경 불가)' : '선택 안 됨 (변경 불가)'}
-      className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-[3px] text-[10px] font-bold text-white ${
-        on ? 'bg-violet-600' : 'border border-neutral-300 bg-neutral-100'
+      /* active 가 아니면(아직 열리지 않은 칸) 회색 체크, 열리면 연한 보라 체크 */
+      className={`grid size-4 shrink-0 place-items-center rounded-[3px] text-[10px] font-bold text-white ${
+        !on ? 'border border-neutral-300 bg-neutral-100' : active ? 'bg-violet-400' : 'bg-neutral-300'
       }`}
     >
       {on ? '✓' : ''}

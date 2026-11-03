@@ -106,7 +106,7 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
       <p className="text-xs text-neutral-400">
         {editMode
           ? '왼쪽 손잡이를 끌어 순서를 바꿀 수 있습니다. 이 순서가 공개 화면에도 그대로 쓰입니다.'
-          : '카드의 편집을 누르면 제목·설명과 썸네일을 고칠 수 있습니다.'}
+          : '카드를 누르면 제목·설명과 썸네일을 고칠 수 있습니다.'}
       </p>
 
       {/* 편집 레이어 — 목록 위에 띄운다. 모드와 상관없이 같은 화면을 쓴다. */}
@@ -225,11 +225,19 @@ function EditList({
               </svg>
             </span>
 
-            <Img
-              src={thumbSrc(w)}
-              alt={w.title ?? ''}
-              className={`my-3 size-14 shrink-0 rounded-lg ${w.visible ? '' : 'opacity-40'}`}
-            />
+            {/* 썸네일을 눌러도 편집 레이어가 열린다 — 버튼까지 가지 않아도 되게 */}
+            <button
+              type="button"
+              onClick={() => onEdit(w.id)}
+              aria-label={`${w.title ?? '작업'} 편집`}
+              className="my-3 shrink-0 cursor-pointer rounded-lg transition hover:opacity-80"
+            >
+              <Img
+                src={thumbSrc(w)}
+                alt={w.title ?? ''}
+                className={`size-14 rounded-lg ${w.visible ? '' : 'opacity-40'}`}
+              />
+            </button>
 
             <div className="min-w-0 flex-1 px-3 py-3">
               <div className="flex flex-wrap items-baseline gap-2">
@@ -517,13 +525,22 @@ function WorkCard({
       className="relative overflow-hidden rounded-lg ring-1 ring-neutral-200"
       style={{ gridRow: `span ${w.row_span} / span ${w.row_span}` }}
     >
-      <Img
-        src={thumbSrc(w)}
-        alt={w.title ?? ''}
-        className={`h-full w-full ${w.visible ? '' : 'opacity-40'}`}
-      />
+      {/* 카드 어디를 눌러도 편집 레이어가 열린다. 배지·제목 줄은 위에 겹쳐 있어
+          클릭을 막지 않게 pointer-events-none 으로 둔다(편집 버튼만 받는다) */}
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`${w.title ?? '작업'} 편집`}
+        className="block h-full w-full cursor-pointer transition hover:opacity-90"
+      >
+        <Img
+          src={thumbSrc(w)}
+          alt={w.title ?? ''}
+          className={`h-full w-full ${w.visible ? '' : 'opacity-40'}`}
+        />
+      </button>
 
-      <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+      <div className="pointer-events-none absolute left-2 top-2 flex flex-wrap gap-1">
         {!w.visible && (
           <span className="rounded bg-neutral-900/80 px-1.5 py-0.5 text-[11px] text-white">
             숨김
@@ -539,11 +556,11 @@ function WorkCard({
         )}
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/70 to-transparent p-2">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/70 to-transparent p-2">
         <span className="min-w-0 truncate text-[11px] text-white">{w.title ?? ' '}</span>
         <button
           onClick={onEdit}
-          className="shrink-0 rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-neutral-900"
+          className="pointer-events-auto shrink-0 rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-neutral-900"
         >
           편집
         </button>

@@ -12,20 +12,12 @@ import {
   getShowDuration,
   listOptionTemplates,
 } from '@/lib/site-settings'
-import {
-  bucketOf,
-  COMMON_BUCKET,
-  formatPrice,
-  livePremium,
-  resolveTier,
-  slotOf,
-  type BucketPlan,
-} from '@/lib/plans'
-import { designerChoices, SCOPE_PLAN } from '@/lib/inquiry-choices'
+import { designerChoices } from '@/lib/inquiry-choices'
+import { panelEntries } from '@/lib/panel-entries'
 import { listCategoryMetas } from '@/lib/specialties'
 import { Img } from '@/components/img'
 import { WorkGallery } from '@/components/work-gallery'
-import { PlanPanel, type PanelEntry } from '@/components/plan-panel'
+import { PlanPanel } from '@/components/plan-panel'
 import { BioText } from '@/components/bio-text'
 
 /* 공개 여부가 수시로 바뀌므로 캐시하지 않는다 — 비공개로 돌리면 곧 404 가 된다.
@@ -72,65 +64,19 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
 
   const name = displayNameOf(d)
 
-  /* 의뢰 패널 — 의뢰 폼과 같은 선택지(분야 × 범위), 같은 차례·같은 금액으로.
-     이름·설명·기간은 어드민 설정의 공통값에 디자이너별 덮어쓰기를 얹는다.
-     포함 항목은 디자이너가 등록한 것만 나간다(처음엔 비어 있다) —
-       공통 방식이면 모든 줄에 같은 목록, 분야별이면 그 분야·범위의 목록(0004).
-       0004 전이면 예전 플랜별 목록의 기본 칸.
-     프리미엄은 유형 전체·디자이너별 스위치가 모두 켜졌을 때만, 항목은 플랜별 목록에서. */
+  /* 의뢰 패널 — 스튜디오 미리보기와 같은 계산(panel-entries.ts) */
   const choices = designerChoices(d, metas, { copies, premiums })
-  const metaOf = new Map(metas.map((m) => [m.name, m]))
-  /* 고객이 범위를 고르는 분야가 둘 이상이면 같은 플랜 이름이 겹친다 — 그때만 분야 이름을 앞에 붙인다 */
-  const choiceCount = choices.filter((c) => metaOf.get(c.name)?.scope_mode === 'choice').length
-
-  const entries: PanelEntry[] = choices.flatMap((c) =>
-    c.options.map((o): PanelEntry => {
-      const plan = SCOPE_PLAN[o.key] as BucketPlan
-      const meta = metaOf.get(c.name)
-      const registered = !optionSetup
-        ? planOptions[slotOf(plan, 'basic')]
-        : optionSetup.mode === 'common' || !meta
-          ? optionSetup.buckets[COMMON_BUCKET]
-          : optionSetup.buckets[bucketOf(meta.id, plan)]
-      const basic = resolveTier(
-        copies[plan].basic,
-        planDetails[plan]?.basic,
-        showDuration,
-        slotOf(plan, 'basic'),
-        templates,
-        registered,
-      )
-      const live = livePremium(copies, premiums, plan)
-      const premium = live
-        ? resolveTier(
-            copies[plan].premium,
-            planDetails[plan]?.premium,
-            showDuration,
-            slotOf(plan, 'premium'),
-            templates,
-            planOptions[slotOf(plan, 'premium')],
-          )
-        : null
-      const name = o.title ?? (choiceCount > 1 ? `${c.name} · ${o.label}` : o.label)
-      return {
-        key: `${c.name}:${o.key}`,
-        category: c.name,
-        scope: o.key,
-        /* 범위가 정해진 분야는 플랜 설명 대신 비운다 — 로고에 '서비스 전체 디자인' 설명이 붙지 않게 */
-        basic: { name, desc: o.title ? '' : copies[plan].basic.desc, priceLabel: o.priceLabel, ...basic },
-        ...(live && premium
-          ? {
-              premium: {
-                name: live.name,
-                desc: live.desc,
-                priceLabel: `${formatPrice(live.price)}~`,
-                ...premium,
-              },
-            }
-          : {}),
-      }
-    }),
-  )
+  const entries = panelEntries({
+    choices,
+    metas,
+    copies,
+    premiums,
+    planDetails,
+    showDuration,
+    templates,
+    planOptions,
+    optionSetup,
+  })
 
   return (
     <div className="flex-1 bg-white">

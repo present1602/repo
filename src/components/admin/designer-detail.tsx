@@ -24,7 +24,7 @@ import {
   type OptionTemplate,
   type PlanCopies,
 } from '@/lib/plans'
-import { SCOPES, SCOPE_LABELS, acceptsDesign, type Scope } from '@/lib/scopes'
+import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
 import { displayName, NAME_MAX, nameError } from '@/lib/display-name'
 import {
   updateDesigner,
@@ -498,8 +498,8 @@ function PlanSummary({
   const rows: { s: Scope; on: boolean; base: string }[] = [
     { s: 'sample', on: d.scope_sample, base: formatPriceRange(d.design_price, d.price_max) },
     /* 고객이 선택하는 분야(web/app)의 디자인 의뢰 — 로고는 분야가 맡아 줄에서 뺐다 */
-    { s: 'full_design', on: acceptsDesign(d), base: `${formatPrice(fullNow)}~` },
-    { s: 'with_dev', on: d.scope_with_dev, base: `${formatPrice(projectNow)}~` },
+    { s: 'full_design', on: true, base: `${formatPrice(fullNow)}~` },
+    { s: 'with_dev', on: true, base: `${formatPrice(projectNow)}~` },
   ]
 
   return (
@@ -690,23 +690,13 @@ function ScopeSection({
   const [pending, start] = useTransition()
   const router = useRouter()
 
-  /* 로고 스위치는 내렸다 — 로고는 분야가 맡는다 */
-  const TOGGLES = ['sample', 'full_design', 'with_dev'] as const
+  /* 로고는 분야가 맡고, 디자인·프로젝트는 고객이 고르는 옵션이라 늘 받는다 — 메인 시안만 켜고 끈다 */
+  const TOGGLES = ['sample'] as const
   const current: Record<(typeof TOGGLES)[number], boolean> = {
     sample: d.scope_sample,
-    full_design: acceptsDesign(d),
-    with_dev: d.scope_with_dev,
   }
 
   const toggle = (scope: Scope, on: boolean) => {
-    /* 디자인·프로젝트를 둘 다 끌 수는 없다 — 서버도 막는다 */
-    if (!on && (scope === 'full_design' || scope === 'with_dev')) {
-      const other = scope === 'full_design' ? current.with_dev : current.full_design
-      if (!other) {
-        onNotice({ kind: 'error', text: '디자인 의뢰와 프로젝트 의뢰 중 하나는 켜져 있어야 합니다.' })
-        return
-      }
-    }
     /* 취소하면 체크가 그대로 남는다 — checked 가 저장된 값(d)을 따른다 */
     const ok = window.confirm(
       on
@@ -733,8 +723,8 @@ function ScopeSection({
     <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
       <h2 className="text-sm font-semibold">의뢰 유형</h2>
       <p className="mt-1 text-xs leading-relaxed text-neutral-500">
-        랜딩·로고처럼 범위가 정해진 분야는 분야를 고르면 받습니다. 여기서는 메인화면 시안과
-        web/app 의 디자인·프로젝트 의뢰를 켜고 끕니다 — 끈 유형은 탐색 필터·의뢰 폼에서 빠집니다.
+        분야를 고르면 그 분야의 의뢰는 받습니다 — web/app 의 디자인·프로젝트는 고객이 의뢰할 때
+        고르는 옵션입니다. 여기서는 메인화면 시안 의뢰만 켜고 끕니다.
       </p>
 
       {TOGGLES.map((s) => (
