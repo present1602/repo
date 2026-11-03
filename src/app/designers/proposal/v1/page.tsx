@@ -343,7 +343,7 @@ export default function ProposalV14Page() {
               </div>
               <p className="relative mt-6 text-sm text-white/80">네이버페이 상품권</p>
               <p className="relative mt-1 whitespace-nowrap text-[min(16cqw,3.75rem)] font-light tracking-tight">
-                ₩50,000
+                ₩30,000
               </p>
             </div>
 
