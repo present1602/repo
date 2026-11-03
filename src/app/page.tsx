@@ -4,7 +4,7 @@ import { HomeCta } from '@/components/home-cta'
 import { HtmlClass } from '@/components/html-class'
 import { ExploreLink, PRE_LAUNCH } from '@/components/explore-gate'
 import { WorksTeaser } from '@/components/works-teaser'
-import { listRecentWorks } from '@/lib/public-designers'
+import { listRecentWorks, listTeaserImages } from '@/lib/public-designers'
 import { listActivePopups } from '@/lib/popups-db'
 import { SitePopups } from '@/components/site-popup'
 import { DEFAULT_DESIGN_PRICE, formatPrice } from '@/lib/plans'
@@ -14,6 +14,9 @@ import { DEFAULT_DESIGN_PRICE, formatPrice } from '@/lib/plans'
    지금은 "최신 40장"으로 고정한다. 어드민이 노출할 작업을 직접 고르는
    기능은 나중에 붙이고, 그때도 이 화면은 listRecentWorks 자리만 바뀐다. */
 const FEED_LIMIT = 40
+
+/* 공개 전 흐린 작업 벽에 깔 장 수 — 화면을 넉넉히 채울 만큼 */
+const TEASER_LIMIT = 16
 
 /* 히어로의 시작가 — 디자이너가 고를 수 있는 가장 낮은 디자인 플랜 금액이다.
    보기(plans.ts)가 바뀌면 여기도 자동으로 따라간다. 숫자를 직접 적으면
@@ -42,7 +45,9 @@ export default function Home() {
             (탐색 화면과 같은 방식). */}
         {/* 공개 전에는 흐린 임시 이미지 위에 공개 예정 문구를 띄운다(works-teaser.tsx) */}
         {PRE_LAUNCH ? (
-          <WorksTeaser />
+          <Suspense fallback={<WorksTeaser />}>
+            <Teaser />
+          </Suspense>
         ) : (
           <Suspense fallback={<FeedSkeleton />}>
             <Feed />
@@ -65,6 +70,10 @@ export default function Home() {
 async function Popups() {
   const popups = await listActivePopups()
   return popups.length > 0 ? <SitePopups popups={popups} /> : null
+}
+
+async function Teaser() {
+  return <WorksTeaser images={await listTeaserImages(TEASER_LIMIT)} />
 }
 
 async function Feed() {

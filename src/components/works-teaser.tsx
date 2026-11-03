@@ -1,17 +1,34 @@
-/* 공개 전 홈의 작업 자리 — 임시 이미지를 흐리게 깔고 그 위에 공개 예정 문구를 띄운다.
+import type { TeaserImage } from '@/lib/public-designers'
+
+/* 공개 전 홈의 작업 자리 — 베타 디자이너들의 작업을 흐리게 깔고 그 위에 공개 예정 문구를 띄운다.
    빈 칸으로 두면 덜 만든 사이트로 보인다. 운영(soom.it)에서만 보인다 — 언제 켜지는지는 explore-gate.tsx 의 PRE_LAUNCH.
 
-   이미지는 picsum 의 고정 시드라 매번 같은 사진이 온다 — 흐려서 무엇인지는 보이지 않는다. */
-const RATIOS = ['aspect-[3/4]', 'aspect-square', 'aspect-[4/5]', 'aspect-[3/5]', 'aspect-[4/3]', 'aspect-[2/3]']
+   images 가 비면(작업이 아직 없거나 불러오는 중) 회색 칸으로 같은 벽 모양을 채운다. */
+const RATIOS = ['3/4', '1/1', '4/5', '3/5', '4/3', '2/3']
+const COUNT = 16
 
-export function WorksTeaser() {
+export function WorksTeaser({ images = [] }: { images?: TeaserImage[] }) {
+  const tiles = images.length > 0 ? images : Array.from({ length: COUNT }, () => null)
+
   return (
     <div className="relative overflow-hidden rounded-2xl">
-      <div aria-hidden className="pointer-events-none columns-2 gap-3 blur-md select-none md:columns-3 md:gap-4 lg:columns-4">
-        {Array.from({ length: 16 }, (_, i) => (
-          <div key={i} className={`mb-3 break-inside-avoid overflow-hidden rounded-xl bg-neutral-200 md:mb-4 ${RATIOS[i % RATIOS.length]}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- 임시 자리 채움이라 최적화가 필요 없다 */}
-            <img src={`https://picsum.photos/seed/soom-${i}/480/640`} alt="" loading="lazy" className="size-full object-cover" />
+      <div
+        aria-hidden
+        className="pointer-events-none columns-2 gap-3 blur-md select-none md:columns-3 md:gap-4 lg:columns-4"
+      >
+        {tiles.map((img, i) => (
+          <div
+            key={i}
+            style={{
+              /* 원본 비율을 살린다 — 모르면 번갈아 가며 높이를 달리해 벽돌처럼 보이지 않게 */
+              aspectRatio: img?.width && img.height ? `${img.width}/${img.height}` : RATIOS[i % RATIOS.length],
+            }}
+            className="mb-3 break-inside-avoid overflow-hidden rounded-xl bg-neutral-200 md:mb-4"
+          >
+            {img && (
+              /* eslint-disable-next-line @next/next/no-img-element -- 흐리게 까는 배경이라 최적화가 필요 없다 */
+              <img src={img.url} alt="" loading="lazy" className="size-full object-cover" />
+            )}
           </div>
         ))}
       </div>

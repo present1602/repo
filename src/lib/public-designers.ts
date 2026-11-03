@@ -538,3 +538,49 @@ export function collectTags(designers: PublicDesignerCard[]): string[] {
   for (const d of designers) for (const t of d.tags) seen.add(t)
   return Array.from(seen).sort((a, b) => a.localeCompare(b, 'ko'))
 }
+
+/* 공개 전 홈의 흐린 작업 벽(works-teaser.tsx)에 깔 이미지.
+
+   이 파일의 다른 조회와 달리 profile_public 을 보지 않는다 — 베타 디자이너는 아직 대부분
+   비공개라 공개 작업만 고르면 벽이 빈다. 흐리게 깔아 무엇인지 알아볼 수 없고, 주소만 내보낸다.
+   정지한 계정(visible=false)과 숨긴 작업은 빼고, 대표 작업(featured)을 먼저 고른다.
+   한 디자이너 작업으로 벽이 채워지지 않게 디자이너마다 돌아가며 한 장씩 뽑는다. */
+export type TeaserImage = { url: string; width: number | null; height: number | null }
+
+type TeaserRow = {
+  designer_id: string
+  image_url: string
+  thumb_url: string | null
+  width: number | null
+  height: number | null
+}
+
+export async function listTeaserImages(limit: number): Promise<TeaserImage[]> {
+  if (!supabaseAdmin) return []
+  const { data, error } = await supabaseAdmin
+    .from('designer_works')
+    .select('designer_id, image_url, thumb_url, width, height, designers!inner(visible)')
+    .eq('visible', true)
+    .eq('designers.visible', true)
+    .order('featured', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(300)
+  if (error) {
+    console.error('[public] 홈 흐린 작업 조회 실패:', error.message)
+    return []
+  }
+
+  const byDesigner = new Map<string, TeaserRow[]>()
+  for (const w of (data ?? []) as TeaserRow[]) {
+    byDesigner.set(w.designer_id, [...(byDesigner.get(w.designer_id) ?? []), w])
+  }
+  const queues = [...byDesigner.values()]
+  const out: TeaserImage[] = []
+  for (let round = 0; out.length < limit && queues.some((q) => q.length > round); round++) {
+    for (const q of queues) {
+      const w = q[round]
+      if (w && out.length < limit) out.push({ url: w.thumb_url ?? w.image_url, width: w.width, height: w.height })
+    }
+  }
+  return out
+}
