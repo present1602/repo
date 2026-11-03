@@ -20,17 +20,17 @@ export const metadata: Metadata = {
    본계약까지 가길 바라는 클라이언트에게, 본계약은 다른 디자이너가 한다는
    구조는 거부감을 준다. 그래서 SOOM 이 받는 의뢰와 AI 로 일하는 방식을 앞에 둔다.
      01 표지
-     02 SOOM 이 받는 의뢰  세 가지 의뢰 + 받을 분야만 고른다(Web/App 안에 메인 시안 우선 의뢰),
-                         바이브코딩 기술 지원
-     03 AI               투입 시간은 줄이고 퀄리티는 높인다, AI 활용 포트폴리오
-     04 자격
-     05 11월 이벤트       첫 거래 축하 선물
-     06 지원
+     02 SOOM 이 받는 의뢰  세 가지 의뢰 + 받을 분야만 고른다(Web/App 은 메인 시안 의뢰 가능)
+     03 공정한 수익 구조   더 큰 본계약으로, 초대 링크 리워드
+     04 AI               투입 시간은 줄이고 퀄리티는 높인다, AI 활용 포트폴리오, 바이브코딩 기술 지원
+     05 자격
+     06 11월 이벤트       첫 거래 축하 선물
+     07 지원
 
    원본의 picsum 자리 채우기 사진은 넣지 않는다 — 내용이 없는 그림이
    모바일에서 화면을 통째로 먹는다. 분위기가 필요한 자리는 색으로 대신한다. */
 
-const TOTAL = 6
+const TOTAL = 7
 const BRAND = 'SOOM · Designer Proposal'
 
 export default function ProposalV14Page() {
@@ -166,16 +166,12 @@ export default function ProposalV14Page() {
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold">{x.t}</span>
                     <span className="mt-0.5 block text-xs text-neutral-500">{x.s}</span>
+                    {/* 자세한 이야기는 다음 쪽(03) — 여기서는 한 줄만 */}
                     {x.draft && (
-                      <span className="mt-3 block bg-violet-600 px-4 py-3.5 text-white">
-                        <span className="block text-[10px] tracking-[0.3em] text-violet-200">
-                          MAIN DRAFT FIRST
-                        </span>
-                        <span className="mt-1.5 block text-sm font-semibold">메인 시안 우선 의뢰</span>
-                        <span className="mt-1 block text-xs leading-relaxed text-violet-50">
-                          클라이언트는 Web/App 메인 시안만 먼저 의뢰할 수 있어서 의뢰 부담이 낮아요.
-                          <br />
-                          시안이 마음에 들면 더 큰 계약, 더 큰 수익으로 이어져요.
+                      <span className="mt-2 block">
+                        <span className="block text-sm font-semibold text-violet-600">메인 시안만 먼저 의뢰 가능</span>
+                        <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
+                          클라이언트가 메인 시안만 먼저 의뢰할 수도 있어요.
                         </span>
                       </span>
                     )}
@@ -190,9 +186,55 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 03 AI ─────────── */}
+        {/* ─────────── 03 FAIR REVENUE ───────────
+            기여한 만큼 번다 — 메인 시안이 더 큰 본계약으로 이어지는 길,
+            그리고 그 길을 직접 넓히는 초대 링크(0006_invite_link.sql) */}
         <Spread id={3}>
-          <Half tone="cream" top={['Feature · 02', 'AI workflow']} foot={[BRAND, 'L']}>
+          <Half tone="cream" top={['Feature · 02', 'Fair revenue']} foot={[BRAND, 'L']}>
+            <Label>Fair revenue</Label>
+            <h2 className="mt-5 text-3xl font-semibold leading-snug tracking-tight md:text-5xl">
+              공정한 <span className="text-violet-600">수익 구조</span>
+            </h2>
+            <Rule />
+            <p className="max-w-md text-base leading-relaxed text-neutral-600 md:text-lg">
+              기여하신 만큼 버실 수 있습니다.
+            </p>
+          </Half>
+
+          <Half tone="white" top={['Bigger deal', '2026']} foot={[BRAND, `03 / ${pad(TOTAL)}`]}>
+            <span className="grid size-9 place-items-center rounded-full bg-violet-600 font-serif text-lg text-white">
+              &ldquo;
+            </span>
+            <p className="mt-5 text-xl font-medium leading-snug md:text-2xl">
+              클라이언트가 메인 시안 의뢰 후 여러분이 만족스러운 결과물을 제공해주면,{' '}
+              <span className="text-violet-600">더 큰 수익의 본계약</span>으로 이어질 수 있습니다.
+            </p>
+            <p className="mt-4 text-xl font-medium leading-snug md:mt-5 md:text-2xl">
+              또한 SOOM은 디자이너 친화적인 플랫폼 수수료를 약속합니다.
+            </p>
+
+            <div className="mt-8 border border-violet-600 bg-violet-50/50 px-5 py-5 md:mt-10 md:px-6">
+              <p className="text-[11px] tracking-[0.3em] text-violet-600 md:text-xs">INVITE LINK</p>
+              <p className="mt-2 text-lg font-semibold md:text-xl">
+                디자이너 회원은 각자 &lsquo;초대링크&rsquo;를 발급받아요.
+              </p>
+              <p className="mt-2.5 text-[15px] leading-relaxed text-neutral-600 md:text-base">
+                초대링크를 통해 셀프마케팅이 가능하고,
+                <br />
+                초대링크를 통한 <b className="font-semibold text-neutral-900">개발이 포함된 프로젝트 의뢰</b>가
+                성사되면 <b className="font-semibold text-violet-700">별도의 리워드</b>를 지급해드려요.
+              </p>
+            </div>
+
+            <p className="mt-4 text-sm leading-relaxed text-neutral-500 md:text-[15px]">
+              물론 SOOM 또한 클라이언트 유치를 위해 다방면으로 뛰겠습니다.
+            </p>
+          </Half>
+        </Spread>
+
+        {/* ─────────── 04 AI ─────────── */}
+        <Spread id={4}>
+          <Half tone="cream" top={['Feature · 03', 'AI workflow']} foot={[BRAND, 'L']}>
             <Label>AI × Design</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-snug tracking-tight md:text-5xl">
               투입 시간은 줄이고,
@@ -205,7 +247,7 @@ export default function ProposalV14Page() {
             </p>
           </Half>
 
-          <Half tone="white" top={['For designers', '2026']} foot={[BRAND, `03 / ${pad(TOTAL)}`]}>
+          <Half tone="white" top={['For designers', '2026']} foot={[BRAND, `04 / ${pad(TOTAL)}`]}>
             <span className="grid size-9 place-items-center rounded-full bg-violet-600 font-serif text-lg text-white">
               &ldquo;
             </span>
@@ -253,9 +295,9 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 04 ELIGIBILITY ─────────── */}
-        <Spread id={4}>
-          <Half tone="cream" top={['Feature · 03', 'Who we look for']} foot={[BRAND, 'L']}>
+        {/* ─────────── 05 ELIGIBILITY ─────────── */}
+        <Spread id={5}>
+          <Half tone="cream" top={['Feature · 04', 'Who we look for']} foot={[BRAND, 'L']}>
             <Label>Eligibility</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
               이런 디자이너를
@@ -271,7 +313,7 @@ export default function ProposalV14Page() {
             </p>
           </Half>
 
-          <Half tone="white" top={['Requirements', '2026']} foot={[BRAND, `04 / ${pad(TOTAL)}`]}>
+          <Half tone="white" top={['Requirements', '2026']} foot={[BRAND, `05 / ${pad(TOTAL)}`]}>
             {/* 분야마다 요건이 다르다 — 필수 하나(검은 띠) + 둘 중 하나(나란히).
                 둘 중 하나를 위아래로 쌓으면 두 묶음이 한 쪽에 들어가지 않는다 */}
             <div className="space-y-8 md:space-y-9">
@@ -312,9 +354,9 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 05 LAUNCH EVENT ─────────── */}
-        <Spread id={5}>
-          <Half tone="cream" top={['Feature · 04', 'Launch event']} foot={[BRAND, 'L']}>
+        {/* ─────────── 06 LAUNCH EVENT ─────────── */}
+        <Spread id={6}>
+          <Half tone="cream" top={['Feature · 05', 'Launch event']} foot={[BRAND, 'L']}>
             <Label>November Event</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
               첫 거래 <span className="text-violet-600">축하선물</span>
@@ -326,7 +368,7 @@ export default function ProposalV14Page() {
             </p>
           </Half>
 
-          <Half tone="white" top={['Gift', '2026']} foot={[BRAND, `05 / ${pad(TOTAL)}`]}>
+          <Half tone="white" top={['Gift', '2026']} foot={[BRAND, `06 / ${pad(TOTAL)}`]}>
             {/* 선물 카드 — 이 쪽의 주인공. 금액을 가장 크게 둔다 */}
             {/* @container — 금액 크기를 카드 폭에 맞춘다. 태블릿에서는 쪽이 좁아
                 화면 기준 크기(text-6xl)로는 '₩50,00'에서 잘렸다 */}
@@ -349,7 +391,7 @@ export default function ProposalV14Page() {
 
             <dl className="mt-5 divide-y divide-neutral-200 border-y border-neutral-200 text-sm">
               {[
-                ['기간', '11월 1일 ~ 11월 30일'],
+                ['기간', '11월 한정'],
                 ['조건', '의뢰 1건 이상 수행'],
                 ['대상', '선착순 7명 한정'],
               ].map(([k, v]) => (
@@ -373,8 +415,8 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 06 CONTACT ─────────── */}
-        <Spread id={6}>
+        {/* ─────────── 07 CONTACT ─────────── */}
+        <Spread id={7}>
           <div className="relative flex min-h-[18rem] flex-col justify-between overflow-hidden bg-violet-950 p-7 text-white md:min-h-[32rem] md:p-12">
             <div
               aria-hidden
