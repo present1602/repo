@@ -3,9 +3,12 @@
 import { useEffect, useState } from 'react'
 import {
   POPUP_COLORS,
+  POPUP_SIZES,
   isExternal,
   publicUrl,
   richParts,
+  lineParts,
+  type PopupAlign,
   type PublicPopup,
   type RichNode,
 } from '@/lib/popup-shape'
@@ -148,6 +151,8 @@ export function PopupFooter({ more = 0, onHide }: { more?: number; onHide?: (day
   )
 }
 
+const ALIGN_CLASS: Record<PopupAlign, string> = { left: 'text-left', center: 'text-center', right: 'text-right' }
+
 /* 본문 글 — 어드민이 넣은 굵게·밑줄·글자색·링크 표시를 서식으로 그린다(popup-shape.ts 의 richParts) */
 function RichText({ nodes }: { nodes: RichNode[] }) {
   return nodes.map((n, i) => {
@@ -156,12 +161,13 @@ function RichText({ nodes }: { nodes: RichNode[] }) {
     if (n.kind === 'b') return <strong key={i} className="font-semibold text-neutral-900">{inner}</strong>
     if (n.kind === 'u') return <u key={i} className="underline-offset-2">{inner}</u>
     if (n.kind === 'color') return <span key={i} style={{ color: POPUP_COLORS[n.color].hex }}>{inner}</span>
+    if (n.kind === 'size') return <span key={i} className={POPUP_SIZES[n.size].className}>{inner}</span>
     return (
       <a
         key={i}
         href={n.href}
         {...(isExternal(n.href) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-        className="font-medium text-violet-700 underline underline-offset-2 transition hover:text-violet-900"
+        className="font-medium text-violet-700 transition hover:text-violet-900"
       >
         {inner}
       </a>
@@ -210,9 +216,14 @@ export function PopupCard({
               // eslint-disable-next-line @next/next/no-img-element
               <img key={i} src={publicUrl(b.path)} alt="" className="block w-full" />
             ) : (
-              <p key={i} className="whitespace-pre-wrap break-words px-6 py-3 text-[15px] leading-relaxed text-neutral-700">
-                <RichText nodes={richParts(b.text)} />
-              </p>
+              /* 줄마다 따로 그린다 — 줄 정렬(lineParts). 빈 줄도 한 줄 높이를 남긴다 */
+              <div key={i} className="break-words px-6 py-3 text-[15px] leading-relaxed text-neutral-700">
+                {lineParts(b.text).map((l, j) => (
+                  <p key={j} className={`whitespace-pre-wrap ${ALIGN_CLASS[l.align]}`}>
+                    {l.text ? <RichText nodes={richParts(l.text)} /> : '\u00a0'}
+                  </p>
+                ))}
+              </div>
             ),
           )}
         </div>

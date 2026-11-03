@@ -11,6 +11,11 @@ import {
   MAX_BLOCKS,
   MAX_FILES,
   POPUP_COLORS,
+  POPUP_SIZES,
+  stripSizes,
+  setLineAlign,
+  type PopupAlign,
+  type PopupSize,
   STATUS_LABELS,
   hasBody,
   isoToLocalInput,
@@ -47,8 +52,8 @@ function normalizeHref(raw: string): string | null {
   return null
 }
 
-/* 본문 글 칸 — 글자를 드래그해 고르고 굵게·밑줄·글자색·링크 버튼을 누르면
-   그 글자를 표시로 감싼다(**굵게**, __밑줄__, {{red:색}}, [글자](주소)).
+/* 본문 글 칸 — 글자를 드래그해 고르고 굵게·밑줄·크기·글자색·링크 버튼을 누르면
+   그 글자를 표시로 감싼다(**굵게**, __밑줄__, {{xl:크기}}, {{red:색}}, [글자](주소)).
    칸에는 이 모양 그대로 보이고, 미리보기와 공개 화면에서 서식으로 그려진다
    (popup-shape.ts 의 richParts). */
 const toolButton =
@@ -100,6 +105,23 @@ function LinkableText({ value, onChange }: { value: string; onChange: (text: str
       return `[${picked}](${href})`
     }, '링크를 걸')
 
+  /* 커서가 있는 줄(고른 글자가 여러 줄이면 그 줄들 모두)의 정렬을 바꾼다 — 고르지 않아도 된다 */
+  const align = (to: PopupAlign) => {
+    const el = ref.current
+    if (!el) return
+    const { selectionStart: a, selectionEnd: z } = el
+    const from = value.lastIndexOf('\n', a - 1) + 1
+    const endAt = value.indexOf('\n', z)
+    const until = endAt === -1 ? value.length : endAt
+    const next = value.slice(from, until).split('\n').map((l) => setLineAlign(l, to)).join('\n')
+    onChange(value.slice(0, from) + next + value.slice(until))
+    setHint('')
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(from + next.length, from + next.length)
+    })
+  }
+
   /* 누르는 순간 칸의 선택이 풀리지 않게 — 포커스를 버튼으로 옮기지 않는다 */
   const keepSelection = (e: React.MouseEvent) => e.preventDefault()
 
@@ -129,6 +151,29 @@ function LinkableText({ value, onChange }: { value: string; onChange: (text: str
 
         <span className="mx-0.5 h-4 w-px bg-neutral-200" aria-hidden />
 
+        {/* 글자 크기 — 이미 크기가 걸린 글자를 다시 고르면 바꿔 건다. 본문은 크기 표시를 벗긴다 */}
+        {(Object.keys(POPUP_SIZES) as PopupSize[]).map((k) => (
+          <button
+            key={k}
+            type="button"
+            onMouseDown={keepSelection}
+            onClick={() => wrap((p) => `{{${k}:${stripSizes(p)}}}`, '크기를 바꿀')}
+            className={toolButton}
+          >
+            {POPUP_SIZES[k].label}
+          </button>
+        ))}
+        <button
+          type="button"
+          onMouseDown={keepSelection}
+          onClick={() => wrap((p) => stripSizes(p), '본문 크기로 되돌릴')}
+          className={toolButton}
+        >
+          본문
+        </button>
+
+        <span className="mx-0.5 h-4 w-px bg-neutral-200" aria-hidden />
+
         {/* 글자색 — 색 칸을 바로 누른다 */}
         {(Object.keys(POPUP_COLORS) as PopupColor[]).map((c) => (
           <button
@@ -146,6 +191,31 @@ function LinkableText({ value, onChange }: { value: string; onChange: (text: str
 
         <span className="mx-0.5 h-4 w-px bg-neutral-200" aria-hidden />
 
+        {/* 줄 정렬 — 커서가 있는 줄에 건다 */}
+        {(
+          [
+            ['left', '왼쪽 정렬', 'M2 4h12M2 8h8M2 12h10'],
+            ['center', '가운데 정렬', 'M2 4h12M4 8h8M3 12h10'],
+            ['right', '오른쪽 정렬', 'M2 4h12M6 8h8M4 12h10'],
+          ] as [PopupAlign, string, string][]
+        ).map(([k, label, d]) => (
+          <button
+            key={k}
+            type="button"
+            onMouseDown={keepSelection}
+            onClick={() => align(k)}
+            aria-label={label}
+            title={label}
+            className={toolButton}
+          >
+            <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" aria-hidden>
+              <path d={d} />
+            </svg>
+          </button>
+        ))}
+
+        <span className="mx-0.5 h-4 w-px bg-neutral-200" aria-hidden />
+
         <button type="button" onMouseDown={keepSelection} onClick={addLink} className={toolButton}>
           <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" aria-hidden>
             <path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1a2.5 2.5 0 01-3.5-3.5l1-1" />
@@ -154,7 +224,7 @@ function LinkableText({ value, onChange }: { value: string; onChange: (text: str
         </button>
       </div>
       <p className="mb-1.5 text-[11px] text-neutral-400">
-        {hint || '글자를 드래그한 뒤 버튼을 누르세요. 결과는 아래 미리보기에서 보입니다.'}
+        {hint || '글자를 드래그한 뒤 버튼을 누르세요. 정렬은 커서가 있는 줄에 걸립니다. 결과는 아래 미리보기에서 보입니다.'}
       </p>
       <textarea
         ref={ref}

@@ -83,6 +83,8 @@ export function publicUrl(path: string, download?: string) {
      **굵게**
      __밑줄__
      {{red:글자색}}                     색 이름은 POPUP_COLORS 의 키
+     {{xl:매우 크게}} {{lg:조금 크게}}   크기 이름은 POPUP_SIZES 의 키. 감싸지 않은 글은 본문 크기
+     {{center}}줄  {{right}}줄          줄 맨 앞에 두면 그 줄 정렬. 없으면 왼쪽(lineParts)
      [보일 글자](주소)                   링크
    서로 겹쳐 쓸 수 있다({{red:**굵은 빨강**}}). 한 줄 안에서만 감싼다.
    링크는 http(s) 와 사이트 안 경로(/…)만 받는다 — javascript: 같은 주소가
@@ -100,12 +102,25 @@ export const POPUP_COLORS = {
 } as const
 export type PopupColor = keyof typeof POPUP_COLORS
 
+/* 글자 크기 — 본문(15px)보다 큰 두 단계만 둔다. 키가 본문에 그대로 남으므로 바꾸지 않는다 */
+export const POPUP_SIZES = {
+  xl: { label: '매우 크게', className: 'text-[26px] leading-snug' },
+  lg: { label: '조금 크게', className: 'text-lg leading-snug' },
+} as const
+export type PopupSize = keyof typeof POPUP_SIZES
+
+/* 고른 글자에 걸린 크기 표시를 벗긴다 — 어드민의 '본문' 버튼 */
+export function stripSizes(text: string) {
+  return text.replace(new RegExp(String.raw`\{\{(?:${Object.keys(POPUP_SIZES).join('|')}):([^\n]+?)\}\}`, 'g'), '$1')
+}
+
 export type RichNode =
   | string
   | { kind: 'b'; children: RichNode[] }
   | { kind: 'u'; children: RichNode[] }
   | { kind: 'color'; color: PopupColor; children: RichNode[] }
   | { kind: 'link'; href: string; children: RichNode[] }
+  | { kind: 'size'; size: PopupSize; children: RichNode[] }
 
 const COLOR_KEYS = Object.keys(POPUP_COLORS).join('|')
 const RICH_RE = new RegExp(
@@ -114,6 +129,7 @@ const RICH_RE = new RegExp(
     String.raw`__([^\n]+?)__`,
     String.raw`\{\{(${COLOR_KEYS}):([^\n]+?)\}\}`,
     String.raw`\[([^\]\n]+)\]\(((?:https?:\/\/|\/(?!\/))[^\s)]*)\)`,
+    String.raw`\{\{(${Object.keys(POPUP_SIZES).join('|')}):([^\n]+?)\}\}`,
   ].join('|'),
   'g',
 )
@@ -127,11 +143,33 @@ export function richParts(text: string): RichNode[] {
     if (m[1] != null) out.push({ kind: 'b', children: richParts(m[1]) })
     else if (m[2] != null) out.push({ kind: 'u', children: richParts(m[2]) })
     else if (m[3] != null) out.push({ kind: 'color', color: m[3] as PopupColor, children: richParts(m[4]) })
-    else out.push({ kind: 'link', href: m[6], children: richParts(m[5]) })
+    else if (m[5] != null) out.push({ kind: 'link', href: m[6], children: richParts(m[5]) })
+    else out.push({ kind: 'size', size: m[7] as PopupSize, children: richParts(m[8]) })
     last = at + m[0].length
   }
   if (last < text.length) out.push(text.slice(last))
   return out
+}
+
+/* ─────────── 줄 정렬 ───────────
+   정렬은 줄(엔터로 나눈 한 줄) 단위다 — 줄 맨 앞의 {{center}}·{{right}} 로 정한다.
+   좁은 화면에서 한 줄이 여러 줄로 접혀도 접힌 줄들이 같은 정렬을 따른다. */
+export const POPUP_ALIGNS = ['left', 'center', 'right'] as const
+export type PopupAlign = (typeof POPUP_ALIGNS)[number]
+
+const ALIGN_RE = /^\{\{(center|right)\}\}/
+
+export function lineParts(text: string): { align: PopupAlign; text: string }[] {
+  return text.split('\n').map((line) => {
+    const m = line.match(ALIGN_RE)
+    return m ? { align: m[1] as PopupAlign, text: line.slice(m[0].length) } : { align: 'left', text: line }
+  })
+}
+
+/* 한 줄의 정렬을 바꾼다 — 왼쪽은 표시를 지운다 */
+export function setLineAlign(line: string, align: PopupAlign) {
+  const bare = line.replace(ALIGN_RE, '')
+  return align === 'left' ? bare : `{{${align}}}${bare}`
 }
 
 /* 다른 사이트로 가는 링크는 새 탭에서 연다 — 팝업을 보던 화면은 그대로 둔다 */
