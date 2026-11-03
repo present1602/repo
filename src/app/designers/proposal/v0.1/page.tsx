@@ -378,10 +378,6 @@ export default function ProposalV14Page() {
               ))}
             </div>
 
-            <p className="mt-2.5 text-xs leading-relaxed text-neutral-500">
-              * &lsquo;디자인 + 개발 의뢰&rsquo;건은 SOOM과 협력하는 일부 디자이너분들만 받을 수
-              있어요.
-            </p>
           </Half>
         </Spread>
 

@@ -20,17 +20,17 @@ export const metadata: Metadata = {
    본계약까지 가길 바라는 클라이언트에게, 본계약은 다른 디자이너가 한다는
    구조는 거부감을 준다. 그래서 SOOM 이 받는 의뢰와 AI 로 일하는 방식을 앞에 둔다.
      01 표지
-     02 SOOM 이 받는 의뢰  랜딩페이지 개발 · Web/App 개발 · 로고/일러스트, 메인 시안 우선 의뢰
+     02 SOOM 이 받는 의뢰  세 가지 의뢰 + 받을 분야만 고른다(Web/App 안에 메인 시안 우선 의뢰),
+                         바이브코딩 기술 지원
      03 AI               투입 시간은 줄이고 퀄리티는 높인다, AI 활용 포트폴리오
-     04 선택             받을 분야만 고른다 + 바이브코딩 기술 지원
-     05 자격
-     06 11월 이벤트       첫 거래 축하 선물
-     07 지원
+     04 자격
+     05 11월 이벤트       첫 거래 축하 선물
+     06 지원
 
    원본의 picsum 자리 채우기 사진은 넣지 않는다 — 내용이 없는 그림이
    모바일에서 화면을 통째로 먹는다. 분위기가 필요한 자리는 색으로 대신한다. */
 
-const TOTAL = 7
+const TOTAL = 6
 const BRAND = 'SOOM · Designer Proposal'
 
 export default function ProposalV14Page() {
@@ -120,7 +120,8 @@ export default function ProposalV14Page() {
           </div>
         </Spread>
 
-        {/* ─────────── 02 WHAT WE DO ─────────── */}
+        {/* ─────────── 02 WHAT WE DO ───────────
+            받는 의뢰와 고르는 방법을 한 펼침면에 — 따로 두면 같은 세 분야가 두 번 나온다 */}
         <Spread id={2}>
           <Half tone="cream" top={['Feature · 01', 'What we do']} foot={[BRAND, 'L']}>
             <Label>What we do</Label>
@@ -130,51 +131,62 @@ export default function ProposalV14Page() {
               <span className="text-violet-600">세 가지 의뢰</span>를 받아요.
             </h2>
             <Rule />
-            {/* 분야 이름만 크게 — 무엇을 어떻게 하는지는 오른쪽 쪽에서 */}
-            <ul className="border-t border-neutral-300">
-              {['랜딩페이지 개발', 'Web/App 개발', '로고/일러스트'].map((t, i) => (
-                <li
-                  key={t}
-                  className="flex items-baseline gap-4 border-b border-neutral-300 py-3.5 md:py-4"
-                >
-                  <span className="font-mono text-xs text-violet-600">{pad(i + 1)}</span>
-                  <span className="text-lg font-semibold md:text-2xl">{t}</span>
-                </li>
-              ))}
-            </ul>
           </Half>
 
-          <Half tone="white" top={['How it works', '2026']} foot={[BRAND, `02 / ${pad(TOTAL)}`]}>
-            <Label>How it works</Label>
-            <dl className="mt-6 space-y-5 md:mt-7">
+          <Half tone="white" top={['Your choice', '2026']} foot={[BRAND, `02 / ${pad(TOTAL)}`]}>
+            <p className="text-sm font-medium tracking-[0.2em] text-violet-600">받을 분야 고르기</p>
+            <p className="mt-2 text-base leading-relaxed text-neutral-600 md:text-lg">
+              <span className="font-semibold text-violet-600">받고 싶은 의뢰만 골라서 받으세요.
+                <br/></span>
+               직장인이라면, 비교적 부담이 없는 랜딩페이지나 로고 디자인만 받을수도 있어서  <br/>
+               <span className="font-semibold text-violet-600">부업에 유리해요.</span>
+            </p>
+
+            {/* 세 가지 중 무엇을 켤지 — 체크 모양 그대로. 메인 시안 우선 의뢰는 Web/App 안의 장치라
+                그 카드 안에 둔다 — 클라이언트 쪽 장치지만 디자이너에게는 더 큰 계약으로 가는 길이다 */}
+            <div className="mt-4 space-y-2.5">
               {[
-                [
-                  '랜딩페이지',
-                  '디자인과 개발까지 포함된 의뢰예요. 디자이너는 디자인만 맡고, 개발은 SOOM이 해요.',
-                ],
-                [
-                  'Web/App',
-                  '클라이언트가 디자인 의뢰, 또는 디자인 + 개발 전체 의뢰 중에서 골라요. 개발은 마찬가지로 SOOM 개발자와 협력해요.',
-                ],
-                ['로고/일러스트', '로고 · 일러스트 디자인 의뢰예요.'],
-              ].map(([t, s]) => (
-                <div key={t}>
-                  <dt className="font-semibold">{t}</dt>
-                  <dd className="mt-1 text-sm leading-relaxed text-neutral-600">{s}</dd>
+                { t: '랜딩페이지 개발', s: '', on: true, draft: false },
+                { t: 'Web/App 개발', s: '', on: true, draft: true },
+                { t: '로고/일러스트', s: '로고 · 일러스트 디자인', on: false, draft: false },
+              ].map((x) => (
+                <div
+                  key={x.t}
+                  className={`flex items-start gap-3 border px-4 py-3.5 md:px-5 md:py-4 ${
+                    x.on ? 'border-violet-600 bg-violet-50/50' : 'border-neutral-300'
+                  }`}
+                >
+                  <span
+                    className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded text-[11px] font-bold ${
+                      x.on ? 'bg-violet-600 text-white' : 'border border-neutral-300'
+                    }`}
+                  >
+                    {x.on ? '✓' : ''}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">{x.t}</span>
+                    <span className="mt-0.5 block text-xs text-neutral-500">{x.s}</span>
+                    {x.draft && (
+                      <span className="mt-3 block bg-violet-600 px-4 py-3.5 text-white">
+                        <span className="block text-[10px] tracking-[0.3em] text-violet-200">
+                          MAIN DRAFT FIRST
+                        </span>
+                        <span className="mt-1.5 block text-sm font-semibold">메인 시안 우선 의뢰</span>
+                        <span className="mt-1 block text-xs leading-relaxed text-violet-50">
+                          클라이언트는 Web/App 메인 시안만 먼저 의뢰할 수 있어서 의뢰 부담이 낮아요.
+                          <br />
+                          시안이 마음에 들면 더 큰 계약, 더 큰 수익으로 이어져요.
+                        </span>
+                      </span>
+                    )}
+                  </span>
                 </div>
               ))}
-            </dl>
-
-            {/* 메인 시안 우선 의뢰 — 클라이언트 쪽 장치지만 디자이너에게는
-                더 큰 계약으로 가는 길이라 이 쪽의 결론으로 둔다 */}
-            <div className="mt-7 bg-violet-600 px-5 py-5 text-white md:mt-8 md:px-6">
-              <p className="text-[10px] tracking-[0.3em] text-violet-200">MAIN DRAFT FIRST</p>
-              <p className="mt-2 font-semibold md:text-lg">메인 시안 우선 의뢰</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-violet-50">
-                클라이언트는 Web/App 메인 시안만 먼저 의뢰할 수 있어 의뢰 부담이 낮아요. 시안이
-                마음에 들면 더 큰 계약, 더 큰 수익으로 이어져요.
-              </p>
             </div>
+            <p className="mt-2.5 text-xs leading-relaxed text-neutral-500">
+              * 디자이너는 디자인만, 개발은 SOOM에서 이어서 진행합니다.
+            </p>
+
           </Half>
         </Spread>
 
@@ -189,8 +201,7 @@ export default function ProposalV14Page() {
             </h2>
             <Rule />
             <p className="max-w-md text-base leading-relaxed text-neutral-600 md:text-lg">
-              SOOM은 AI의 효율적인 활용을 추구해요. 반복되는 작업은 AI에 맡기고, 디자이너는
-              판단과 완성도에 집중합니다.
+              SOOM은 AI의 효율적인 활용으로 제작시간 단축과 높은 퀄리티를 동시에 추구합니다.
             </p>
           </Half>
 
@@ -218,7 +229,7 @@ export default function ProposalV14Page() {
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-2">
-              {['FIGMA AI', 'FIGMA MAKE', 'DESIGN SYSTEM', 'CHATGPT', 'CLAUDE', 'V0'].map((t) => (
+              {['FIGMA AI', 'FIGMA MAKE', 'DESIGN SYSTEM', 'CLAUDE DESIGN', 'CHATGPT', 'V0'].map((t) => (
                 <span
                   key={t}
                   className="border border-neutral-300 py-2 text-center text-[10px] tracking-[0.2em]"
@@ -228,59 +239,6 @@ export default function ProposalV14Page() {
               ))}
             </div>
             <p className="mt-3 text-[10px] tracking-[0.3em] text-neutral-500">AI DESIGN STACK</p>
-          </Half>
-        </Spread>
-
-        {/* ─────────── 04 CHOICE ─────────── */}
-        <Spread id={4}>
-          <Half tone="cream" top={['Feature · 03', 'Your choice']} foot={[BRAND, 'L']}>
-            <Label>Your choice</Label>
-            <h2 className="mt-5 text-3xl font-semibold leading-snug tracking-tight md:text-5xl">
-              받고 싶은 의뢰만
-              <br />
-              <span className="text-violet-600">골라서 받으세요.</span>
-            </h2>
-            <Rule />
-            <p className="max-w-md text-base leading-relaxed text-neutral-600 md:text-lg">
-              로고 디자인만 원한다면 로고만, 랜딩페이지나 Web/App만 원한다면 그것만. 설정에서
-              언제든 바꿀 수 있어요.
-            </p>
-          </Half>
-
-          <Half tone="white" top={['Settings', '2026']} foot={[BRAND, `04 / ${pad(TOTAL)}`]}>
-            <p className="text-sm font-medium tracking-[0.2em] text-violet-600">받을 분야 고르기</p>
-
-            {/* 앞 쪽의 세 가지 중 무엇을 켤지 — 체크 모양 그대로 */}
-            <div className="mt-4 space-y-2.5">
-              {[
-                { t: '랜딩페이지 개발', s: '디자인만 하면 개발은 SOOM이', on: true },
-                { t: 'Web/App 개발', s: '디자인 의뢰 · 디자인 + 개발 의뢰', on: true },
-                { t: '로고/일러스트', s: '로고 · 일러스트 디자인', on: false },
-              ].map((x) => (
-                <div
-                  key={x.t}
-                  className={`flex items-start gap-3 border px-4 py-3.5 md:px-5 md:py-4 ${
-                    x.on ? 'border-violet-600 bg-violet-50/50' : 'border-neutral-300'
-                  }`}
-                >
-                  <span
-                    className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded text-[11px] font-bold ${
-                      x.on ? 'bg-violet-600 text-white' : 'border border-neutral-300'
-                    }`}
-                  >
-                    {x.on ? '✓' : ''}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">{x.t}</span>
-                    <span className="mt-0.5 block text-xs text-neutral-500">{x.s}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2.5 text-xs leading-relaxed text-neutral-500">
-              * Web/App의 &lsquo;디자인 + 개발 의뢰&rsquo;는 SOOM과 협력하는 일부 디자이너분들만
-              받을 수 있어요.
-            </p>
 
             {/* 개발은 SOOM 이 하지만, 직접 만들고 싶은 디자이너에게는 길을 열어 둔다 */}
             <div className="mt-6 flex items-start gap-3 bg-neutral-900 px-5 py-4 text-white md:mt-7">
@@ -295,9 +253,9 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 05 ELIGIBILITY ─────────── */}
-        <Spread id={5}>
-          <Half tone="cream" top={['Feature · 04', 'Who we look for']} foot={[BRAND, 'L']}>
+        {/* ─────────── 04 ELIGIBILITY ─────────── */}
+        <Spread id={4}>
+          <Half tone="cream" top={['Feature · 03', 'Who we look for']} foot={[BRAND, 'L']}>
             <Label>Eligibility</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
               이런 디자이너를
@@ -313,7 +271,7 @@ export default function ProposalV14Page() {
             </p>
           </Half>
 
-          <Half tone="white" top={['Requirements', '2026']} foot={[BRAND, `05 / ${pad(TOTAL)}`]}>
+          <Half tone="white" top={['Requirements', '2026']} foot={[BRAND, `04 / ${pad(TOTAL)}`]}>
             {/* 분야마다 요건이 다르다 — 필수 하나(검은 띠) + 둘 중 하나(나란히).
                 둘 중 하나를 위아래로 쌓으면 두 묶음이 한 쪽에 들어가지 않는다 */}
             <div className="space-y-8 md:space-y-9">
@@ -354,9 +312,9 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 06 LAUNCH EVENT ─────────── */}
-        <Spread id={6}>
-          <Half tone="cream" top={['Feature · 05', 'Launch event']} foot={[BRAND, 'L']}>
+        {/* ─────────── 05 LAUNCH EVENT ─────────── */}
+        <Spread id={5}>
+          <Half tone="cream" top={['Feature · 04', 'Launch event']} foot={[BRAND, 'L']}>
             <Label>November Event</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
               첫 거래 <span className="text-violet-600">축하선물</span>
@@ -368,7 +326,7 @@ export default function ProposalV14Page() {
             </p>
           </Half>
 
-          <Half tone="white" top={['Gift', '2026']} foot={[BRAND, `06 / ${pad(TOTAL)}`]}>
+          <Half tone="white" top={['Gift', '2026']} foot={[BRAND, `05 / ${pad(TOTAL)}`]}>
             {/* 선물 카드 — 이 쪽의 주인공. 금액을 가장 크게 둔다 */}
             {/* @container — 금액 크기를 카드 폭에 맞춘다. 태블릿에서는 쪽이 좁아
                 화면 기준 크기(text-6xl)로는 '₩50,00'에서 잘렸다 */}
@@ -415,8 +373,8 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 07 CONTACT ─────────── */}
-        <Spread id={7}>
+        {/* ─────────── 06 CONTACT ─────────── */}
+        <Spread id={6}>
           <div className="relative flex min-h-[18rem] flex-col justify-between overflow-hidden bg-violet-950 p-7 text-white md:min-h-[32rem] md:p-12">
             <div
               aria-hidden
