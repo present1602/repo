@@ -177,6 +177,12 @@ export function DesignerList({
     window.scrollTo({ top: 0, behavior: 'instant' })
   }
 
+  /* 의뢰 범위도 목록을 통째로 바꾼다 — 분야와 같이 맨 위로 */
+  const pickReach = (r: Reach) => {
+    setReach(r)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+
   return (
     <div className="flex min-h-full bg-neutral-100 text-neutral-900">
       <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white p-6 lg:block">
@@ -228,7 +234,7 @@ export function DesignerList({
                         type="button"
                         role="radio"
                         aria-checked={reach === r.key}
-                        onClick={() => setReach(r.key)}
+                        onClick={() => pickReach(r.key)}
                         className={`rounded-full px-2.5 py-1 transition ${
                           reach === r.key
                             ? 'bg-white font-semibold text-violet-700 shadow-sm'
