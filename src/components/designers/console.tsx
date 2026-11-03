@@ -7,7 +7,7 @@ import type { PlanCopies } from '@/lib/plans'
 import { ProfileForm } from './profile-form'
 import { PortfolioManager } from './portfolio-manager'
 import { SettingsPanel } from './settings-panel'
-import type { SpecialtyOption } from '@/lib/specialty-shape'
+import type { CategoryMeta } from '@/lib/inquiry-choices'
 
 type Tab = 'profile' | 'portfolio' | 'settings'
 
@@ -15,8 +15,8 @@ export function DesignerConsole({
   designer,
   works,
   planCopy,
-  specialties,
-  canSample,
+  categories,
+  optionSetup,
   planSetup,
   header,
   footer,
@@ -24,11 +24,11 @@ export function DesignerConsole({
   designer: AdminDesigner
   works: WorkRow[]
   planCopy: PlanCopies
-  /* 고를 수 있는 전문 분야 — 어드민이 만든 것 전부. 숨긴 분야도 고를 수 있다 */
-  specialties: SpecialtyOption[]
-  /* 메인 시안 우선 의뢰를 허용한 분야(039)를 골랐는지 — 아니면 그 스위치를 보여주지 않는다 */
-  canSample: boolean
-  /* 설정 탭의 포함 항목 등록 — 서버에서 받은 템플릿·등록 값으로 페이지가 그려 넘긴다 */
+  /* 어드민이 만든 분야 전부 — 설정 탭에서 의뢰 받는 분야·프로필 태그로 고른다 */
+  categories: CategoryMeta[]
+  /* 설정 탭의 포함 항목 등록 — 서버에서 받은 템플릿·등록 값으로 페이지가 그려 넘긴다.
+     optionSetup 은 공통·분야별(기본), planSetup 은 프리미엄 */
+  optionSetup: React.ReactNode
   planSetup: React.ReactNode
   /* 이름 줄. 본문 칸 안에 들어가야 좌측 메뉴와 윗선이 맞는다 —
      페이지에서 그려 넘긴다(서버에서 받은 값을 쓰는 부분이 섞여 있다). */
@@ -66,7 +66,10 @@ export function DesignerConsole({
       </aside>
 
       <main className="min-w-0 flex-1">
-        <div className="mx-auto max-w-4xl px-5 py-8 md:px-8 md:py-10">
+        {/* 포트폴리오는 썸네일을 보는 화면이라 조금 넓게 — 폼 탭은 읽기 좋은 폭을 지킨다 */}
+        <div
+          className={`mx-auto px-5 py-8 md:px-8 md:py-10 ${tab === 'portfolio' ? 'max-w-6xl' : 'max-w-4xl'}`}
+        >
           {/* 좁은 화면에는 좌측 메뉴가 없어 로그아웃이 갈 곳이 없다 —
               이름 줄 옆에 둔다. 넓은 화면에서는 사이드바 아래에만 있다. */}
           <div className="flex items-start justify-between gap-3">
@@ -102,14 +105,15 @@ export function DesignerConsole({
 
           <div className="mt-6 md:mt-8">
             {tab === 'profile' && (
-              <ProfileForm designer={designer} options={specialties} works={works} />
+              <ProfileForm designer={designer} works={works} onGoSettings={() => setTab('settings')} />
             )}
             {tab === 'portfolio' && <PortfolioManager works={works} />}
             {tab === 'settings' && (
               <SettingsPanel
                 designer={designer}
                 copy={planCopy}
-                canSample={canSample}
+                categories={categories}
+                optionSetup={optionSetup}
                 planSetup={planSetup}
                 openPasswordAtFirst={temp}
               />

@@ -10,11 +10,13 @@ import {
   MAX_TITLE,
   MAX_BLOCKS,
   MAX_FILES,
+  POPUP_COLORS,
   STATUS_LABELS,
   hasBody,
   isoToLocalInput,
   publicUrl,
   type PopupBlock,
+  type PopupColor,
   type PopupFile,
   type PopupRow,
   type PopupStatus,
@@ -33,6 +35,138 @@ type EditBlock =
 type EditFile = PopupFile & { key: string; uploading?: boolean }
 
 const newKey = () => crypto.randomUUID()
+
+/* 링크 주소로 받을 수 있는지 — 공개 화면(richParts)이 링크로 바꾸는 것과 같은 범위.
+   'notefolio.net/…' 처럼 앞을 빼고 적으면 https:// 를 붙여 준다 */
+function normalizeHref(raw: string): string | null {
+  const v = raw.trim()
+  if (!v || /\s/.test(v)) return null
+  if (/^https?:\/\//.test(v)) return v
+  if (v.startsWith('/') && !v.startsWith('//')) return v
+  if (/^[\w-]+(\.[\w-]+)+/.test(v)) return `https://${v}`
+  return null
+}
+
+/* 본문 글 칸 — 글자를 드래그해 고르고 굵게·밑줄·글자색·링크 버튼을 누르면
+   그 글자를 표시로 감싼다(**굵게**, __밑줄__, {{red:색}}, [글자](주소)).
+   칸에는 이 모양 그대로 보이고, 미리보기와 공개 화면에서 서식으로 그려진다
+   (popup-shape.ts 의 richParts). */
+const toolButton =
+  'inline-flex h-7 min-w-7 items-center justify-center gap-1 rounded-md border border-neutral-300 px-2 text-xs text-neutral-700 transition hover:border-violet-400 hover:text-violet-700'
+
+function LinkableText({ value, onChange }: { value: string; onChange: (text: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const [hint, setHint] = useState('')
+
+  /* 고른 글자를 앞뒤 표시로 감싼다. 고른 게 없거나 줄을 넘으면 안내만 한다 */
+  const wrap = (make: (picked: string) => string | null, what: string) => {
+    const el = ref.current
+    if (!el) return
+    const { selectionStart: a, selectionEnd: z } = el
+    const picked = value.slice(a, z)
+    if (!picked.trim()) {
+      setHint(`${what} 글자를 먼저 드래그해 고르세요.`)
+      el.focus()
+      return
+    }
+    if (picked.includes('\n')) {
+      setHint('한 줄 안의 글자만 고를 수 있어요.')
+      return
+    }
+    const wrapped = make(picked)
+    if (wrapped == null) return
+    onChange(value.slice(0, a) + wrapped + value.slice(z))
+    setHint('')
+    /* 감싼 뒤 커서를 그 뒤로 — 이어서 쓰기 편하게 */
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(a + wrapped.length, a + wrapped.length)
+    })
+  }
+
+  const addLink = () =>
+    wrap((picked) => {
+      if (/[[\]]/.test(picked)) {
+        setHint('대괄호가 들어간 글자에는 링크를 걸 수 없어요.')
+        return null
+      }
+      const raw = window.prompt('이동할 주소를 적어 주세요 (예: https://notefolio.net/… 또는 /designers/apply)')
+      if (raw == null) return null
+      const href = normalizeHref(raw)
+      if (!href) {
+        setHint('주소를 확인해 주세요 — https:// 로 시작하는 주소나 /로 시작하는 사이트 안 경로만 됩니다.')
+        return null
+      }
+      return `[${picked}](${href})`
+    }, '링크를 걸')
+
+  /* 누르는 순간 칸의 선택이 풀리지 않게 — 포커스를 버튼으로 옮기지 않는다 */
+  const keepSelection = (e: React.MouseEvent) => e.preventDefault()
+
+  return (
+    <div>
+      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onMouseDown={keepSelection}
+          onClick={() => wrap((p) => `**${p}**`, '굵게 할')}
+          aria-label="굵게"
+          title="굵게"
+          className={`${toolButton} font-bold`}
+        >
+          B
+        </button>
+        <button
+          type="button"
+          onMouseDown={keepSelection}
+          onClick={() => wrap((p) => `__${p}__`, '밑줄을 그을')}
+          aria-label="밑줄"
+          title="밑줄"
+          className={`${toolButton} underline underline-offset-2`}
+        >
+          U
+        </button>
+
+        <span className="mx-0.5 h-4 w-px bg-neutral-200" aria-hidden />
+
+        {/* 글자색 — 색 칸을 바로 누른다 */}
+        {(Object.keys(POPUP_COLORS) as PopupColor[]).map((c) => (
+          <button
+            key={c}
+            type="button"
+            onMouseDown={keepSelection}
+            onClick={() => wrap((p) => `{{${c}:${p}}}`, '색을 바꿀')}
+            aria-label={`글자색 ${POPUP_COLORS[c].label}`}
+            title={POPUP_COLORS[c].label}
+            className="grid size-7 place-items-center rounded-md border border-neutral-300 transition hover:border-neutral-500"
+          >
+            <span className="size-3.5 rounded-full" style={{ background: POPUP_COLORS[c].hex }} />
+          </button>
+        ))}
+
+        <span className="mx-0.5 h-4 w-px bg-neutral-200" aria-hidden />
+
+        <button type="button" onMouseDown={keepSelection} onClick={addLink} className={toolButton}>
+          <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" aria-hidden>
+            <path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1a2.5 2.5 0 01-3.5-3.5l1-1" />
+          </svg>
+          링크
+        </button>
+      </div>
+      <p className="mb-1.5 text-[11px] text-neutral-400">
+        {hint || '글자를 드래그한 뒤 버튼을 누르세요. 결과는 아래 미리보기에서 보입니다.'}
+      </p>
+      <textarea
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={4}
+        placeholder="본문 글"
+        className="w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none ring-violet-500 focus:ring-2"
+      />
+    </div>
+  )
+}
 
 /* 서명 주소로 바로 올린다 — 서버 액션은 본문 크기 제한에 걸린다 */
 async function upload(kind: UploadKind, file: File): Promise<string> {
@@ -218,19 +352,12 @@ export function PopupForm({ popup }: { popup?: PopupRow }) {
             본문<span className="text-red-500"> *</span>
             <span className="ml-1 font-normal text-neutral-400">(글 또는 이미지 하나 이상)</span>
           </span>
-
           <ul className="space-y-2">
             {blocks.map((b, i) => (
               <li key={b.key} className="flex gap-2 rounded-lg border border-neutral-200 bg-white p-2">
                 <div className="min-w-0 flex-1">
                   {b.type === 'text' ? (
-                    <textarea
-                      value={b.text}
-                      onChange={(e) => patch(b.key, e.target.value)}
-                      rows={4}
-                      placeholder="본문 글"
-                      className="w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none ring-violet-500 focus:ring-2"
-                    />
+                    <LinkableText value={b.text} onChange={(text) => patch(b.key, text)} />
                   ) : (
                     <div className="relative overflow-hidden rounded-md bg-neutral-100">
                       {/* eslint-disable-next-line @next/next/no-img-element */}

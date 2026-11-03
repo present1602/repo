@@ -16,16 +16,15 @@ import {
 } from '@/lib/portfolio-limits'
 import {
   isDesignPrice,
-  isPremiumPrice,
-  isLogoPrice,
   formatPrice,
   slotOf,
+  type OptionsMode,
   type PlanTier,
   type RegisteredOption,
 } from '@/lib/plans'
-import { replaceSlotOptions, slotOpenFor } from '@/lib/plan-options-db'
+import { replaceBucketOptions, replaceSlotOptions, saveOptionsMode, slotOpenFor } from '@/lib/plan-options-db'
 import { SCOPES, type Scope } from '@/lib/scopes'
-import { listSpecialtyNames } from '@/lib/specialties'
+import { listCategoryMetas } from '@/lib/specialties'
 import { MAX_TAGS } from '@/lib/specialty-shape'
 
 export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string }
@@ -77,6 +76,28 @@ export async function setMyPlanOptions(
   return { ok: true }
 }
 
+/* 기본 단계 포함 항목 한 목록 — 공통 또는 분야·범위 하나(0004_plan_options_by_category.sql) */
+export async function setMyBucketOptions(bucket: string, options: RegisteredOption[]): Promise<Result> {
+  const { id } = await guard()
+
+  const err = await replaceBucketOptions(id, bucket, options)
+  if (err) return fail(err)
+
+  refresh(id)
+  return { ok: true }
+}
+
+/* 포함 항목 방식 — 분야별로 바꾸면 비어 있는 분야 칸(seed)에 공통 목록을 복사해 둔다 */
+export async function setMyOptionsMode(mode: OptionsMode, seed: string[]): Promise<Result> {
+  const { id } = await guard()
+
+  const err = await saveOptionsMode(id, mode, seed)
+  if (err) return fail(err)
+
+  refresh(id)
+  return { ok: true }
+}
+
 /* ─────────── 로그인 ─────────── */
 
 export async function login(email: string, password: string): Promise<Result> {
@@ -112,21 +133,10 @@ export type ProfileInput = {
   name: string
   oneLiner: string
   bio: string
-  tags: string
 }
 
-/* 쉼표로 받은 분야를 배열로 — 빈 값과 중복을 걸러낸다 */
-function parseTags(raw: string): string[] {
-  return Array.from(
-    new Set(
-      raw
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    ),
-  )
-}
-
+/* 프로필 탭 — 이름·소개만. 분야(designers.tags)는 설정 탭의 가격 플랜이 의뢰 받는 분야·프로필 태그를
+   함께 고친다(updateRequestSettings) — 같은 칸·같은 상한을 쓰므로 한 곳에서 저장한다. */
 export async function updateProfile(input: ProfileInput): Promise<Result> {
   const { db, id } = await guard()
 
@@ -151,19 +161,9 @@ export async function updateProfile(input: ProfileInput): Promise<Result> {
     return fail(`소개글은 ${MAX_BIO}자 이내로 입력해 주세요.`)
   }
 
-  const allowed = await listSpecialtyNames()
-  if (allowed.length > 0 && parseTags(input.tags).length > MAX_TAGS) {
-    return fail(`전문 분야는 ${MAX_TAGS}개까지 고를 수 있습니다.`)
-  }
-
   const patch: Record<string, unknown> = {
     one_liner: input.oneLiner.trim() || null,
     bio: bio || null,
-    /* 어드민이 만든 분야만 남긴다 — 숨긴 분야도 고를 수 있다(탐색 사이드바에서만 빠진다). 서버 액션은
-       누구나 부를 수 있으므로 화면이 보낸 값을 그대로 믿지 않는다 —
-       아무 글자나 들어오면 탐색 필터가 다시 지저분해진다.
-       목록이 비어 있으면(마이그레이션 전) 거르지 않고 지금까지처럼 둔다. */
-    tags: allowed.length > 0 ? parseTags(input.tags).filter((t) => allowed.includes(t)) : parseTags(input.tags),
   }
 
   if (!locked) {
@@ -226,76 +226,79 @@ export async function setProfilePublic(isPublic: boolean): Promise<Result> {
 
 /* ─────────── 가격 ─────────── */
 
-export type PlanInput = {
+export type RequestSettingsInput = {
+  /* 의뢰 받는 분야 — 탐색 메뉴에 나오는 분야 이름 */
+  categories: string[]
+  /* 프로필 태그 — 메뉴에 안 나오는 분야 이름. 의뢰 받는 분야와 같은 칸(designers.tags)·같은 상한을 쓴다 */
+  profileTags: string[]
+  /* 메인화면 의뢰 시작가 — 보기 중에서 고른다 */
   designPrice: number
-  premiumPrice: number
-  premiumEnabled: boolean
-  /* 받을 의뢰 유형(017_designer_scopes.sql, 019_scope_sample_optional.sql).
-
-     본인이 정할 수 있는 것은 '메인 시안'과 '디자인 전체' 둘이다 —
-     '디자인 + 개발'은 어드민이 열어 준다.
-     받지 않는 값을 여기 두면 화면이 보내는 대로 덮어쓰게 된다. */
-  scopeSample: boolean
+  /* 고객이 선택하는 분야(web/app)의 디자인·프로젝트 의뢰(0004) — 하나는 켜져 있어야 한다.
+     메인화면 시안 의뢰(scope_sample)는 어드민만 바꾸므로 받지 않는다 */
   scopeFullDesign: boolean
-  /* 로고 디자인(033_logo_design.sql) — 본인이 켜고 끈다 */
-  scopeLogo: boolean
-  /* 로고 시작가 — 보기 중에서 고른다. 상한은 99,000원 고정 */
-  logoPrice: number
+  scopeWithDev: boolean
 }
 
-/* 금액은 정해진 보기 중에서만 고를 수 있다.
-   서버 액션은 누구나 부를 수 있으므로 클라이언트가 보낸 숫자를 믿지 않는다 —
-   보기에 없으면 DB check 제약이 막기 전에 여기서 돌려보낸다. */
-export async function updatePlans(input: PlanInput): Promise<Result> {
+/* 설정 탭의 가격 플랜 — 의뢰 받는 분야·프로필 태그와 그 분야의 의뢰 유형·금액을 한 번에 저장한다.
+
+   금액은 정해진 보기 중에서만 고를 수 있다. 서버 액션은 누구나 부를 수 있으므로
+   클라이언트가 보낸 값을 믿지 않는다 — 분야 목록·금액 보기·상한을 여기서 다시 본다. */
+export async function updateRequestSettings(input: RequestSettingsInput): Promise<Result> {
   const { db, id } = await guard()
 
-  if (!isDesignPrice(input.designPrice)) {
-    return fail('선택할 수 없는 금액입니다.')
+  const [{ data }, metas] = await Promise.all([
+    db.from('designers').select('tags, price_max, design_price').eq('id', id).maybeSingle(),
+    listCategoryMetas(),
+  ])
+  if (!data) return fail('계정을 찾을 수 없습니다.')
+  const me = data as { tags: string[] | null; price_max: number; design_price: number }
+
+  /* 어드민이 만든 분야만 남긴다 — 의뢰 받는 분야는 메뉴에 나오는 것, 프로필 태그는 숨긴 것.
+     목록에서 빠진 이름(어드민이 바꾸거나 지운 것)은 저장하면 빠진다.
+     목록이 비어 있으면(마이그레이션 전) 지금 값을 그대로 둔다 */
+  const menu = metas.filter((m) => m.visible)
+  const picked = menu.filter((m) => input.categories.includes(m.name))
+  const tags =
+    metas.length === 0
+      ? (me.tags ?? [])
+      : [
+          ...picked.map((m) => m.name),
+          ...metas.filter((m) => !m.visible && input.profileTags.includes(m.name)).map((m) => m.name),
+        ]
+  if (tags.length > MAX_TAGS) {
+    return fail(`의뢰 받는 분야와 프로필 태그는 합쳐서 ${MAX_TAGS}개까지 고를 수 있습니다.`)
   }
-  if (!isPremiumPrice(input.premiumPrice)) {
-    return fail('선택할 수 없는 금액입니다.')
-  }
-  if (!isLogoPrice(input.logoPrice)) {
-    return fail('선택할 수 없는 금액입니다.')
-  }
 
-  /* 시작가는 상한을 넘을 수 없다 — 넘으면 공개 화면에
-     "99,000 ~ 49,000원" 같은 뒤집힌 범위가 나간다.
-     상한은 어드민만 정하므로 여기서 다시 읽어 확인한다. */
-  const { data: me } = await db
-    .from('designers')
-    .select('price_max')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (!me) return fail('계정을 찾을 수 없습니다.')
-
-  /* 받을 유형을 모두 꺼도 된다 — 탐색 목록에서는 빠지지만(designer-list.tsx)
-     상세 링크는 그대로 열린다. 링크를 직접 건네 의뢰받는 디자이너가 쓴다. */
-
-  const priceMax = me.price_max as number
-  if (input.designPrice > priceMax) {
+  const choice = picked.filter((m) => m.scope_mode === 'choice')
+  if (choice.length > 0 && !input.scopeFullDesign && !input.scopeWithDev) {
     return fail(
-      `시작가는 상한(${formatPrice(priceMax)})보다 높을 수 없습니다. 상한을 올리려면 관리자에게 문의해 주세요.`,
+      `${choice.map((m) => m.name).join(', ')} 분야는 디자인 의뢰나 프로젝트 의뢰 중 하나를 선택해 주세요.`,
     )
+  }
+
+  /* 시작가는 바꿀 때만 본다 — 메인 시안 분야를 고르지 않아 칸이 잠겨 있으면 저장된 값이 그대로 온다.
+     상한을 넘으면 공개 화면에 "99,000 ~ 49,000원" 같은 뒤집힌 범위가 나간다 */
+  if (input.designPrice !== me.design_price) {
+    if (!isDesignPrice(input.designPrice)) return fail('선택할 수 없는 금액입니다.')
+    if (input.designPrice > me.price_max) {
+      return fail(
+        `시작가는 상한(${formatPrice(me.price_max)})보다 높을 수 없습니다. 상한을 올리려면 관리자에게 문의해 주세요.`,
+      )
+    }
   }
 
   const { error } = await db
     .from('designers')
     .update({
+      tags,
       design_price: input.designPrice,
-      premium_price: input.premiumPrice,
-      premium_enabled: input.premiumEnabled,
-      /* scope_with_dev 는 건드리지 않는다 — 어드민이 정하는 값이다 */
-      scope_sample: input.scopeSample,
       scope_full_design: input.scopeFullDesign,
-      scope_logo: input.scopeLogo,
-      logo_price: input.logoPrice,
+      scope_with_dev: input.scopeWithDev,
     })
     .eq('id', id)
 
   if (error) {
-    console.error('[designers] 가격 설정 실패:', error.message)
+    console.error('[designers] 가격 플랜 저장 실패:', error.message)
     return fail('저장에 실패했습니다.')
   }
 

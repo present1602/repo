@@ -30,8 +30,7 @@ export const SCOPE_HINTS: Record<Scope, string> = {
 
 /* 이 디자이너가 그 유형을 받는지.
 
-   메인 시안도 본인이 끌 수 있다(019_scope_sample_optional.sql) —
-   본계약 건만 받으려는 디자이너가 있다. */
+   메인 시안은 어드민만 켜고 끈다(0004). 디자인·프로젝트는 디자이너 본인이 켠다. */
 export function acceptsScope(
   d: {
     scope_sample: boolean
@@ -42,9 +41,18 @@ export function acceptsScope(
   scope: Scope,
 ): boolean {
   if (scope === 'sample') return d.scope_sample
-  /* 디자인 의뢰·로고 스위치는 내렸다 — 디자인은 고른 분야로 받고(늘 받음),
-     로고는 분야('로고/일러스트' 등)가 맡는다. 칸(scope_full_design·scope_logo)은 남겨 둔다 */
+  /* 로고는 분야('로고/일러스트' 등)가 맡는다. 칸(scope_logo)은 남겨 둔다.
+     디자인은 거친 판단이다 — 로고·랜딩처럼 범위가 정해진 분야는 스위치 없이 받는다.
+     '고객이 선택' 분야(web/app)에서 받는지는 acceptsDesign 이 본다(inquiry-choices.ts) */
   if (scope === 'logo') return false
   if (scope === 'full_design') return true
   return d.scope_with_dev
+}
+
+/* '고객이 선택' 분야(web/app)에서 디자인 의뢰를 받는지(0004_plan_options_by_category.sql).
+
+   디자인·프로젝트 중 하나는 켜져 있어야 한다 — 둘 다 꺼진 값(0004 전 DB, 어드민이
+   프로젝트만 끈 경우)은 디자인을 받는 것으로 본다. 0004 전에는 디자인을 늘 받았다. */
+export function acceptsDesign(d: { scope_full_design: boolean; scope_with_dev: boolean }): boolean {
+  return d.scope_full_design || !d.scope_with_dev
 }

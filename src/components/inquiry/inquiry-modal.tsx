@@ -72,6 +72,7 @@ export function InquiryModal({
   designerId,
   designerName,
   choices: given,
+  initialCategory,
   initialScope,
   onClose,
 }: {
@@ -79,6 +80,8 @@ export function InquiryModal({
   designerName?: string
   /* 그 디자이너의 분야·범위·금액(designerChoices) — 없으면 일반 선택지를 받아 온다 */
   choices?: CategoryChoice[]
+  /* 처음부터 골라 둘 분야 — 상세의 의뢰 패널에서 고른 것 */
+  initialCategory?: string
   /* 처음부터 골라 둘 범위 — 상세의 의뢰 패널에서 고른 것. 분야를 고르면 그 안에 있을 때 골라진다 */
   initialScope?: InquiryScope
   onClose: () => void
@@ -104,7 +107,7 @@ export function InquiryModal({
 
   /* 고른 분야·범위·단계. 분야를 바꾸면 범위는 다시 고른다 — 다른 분야의 범위를
      따라오면 안 된다. 분야가 하나뿐이면 처음부터 골라 둔다. */
-  const [picked, setPicked] = useState<string | null>(null)
+  const [picked, setPicked] = useState<string | null>(initialCategory ?? null)
   const [scope, setScope] = useState<InquiryScope | null>(null)
   const [tier, setTier] = useState<'basic' | 'premium'>('basic')
 

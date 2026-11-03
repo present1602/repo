@@ -76,7 +76,70 @@ export function publicUrl(path: string, download?: string) {
   return download ? `${base}?download=${encodeURIComponent(download)}` : base
 }
 
-/* 본문이 비었는지 — 글이 있거나 이미지가 하나라도 있으면 찬 것이다 */
+/* ─────────── 본문 글 서식 ───────────
+
+   DB 에는 글 그대로 둔다 — 그릴 때 아래 표시만 서식으로 바꾼다.
+   어드민이 글자를 드래그하고 버튼을 눌러 감싼다(popup-form.tsx).
+     **굵게**
+     __밑줄__
+     {{red:글자색}}                     색 이름은 POPUP_COLORS 의 키
+     [보일 글자](주소)                   링크
+   서로 겹쳐 쓸 수 있다({{red:**굵은 빨강**}}). 한 줄 안에서만 감싼다.
+   링크는 http(s) 와 사이트 안 경로(/…)만 받는다 — javascript: 같은 주소가
+   어드민 실수로 들어가도 링크가 되지 않게. '//' 로 시작하면 다른 사이트라 뺀다.
+   글 속의 맨 주소는 링크로 바꾸지 않는다 — 걸고 싶은 곳에만 직접 건다. */
+
+/* 흰 팝업 바탕에서 읽히는 진하기로 고른 색 — 키가 본문에 그대로 남으므로 바꾸지 않는다 */
+export const POPUP_COLORS = {
+  red: { label: '빨강', hex: '#dc2626' },
+  orange: { label: '주황', hex: '#ea580c' },
+  green: { label: '초록', hex: '#16a34a' },
+  blue: { label: '파랑', hex: '#2563eb' },
+  violet: { label: '보라', hex: '#7c3aed' },
+  gray: { label: '회색', hex: '#737373' },
+} as const
+export type PopupColor = keyof typeof POPUP_COLORS
+
+export type RichNode =
+  | string
+  | { kind: 'b'; children: RichNode[] }
+  | { kind: 'u'; children: RichNode[] }
+  | { kind: 'color'; color: PopupColor; children: RichNode[] }
+  | { kind: 'link'; href: string; children: RichNode[] }
+
+const COLOR_KEYS = Object.keys(POPUP_COLORS).join('|')
+const RICH_RE = new RegExp(
+  [
+    String.raw`\*\*([^\n]+?)\*\*`,
+    String.raw`__([^\n]+?)__`,
+    String.raw`\{\{(${COLOR_KEYS}):([^\n]+?)\}\}`,
+    String.raw`\[([^\]\n]+)\]\(((?:https?:\/\/|\/(?!\/))[^\s)]*)\)`,
+  ].join('|'),
+  'g',
+)
+
+export function richParts(text: string): RichNode[] {
+  const out: RichNode[] = []
+  let last = 0
+  for (const m of text.matchAll(RICH_RE)) {
+    const at = m.index ?? 0
+    if (at > last) out.push(text.slice(last, at))
+    if (m[1] != null) out.push({ kind: 'b', children: richParts(m[1]) })
+    else if (m[2] != null) out.push({ kind: 'u', children: richParts(m[2]) })
+    else if (m[3] != null) out.push({ kind: 'color', color: m[3] as PopupColor, children: richParts(m[4]) })
+    else out.push({ kind: 'link', href: m[6], children: richParts(m[5]) })
+    last = at + m[0].length
+  }
+  if (last < text.length) out.push(text.slice(last))
+  return out
+}
+
+/* 다른 사이트로 가는 링크는 새 탭에서 연다 — 팝업을 보던 화면은 그대로 둔다 */
+export function isExternal(href: string) {
+  return /^https?:\/\//.test(href)
+}
+
+/* 본문이 비었는지 —글이 있거나 이미지가 하나라도 있으면 찬 것이다 */
 export function hasBody(body: PopupBlock[]) {
   return body.some((b) => (b.type === 'image' ? Boolean(b.path) : b.text.trim().length > 0))
 }

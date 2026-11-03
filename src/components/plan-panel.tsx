@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { InquiryType } from '@/lib/inquiry-types'
-import { INQUIRY_TYPE_SCOPE_KEY, type CategoryChoice } from '@/lib/inquiry-choices'
+import type { CategoryChoice, InquiryScope } from '@/lib/inquiry-choices'
 import { InquiryModal } from './inquiry/inquiry-modal'
 
 /* 고른 유형의 한 단계 — 이름·금액·설명·작업 기간·포함 항목 */
@@ -15,10 +14,12 @@ export type PanelTier = {
   items: string[]
 }
 
+/* 의뢰 유형 한 줄 — 분야 하나의 범위 하나(의뢰 폼의 선택지와 같은 단위) */
 export type PanelEntry = {
   key: string
-  /* 의뢰 폼에서 이 유형을 골라 둔 채 열기 위해 */
-  type: InquiryType
+  /* 의뢰 폼에서 이 분야·범위를 골라 둔 채 열기 위해 */
+  category: string
+  scope: InquiryScope
   basic: PanelTier
   /* 유형 전체·디자이너별 프리미엄이 모두 켜졌을 때만 */
   premium?: PanelTier
@@ -50,7 +51,7 @@ export function PlanPanel({
   entries: PanelEntry[]
 }) {
   const [pickedKey, setPickedKey] = useState(entries[0]?.key ?? '')
-  const [open, setOpen] = useState<{ type?: InquiryType } | null>(null)
+  const [open, setOpen] = useState<{ category?: string; scope?: InquiryScope } | null>(null)
   const picked = entries.find((e) => e.key === pickedKey) ?? entries[0]
 
   return (
@@ -89,7 +90,7 @@ export function PlanPanel({
 
           <button
             type="button"
-            onClick={() => setOpen({ type: picked.type })}
+            onClick={() => setOpen({ category: picked.category, scope: picked.scope })}
             className="mt-4 w-full rounded-xl bg-violet-600 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-violet-700"
           >
             {picked.basic.name}
@@ -115,7 +116,8 @@ export function PlanPanel({
           designerId={designerId}
           designerName={designerName}
           choices={choices}
-          initialScope={open.type ? INQUIRY_TYPE_SCOPE_KEY[open.type] : undefined}
+          initialCategory={open.category}
+          initialScope={open.scope}
           onClose={() => setOpen(null)}
         />
       )}

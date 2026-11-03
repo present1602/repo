@@ -118,6 +118,7 @@ export async function listCategoryMetas(): Promise<CategoryMeta[]> {
   if (!supabaseAdmin) return []
   return (
     (await readSpecialties(false))?.map((s) => ({
+      id: s.id,
       name: s.name,
       visible: s.visible,
       scope_mode: s.scope_mode,

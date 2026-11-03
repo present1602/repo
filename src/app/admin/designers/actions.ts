@@ -27,10 +27,11 @@ import {
   MAX_CONTRACT_PRICE,
   MAX_PLAN_DURATION,
   slotOf,
+  type OptionsMode,
   type PlanTier,
   type RegisteredOption,
 } from '@/lib/plans'
-import { replaceSlotOptions, slotOpenFor } from '@/lib/plan-options-db'
+import { replaceBucketOptions, replaceSlotOptions, saveOptionsMode, slotOpenFor } from '@/lib/plan-options-db'
 
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
    페이지에서 막았더라도 여기서 권한을 다시 확인해야 한다. */
@@ -407,7 +408,9 @@ export async function setDesignerPlanSetup(
   id: string,
   plan: Scope,
   tier: PlanTier,
-  next: { duration: string | null; options: RegisteredOption[] },
+  /* options 가 null 이면 포함 항목은 건드리지 않는다 — 기본 단계 항목은 0004 부터
+     공통·분야별 목록(setDesignerBucketOptions)이 맡는다 */
+  next: { duration: string | null; options: RegisteredOption[] | null },
 ): Promise<Result> {
   const db = await guard()
 
@@ -442,18 +445,47 @@ export async function setDesignerPlanSetup(
     return fail('저장에 실패했습니다.')
   }
 
-  const optErr = await replaceSlotOptions(id, slotOf(plan, tier), next.options)
-  if (optErr) return fail(optErr)
+  if (next.options) {
+    const optErr = await replaceSlotOptions(id, slotOf(plan, tier), next.options)
+    if (optErr) return fail(optErr)
+  }
 
   refresh(id)
   return { ok: true }
 }
 
-/* 받을 의뢰 유형 — 어드민이 디자이너마다 넷 다 켜고 끌 수 있다.
+/* 기본 단계 포함 항목 한 목록 — 공통 또는 분야·범위 하나(0004_plan_options_by_category.sql).
+   디자이너가 아직 고르지 않은 분야도 미리 채워 둘 수 있다. */
+export async function setDesignerBucketOptions(
+  id: string,
+  bucket: string,
+  options: RegisteredOption[],
+): Promise<Result> {
+  await guard()
 
-   프로젝트(디자인 + 개발)는 어드민만 정한다(017_designer_scopes.sql) —
-   오프라인 미팅·상주 근무 요청이 따를 수 있어 아무나 받을 수 없다.
-   메인 시안·로고·디자인 전체는 디자이너 본인도 켜고 끄지만 어드민이 대신 바꿀 수 있다. */
+  const err = await replaceBucketOptions(id, bucket, options)
+  if (err) return fail(err)
+
+  refresh(id)
+  revalidatePath('/studio')
+  return { ok: true }
+}
+
+export async function setDesignerOptionsMode(id: string, mode: OptionsMode, seed: string[]): Promise<Result> {
+  await guard()
+
+  const err = await saveOptionsMode(id, mode, seed)
+  if (err) return fail(err)
+
+  refresh(id)
+  revalidatePath('/studio')
+  return { ok: true }
+}
+
+/* 받을 의뢰 유형 — 어드민이 디자이너마다 켜고 끌 수 있다.
+
+   메인화면 시안 의뢰는 어드민만 정한다(0004_plan_options_by_category.sql) — 디자이너 화면에서는
+   켜진 채 잠겨 있다. 디자인·프로젝트 의뢰는 디자이너 본인도 켜고 끄고, 어드민이 대신 바꿀 수 있다. */
 const SCOPE_COLUMNS: Record<Scope, string> = {
   sample: 'scope_sample',
   logo: 'scope_logo',
@@ -467,7 +499,21 @@ export async function setDesignerScope(id: string, scope: Scope, on: boolean): P
   const column = SCOPE_COLUMNS[scope]
   if (!column) return fail('알 수 없는 의뢰 유형입니다.')
 
-  const { error } = await db.from('designers').update({ [column]: on }).eq('id', id)
+  const patch: Record<string, boolean> = { [column]: on }
+
+  /* 디자인·프로젝트는 둘 다 끌 수 없다(0004) — 남는 쪽이 켜져 있을 때만 끈다 */
+  if (!on && (scope === 'full_design' || scope === 'with_dev')) {
+    const { data: cur } = await db
+      .from('designers')
+      .select('scope_full_design, scope_with_dev')
+      .eq('id', id)
+      .maybeSingle()
+    if (!cur) return fail('디자이너를 찾을 수 없습니다.')
+    const other = scope === 'full_design' ? cur.scope_with_dev : cur.scope_full_design
+    if (!other) return fail('디자인 의뢰와 프로젝트 의뢰 중 하나는 켜져 있어야 합니다.')
+  }
+
+  const { error } = await db.from('designers').update(patch).eq('id', id)
   if (error) {
     console.error(`[designers] ${column} 설정 실패:`, error.message)
     return fail('변경에 실패했습니다.')

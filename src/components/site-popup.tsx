@@ -1,7 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { publicUrl, type PublicPopup } from '@/lib/popup-shape'
+import {
+  POPUP_COLORS,
+  isExternal,
+  publicUrl,
+  richParts,
+  type PublicPopup,
+  type RichNode,
+} from '@/lib/popup-shape'
 
 /* 홈에 뜨는 팝업(023_popups.sql).
 
@@ -141,6 +148,27 @@ export function PopupFooter({ more = 0, onHide }: { more?: number; onHide?: (day
   )
 }
 
+/* 본문 글 — 어드민이 넣은 굵게·밑줄·글자색·링크 표시를 서식으로 그린다(popup-shape.ts 의 richParts) */
+function RichText({ nodes }: { nodes: RichNode[] }) {
+  return nodes.map((n, i) => {
+    if (typeof n === 'string') return n
+    const inner = <RichText nodes={n.children} />
+    if (n.kind === 'b') return <strong key={i} className="font-semibold text-neutral-900">{inner}</strong>
+    if (n.kind === 'u') return <u key={i} className="underline-offset-2">{inner}</u>
+    if (n.kind === 'color') return <span key={i} style={{ color: POPUP_COLORS[n.color].hex }}>{inner}</span>
+    return (
+      <a
+        key={i}
+        href={n.href}
+        {...(isExternal(n.href) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        className="font-medium text-violet-700 underline underline-offset-2 transition hover:text-violet-900"
+      >
+        {inner}
+      </a>
+    )
+  })
+}
+
 /* 팝업 한 장 — 어드민 미리보기도 같은 것을 그린다 */
 export function PopupCard({
   popup,
@@ -183,7 +211,7 @@ export function PopupCard({
               <img key={i} src={publicUrl(b.path)} alt="" className="block w-full" />
             ) : (
               <p key={i} className="whitespace-pre-wrap break-words px-6 py-3 text-[15px] leading-relaxed text-neutral-700">
-                {b.text}
+                <RichText nodes={richParts(b.text)} />
               </p>
             ),
           )}

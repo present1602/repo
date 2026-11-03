@@ -15,11 +15,12 @@ import {
   formatPrice,
   formatPriceRange,
   livePremium,
+  type BucketPlan,
   type DesignerPremiums,
   type PlanCopies,
 } from './plans'
 import type { InquiryType } from './inquiry-types'
-import type { Scope } from './scopes'
+import { acceptsDesign, type Scope } from './scopes'
 import type { SpecialtyScopeMode } from './specialty-shape'
 
 export const INQUIRY_SCOPES = ['sample', 'design', 'design_dev'] as const
@@ -44,7 +45,7 @@ export const INQUIRY_TYPE_SCOPE_KEY: Partial<Record<InquiryType, InquiryScope>> 
 }
 
 /* 범위마다 플랜 문구·프리미엄·노출 스위치가 걸린 플랜(plan_copy.plan) */
-const SCOPE_PLAN: Record<InquiryScope, Scope> = {
+export const SCOPE_PLAN: Record<InquiryScope, Scope> = {
   sample: 'sample',
   design: 'full_design',
   design_dev: 'with_dev',
@@ -85,6 +86,8 @@ export type CategoryChoice = {
 
 /* 분야 한 줄 — 서버가 specialties 에서 읽어 넘긴다 */
 export type CategoryMeta = {
+  /* 분야별 포함 항목의 열쇠(bucketOf) — 이름은 어드민이 바꿀 수 있어 id 로 잇는다 */
+  id: string
   name: string
   visible: boolean
   scope_mode: SpecialtyScopeMode
@@ -110,9 +113,32 @@ type DesignerPrices = Pick<
   | 'full_design_price'
   | 'project_price'
   | 'scope_sample'
+  | 'scope_full_design'
   | 'scope_with_dev'
   | 'tags'
 >
+
+/* 이 디자이너가 이 분야에서 그 범위를 받는지(0004_plan_options_by_category.sql).
+     메인 시안      — 어드민 스위치(scope_sample). 허용 분야는 scopesOf 가 이미 거른다
+     범위가 정해진 분야(랜딩·로고) — 분야를 고르면 받는다
+     고객이 선택하는 분야(web/app) — 디자이너가 켠 디자인·프로젝트(하나는 켜져 있다) */
+export function designerAllows(
+  d: Pick<DesignerPrices, 'scope_sample' | 'scope_full_design' | 'scope_with_dev'>,
+  scope: InquiryScope,
+  meta: Pick<CategoryMeta, 'scope_mode'>,
+): boolean {
+  if (scope === 'sample') return d.scope_sample
+  if (meta.scope_mode !== 'choice') return true
+  return scope === 'design' ? acceptsDesign(d) : d.scope_with_dev
+}
+
+/* 이 디자이너가 이 분야에서 받는 범위 — 스튜디오·상세 패널의 분야별 포함 항목 칸 */
+export function designerScopesOf(
+  d: Pick<DesignerPrices, 'scope_sample' | 'scope_full_design' | 'scope_with_dev'>,
+  meta: Pick<CategoryMeta, 'scope_mode' | 'allow_sample'>,
+): InquiryScope[] {
+  return scopesOf(meta).filter((s) => designerAllows(d, s, meta))
+}
 
 type Source = { copies: PlanCopies; premiums?: DesignerPremiums }
 
@@ -171,10 +197,9 @@ export function generalChoices(metas: CategoryMeta[], copies: PlanCopies): Categ
 /* 디자이너에게 보내는 폼 — 탐색 메뉴에 나오는 분야 중 그 디자이너가 고른 것만, 그 디자이너 가격.
    숨긴 분야는 프로필 표기일 뿐 의뢰 유형이 아니다 — 고르게 두면 메뉴에 없는 유형으로 의뢰가 들어온다.
 
-   분야를 고르면 그 분야 의뢰는 받는다 — 디자인은 늘 연다.
-   메인 시안은 디자이너 스위치(scope_sample, 허용 분야는 public-designers.ts 가 이미 거름),
-   고르는 분야의 디자인 + 개발은 어드민 승인(scope_with_dev)이 있어야 연다.
-   랜딩처럼 디자인 + 개발로 정해진 분야는 승인 없이 연다 — 개발은 SOOM 이 이어받는다.
+   어느 범위를 여는지는 designerAllows 가 정한다 — 메인 시안은 어드민 스위치,
+   고르는 분야(web/app)의 디자인·프로젝트는 디자이너 스위치, 랜딩·로고처럼 범위가
+   정해진 분야는 분야를 고르면 연다.
 
    고른 분야가 하나도 없으면 탐색 메뉴의 분야를 그 디자이너 가격으로 보여준다 —
    고를 게 없는 폼은 보낼 수 없다. */
@@ -193,10 +218,46 @@ export function designerChoices(
       design: `${formatPrice(d.full_design_price)}~`,
       design_dev: `${formatPrice(d.project_price)}~`,
     },
-    (s, meta) => {
-      if (s === 'sample') return d.scope_sample
-      if (s === 'design_dev') return meta.scope_mode === 'design_dev' || d.scope_with_dev
-      return true
-    },
+    (s, meta) => designerAllows(d, s, meta),
   )
+}
+
+/* 분야별 포함 항목 칸 — 탐색 메뉴에 나오는 분야마다, 그 디자이너가 받는 범위의 플랜(0004).
+   on 은 디자이너가 그 분야를 골랐는지. 고르지 않은 분야도 칸은 보여준다(비활성).
+   사이트에서 숨긴 플랜은 뺀다. 범위가 정해진 분야는 플랜 이름 대신 분야 이름 하나로 묶는다. */
+export type OptionCategory = {
+  id: string
+  name: string
+  on: boolean
+  plans: { plan: BucketPlan; label: string }[]
+}
+
+export function optionCategories(
+  d: Pick<DesignerPrices, 'scope_sample' | 'scope_full_design' | 'scope_with_dev' | 'tags'>,
+  metas: CategoryMeta[],
+  copies: PlanCopies,
+): OptionCategory[] {
+  return metas
+    .filter((m) => m.visible)
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      on: d.tags.includes(m.name),
+      plans: designerScopesOf(d, m)
+        .map((s) => SCOPE_PLAN[s] as BucketPlan)
+        .filter((p) => copies[p].visible)
+        .map((plan) => ({
+          plan,
+          label:
+            m.scope_mode !== 'choice' && plan !== 'sample'
+              ? fixedTitle(m.name, plan === 'with_dev' ? 'design_dev' : 'design')
+              : copies[plan].basic.name.trim() || SCOPE_TEXT[INQUIRY_SCOPE_OF[plan]].label,
+        })),
+    }))
+}
+
+const INQUIRY_SCOPE_OF: Record<BucketPlan, InquiryScope> = {
+  sample: 'sample',
+  full_design: 'design',
+  with_dev: 'design_dev',
 }

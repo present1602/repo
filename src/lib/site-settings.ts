@@ -2,7 +2,10 @@ import 'server-only'
 import { supabaseAdmin } from './supabase-admin'
 import {
   FALLBACK_PLAN_COPIES,
+  isBucket,
+  isOptionsMode,
   isPlanSlot,
+  type DesignerOptionSetup,
   type DesignerPlanDetails,
   type DesignerPlanOptions,
   type OptionTemplate,
@@ -269,4 +272,32 @@ export async function getDesignerPlanOptions(designerId: string): Promise<Design
     ;(options[slot] ??= []).push({ templateId: row.template_id, n: row.n })
   }
   return options
+}
+
+/* 한 디자이너의 기본 단계 포함 항목 — 방식(공통·분야별)과 목록(0004_plan_options_by_category.sql).
+
+   0004 전이면 null — 호출부는 예전 플랜별 목록(getDesignerPlanOptions)의 기본 칸을 쓴다.
+   방식 칸만 없으면 공통으로 본다. */
+export async function getDesignerOptionSetup(designerId: string): Promise<DesignerOptionSetup | null> {
+  if (!supabaseAdmin) return null
+
+  const [rows, me] = await Promise.all([
+    supabaseAdmin.from('designer_category_options').select('bucket, template_id, n').eq('designer_id', designerId),
+    supabaseAdmin.from('designers').select('plan_options_mode').eq('id', designerId).maybeSingle(),
+  ])
+
+  if (rows.error) {
+    if (!rows.error.message.includes('designer_category_options')) {
+      console.error('[settings] 포함 항목 조회 실패:', rows.error.message)
+    }
+    return null
+  }
+
+  const raw = (me.data as { plan_options_mode?: string } | null)?.plan_options_mode ?? ''
+  const buckets: DesignerOptionSetup['buckets'] = {}
+  for (const row of (rows.data ?? []) as { bucket: string; template_id: string; n: number | null }[]) {
+    if (!isBucket(row.bucket)) continue
+    ;(buckets[row.bucket] ??= []).push({ templateId: row.template_id, n: row.n })
+  }
+  return { mode: isOptionsMode(raw) ? raw : 'common', buckets }
 }

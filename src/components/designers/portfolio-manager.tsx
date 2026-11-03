@@ -96,7 +96,7 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
       ) : (
         /* 3열 masonry — 가로 폭은 그리드가 정하고, 카드마다 세로 칸 수만 다르다.
            auto-rows 를 작게 쪼개 row_span 으로 높이를 조절한다. */
-        <div className="grid auto-rows-[110px] grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="grid auto-rows-[170px] grid-cols-2 gap-3 md:auto-rows-[250px] md:grid-cols-3">
           {works.map((w) => (
             <WorkCard key={w.id} work={w} onEdit={() => setEditing(w.id)} />
           ))}

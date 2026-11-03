@@ -17,13 +17,14 @@ import {
   MAX_CONTRACT_PRICE,
   DEFAULT_FULL_DESIGN_PRICE,
   DEFAULT_PROJECT_PRICE,
+  type DesignerOptionSetup,
   type DesignerPremiums,
   type DesignerPlanDetails,
   type DesignerPlanOptions,
   type OptionTemplate,
   type PlanCopies,
 } from '@/lib/plans'
-import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
+import { SCOPES, SCOPE_LABELS, acceptsDesign, type Scope } from '@/lib/scopes'
 import { displayName, NAME_MAX, nameError } from '@/lib/display-name'
 import {
   updateDesigner,
@@ -40,6 +41,8 @@ import { SpecialtyPicker } from './specialty-picker'
 import type { SpecialtyOption } from '@/lib/specialty-shape'
 import { DESIGNER_TABS, type DesignerTab } from './designer-tabs'
 import { PlanSetup, type SetupSlot } from '@/components/plan-setup'
+import { OptionSetup } from '@/components/option-setup'
+import { optionCategories, type CategoryMeta } from '@/lib/inquiry-choices'
 import { OptionTemplateManager } from './option-template-manager'
 
 type Notice = { kind: 'ok' | 'warn' | 'error'; text: string } | null
@@ -61,6 +64,8 @@ export function DesignerDetail({
   planDetails,
   templates,
   planOptions,
+  metas,
+  optionSetup,
   portfolio,
 }: {
   /* 지금 탭 — 주소의 ?tab= 에서 온다(designer-tabs.ts) */
@@ -73,6 +78,9 @@ export function DesignerDetail({
   /* 포함 항목 템플릿과 이 디자이너가 플랜마다 등록한 것 */
   templates: OptionTemplate[]
   planOptions: DesignerPlanOptions
+  /* 분야 전부(분야별 포함 항목 칸)와 기본 단계 포함 항목 — 공통·분야별(0004). null 이면 0004 전 */
+  metas: CategoryMeta[]
+  optionSetup: DesignerOptionSetup | null
   designer: AdminDesigner
   /* 전문 분야 선택지 — 숨긴 분야까지 전부, 메뉴 노출 분야가 앞 */
   specialties: SpecialtyOption[]
@@ -211,8 +219,16 @@ export function DesignerDetail({
               copies={copies}
               designerId={d.id}
             />
-            {/* 받지 않는 유형도 미리 채워 둘 수 있게 전부. 로고는 분야가 맡아 뺐다.
-                프리미엄은 설정에서 켠 플랜만 */}
+            {/* 기본 단계 포함 항목 — 공통 또는 분야별. 고르지 않은 분야도 미리 채워 둘 수 있다 */}
+            <OptionSetup
+              mode="admin"
+              designerId={d.id}
+              setup={optionSetup}
+              categories={optionCategories(d, metas, copies)}
+              templates={templates}
+            />
+            {/* 작업 기간은 받지 않는 유형도 미리 채워 둘 수 있게 전부. 로고는 분야가 맡아 뺐다.
+                프리미엄(포함 항목까지)은 설정에서 켠 플랜만 */}
             <PlanSetup
               mode="admin"
               designerId={d.id}
@@ -481,8 +497,8 @@ function PlanSummary({
   /* 요약 — 유형마다 받는지, 기본 금액, 프리미엄 금액 */
   const rows: { s: Scope; on: boolean; base: string }[] = [
     { s: 'sample', on: d.scope_sample, base: formatPriceRange(d.design_price, d.price_max) },
-    /* 디자인 의뢰는 고른 분야로 늘 받는다 — 로고는 분야가 맡아 줄에서 뺐다 */
-    { s: 'full_design', on: true, base: `${formatPrice(fullNow)}~` },
+    /* 고객이 선택하는 분야(web/app)의 디자인 의뢰 — 로고는 분야가 맡아 줄에서 뺐다 */
+    { s: 'full_design', on: acceptsDesign(d), base: `${formatPrice(fullNow)}~` },
     { s: 'with_dev', on: d.scope_with_dev, base: `${formatPrice(projectNow)}~` },
   ]
 
@@ -652,15 +668,16 @@ function PlanSummary({
   )
 }
 
-/* 받을 의뢰 유형 — 어드민이 넷 다 켜고 끈다. 누르면 확인을 받고 바로 저장한다(저장 버튼 없음).
+/* 받을 의뢰 유형 — 누르면 확인을 받고 바로 저장한다(저장 버튼 없음).
 
-   프로젝트는 오프라인 미팅·상주 근무 요청이 따를 수 있어 어드민만 열 수 있다.
-   나머지 셋은 디자이너 본인도 스튜디오에서 바꾼다 — 여기서는 대신 바꿔 준다. */
+   메인화면 시안은 어드민만 켜고 끈다(0004) — 디자이너 화면에서는 켜진 채 잠겨 있다.
+   디자인·프로젝트는 디자이너 본인도 스튜디오에서 바꾼다 — 여기서는 대신 바꿔 준다.
+   고객이 선택하는 분야(web/app)는 둘 중 하나는 켜져 있어야 한다. */
 const SCOPE_HELP: Record<Scope, string> = {
-  sample: '메인화면 시안만 먼저 받는 의뢰입니다. 디자이너 본인도 바꿀 수 있습니다.',
+  sample: '메인화면 시안만 먼저 받는 의뢰입니다. 관리자만 바꿀 수 있습니다.',
   logo: '로고 디자인 의뢰입니다. 디자이너 본인도 바꿀 수 있습니다.',
-  full_design: '서비스 전체 디자인 의뢰입니다. 디자이너 본인도 바꿀 수 있습니다.',
-  with_dev: '개발까지 포함한 의뢰입니다. 디자이너 본인은 바꿀 수 없습니다.',
+  full_design: 'web/app 처럼 고객이 범위를 고르는 분야의 디자인 의뢰입니다. 디자이너 본인도 바꿀 수 있습니다.',
+  with_dev: 'web/app 처럼 고객이 범위를 고르는 분야의 개발 포함 의뢰입니다. 디자이너 본인도 바꿀 수 있습니다.',
 }
 
 function ScopeSection({
@@ -673,15 +690,23 @@ function ScopeSection({
   const [pending, start] = useTransition()
   const router = useRouter()
 
-  /* 디자인 의뢰·로고 스위치는 내렸다 — 디자인은 고른 분야로 늘 받고, 로고는 분야가 맡는다.
-     어드민이 고르는 것은 메인 시안과 디자인 + 개발 승인뿐이다 */
-  const TOGGLES = ['sample', 'with_dev'] as const
+  /* 로고 스위치는 내렸다 — 로고는 분야가 맡는다 */
+  const TOGGLES = ['sample', 'full_design', 'with_dev'] as const
   const current: Record<(typeof TOGGLES)[number], boolean> = {
     sample: d.scope_sample,
+    full_design: acceptsDesign(d),
     with_dev: d.scope_with_dev,
   }
 
   const toggle = (scope: Scope, on: boolean) => {
+    /* 디자인·프로젝트를 둘 다 끌 수는 없다 — 서버도 막는다 */
+    if (!on && (scope === 'full_design' || scope === 'with_dev')) {
+      const other = scope === 'full_design' ? current.with_dev : current.full_design
+      if (!other) {
+        onNotice({ kind: 'error', text: '디자인 의뢰와 프로젝트 의뢰 중 하나는 켜져 있어야 합니다.' })
+        return
+      }
+    }
     /* 취소하면 체크가 그대로 남는다 — checked 가 저장된 값(d)을 따른다 */
     const ok = window.confirm(
       on
@@ -708,8 +733,8 @@ function ScopeSection({
     <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
       <h2 className="text-sm font-semibold">의뢰 유형</h2>
       <p className="mt-1 text-xs leading-relaxed text-neutral-500">
-        고른 전문 분야의 디자인 의뢰는 기본으로 받습니다. 여기서는 그 위에 얹는 의뢰를 엽니다 —
-        끈 유형은 탐색 필터·의뢰 폼에서 빠집니다.
+        랜딩·로고처럼 범위가 정해진 분야는 분야를 고르면 받습니다. 여기서는 메인화면 시안과
+        web/app 의 디자인·프로젝트 의뢰를 켜고 끕니다 — 끈 유형은 탐색 필터·의뢰 폼에서 빠집니다.
       </p>
 
       {TOGGLES.map((s) => (

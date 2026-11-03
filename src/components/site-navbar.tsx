@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { Navbar } from './navbar'
+import { StudioNavbar } from './studio-navbar'
 
 /* 사이트 바를 붙일지 말지 정한다(site-footer.tsx 와 같은 방침).
 
@@ -10,13 +11,18 @@ import { Navbar } from './navbar'
    스크롤(proposal-snap)이 쓸 높이도 그만큼 줄어든다.
 
    어드민은 자체 사이드바·상단 바(admin/layout.tsx)를 가진다 — 방문자용
-   메뉴(탐색·의뢰하기)가 위에 붙으면 관리 화면과 사이트가 섞여 보인다. */
+   메뉴(탐색·의뢰하기)가 위에 붙으면 관리 화면과 사이트가 섞여 보인다.
+
+   스튜디오는 디자이너 화면이라 따로 만든 바(StudioNavbar)를 붙인다. */
 const HIDDEN = ['/admin', '/designers/proposal']
+
+const under = (pathname: string, p: string) => pathname === p || pathname.startsWith(`${p}/`)
 
 export function SiteNavbar() {
   const pathname = usePathname() ?? ''
 
-  if (HIDDEN.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null
+  if (HIDDEN.some((p) => under(pathname, p))) return null
+  if (under(pathname, '/studio')) return <StudioNavbar />
 
   return <Navbar />
 }

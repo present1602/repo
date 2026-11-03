@@ -3,10 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  MAX_OPTION_N,
   MAX_PLAN_DURATION,
-  needsN,
-  optionText,
   slotOf,
   templateAllows,
   type DesignerPlanDetails,
@@ -14,25 +11,25 @@ import {
   type OptionTemplate,
   type PlanCopies,
   type PlanTier,
-  type RegisteredOption,
 } from '@/lib/plans'
 import type { Scope } from '@/lib/scopes'
 import { setDesignerPlanSetup } from '@/app/admin/designers/actions'
 import { setMyPlanOptions } from '@/app/studio/actions'
+import { OptionChecklist, optionsOf, picksOf, type Picks } from './option-setup'
 
 /* 등록할 수 있는 플랜 하나 — 부모가 정한다(받는 유형, 켜진 프리미엄) */
 export type SetupSlot = { scope: Scope; tier: PlanTier }
 
 /* 화면에서 고치는 값 — picks 에 있으면 체크한 것, 값은 숫자 칸의 글자 */
-type Draft = { duration: string; picks: Record<string, string> }
+type Draft = { duration: string; picks: Picks }
 
-/* 플랜마다 포함 항목을 등록하는 화면(037_plan_details.sql).
+/* 플랜마다 작업 기간과 프리미엄 포함 항목을 등록하는 화면(037_plan_details.sql).
 
-   어드민이 만든 템플릿 중 그 플랜에서 고를 수 있는 것을 체크하고, {n} 이 있으면
-   숫자까지 넣어 저장해야 공개 화면에 나간다. 처음에는 아무것도 체크돼 있지 않다.
+   기본 단계 포함 항목은 0004 부터 공통·분야별 목록(option-setup.tsx)이 맡는다 —
+   여기서는 프리미엄 단계만 항목을 고른다. {n} 이 있으면 숫자까지 넣어 저장해야 공개 화면에 나간다.
 
    어드민(디자이너 상세)과 디자이너(스튜디오)가 함께 쓴다. 작업 기간은 어드민만
-   고친다 — mode 가 admin 일 때만 칸이 보인다. */
+   고친다 — mode 가 admin 일 때만 칸이 보인다. 디자이너 화면은 켜진 프리미엄이 없으면 그리지 않는다. */
 export function PlanSetup({
   mode,
   designerId,
@@ -53,9 +50,7 @@ export function PlanSetup({
 }) {
   const savedOf = (s: SetupSlot): Draft => ({
     duration: details?.[s.scope]?.[s.tier]?.duration ?? '',
-    picks: Object.fromEntries(
-      (registered[slotOf(s.scope, s.tier)] ?? []).map((r) => [r.templateId, r.n == null ? '' : String(r.n)]),
-    ),
+    picks: s.tier === 'premium' ? picksOf(registered[slotOf(s.scope, s.tier)]) : {},
   })
 
   const [draft, setDraft] = useState<Record<string, Draft>>(() =>
@@ -71,25 +66,19 @@ export function PlanSetup({
   const save = (s: SetupSlot) => {
     const key = slotOf(s.scope, s.tier)
     const cur = draft[key]
+    /* 기본 단계 포함 항목은 공통·분야별 목록(option-setup.tsx)이 맡는다 — 여기서는 작업 기간만 */
+    const withOptions = s.tier === 'premium'
 
-    /* 숫자가 필요한데 비었으면 저장하지 않는다 — 등록돼도 나가지 않는 항목이 된다 */
-    const options: RegisteredOption[] = []
-    for (const t of templates) {
-      if (!(t.id in cur.picks)) continue
-      const raw = cur.picks[t.id].trim()
-      if (needsN(t.template)) {
-        const n = Number(raw)
-        if (!raw || !Number.isInteger(n) || n < 0 || n > MAX_OPTION_N) {
-          setMsg({ ok: false, text: `'${t.template}'의 숫자를 0~${MAX_OPTION_N} 사이로 적어 주세요.` })
-          return
-        }
-        options.push({ templateId: t.id, n })
-      } else {
-        options.push({ templateId: t.id, n: null })
-      }
+    const options = withOptions
+      ? optionsOf(templates.filter((t) => templateAllows(t, key)), cur.picks)
+      : null
+    if (typeof options === 'string') {
+      setMsg({ ok: false, text: options })
+      return
     }
 
-    if (!window.confirm(`${nameOf(s)}의 ${mode === 'admin' ? '작업 기간·' : ''}포함 항목을 저장할까요?`)) return
+    const what = [mode === 'admin' && '작업 기간', withOptions && '포함 항목'].filter(Boolean).join('·')
+    if (!window.confirm(`${nameOf(s)}의 ${what}을 저장할까요?`)) return
 
     setMsg(null)
     start(async () => {
@@ -99,7 +88,7 @@ export function PlanSetup({
               duration: cur.duration.trim() || null,
               options,
             })
-          : await setMyPlanOptions(s.scope, s.tier, options)
+          : await setMyPlanOptions(s.scope, s.tier, options ?? [])
       if (!r.ok) {
         setMsg({ ok: false, text: r.error })
         return
@@ -109,15 +98,17 @@ export function PlanSetup({
     })
   }
 
+  if (mode === 'designer' && slots.length === 0) return null
+
   return (
     <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
       <h2 className="text-sm font-semibold">
-        {mode === 'admin' ? '작업 기간 · 포함 항목' : '포함 항목'}
+        {mode === 'admin' ? '작업 기간 · 프리미엄 포함 항목' : '프리미엄 포함 항목'}
       </h2>
       <p className="mt-1 text-xs leading-relaxed text-neutral-500">
-        플랜마다 보여줄 항목을 고르고 숫자를 넣어 저장하세요. 저장한 항목만 공개 페이지의 의뢰 패널에
-        나갑니다.
-        {mode === 'admin' && ' 작업 기간을 비워 두면 설정의 전체 공통값(회색 글씨)을 따릅니다.'}
+        {mode === 'admin'
+          ? '플랜마다 작업 기간을 정합니다. 비워 두면 설정의 전체 공통값(회색 글씨)을 따릅니다. 프리미엄은 포함 항목도 여기서 고릅니다.'
+          : '켜진 프리미엄 플랜에 보여줄 항목을 고르고 숫자를 넣어 저장하세요.'}
       </p>
 
       {msg && (
@@ -169,57 +160,11 @@ export function PlanSetup({
                 </label>
               )}
 
-              <div className="mt-2.5 space-y-1.5">
-                {usable.length === 0 && (
-                  <p className="text-[11px] text-neutral-400">이 플랜에서 고를 수 있는 항목이 없습니다.</p>
-                )}
-                {usable.map((t) => {
-                  const on = t.id in cur.picks
-                  const [before, ...rest] = t.template.split('{n}')
-                  return (
-                    <div key={t.id} className="flex flex-wrap items-center gap-1.5 text-xs text-neutral-700">
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        aria-label={optionText(t.template, null)}
-                        onChange={(e) => {
-                          const picks = { ...cur.picks }
-                          if (e.target.checked) picks[t.id] = ''
-                          else delete picks[t.id]
-                          set({ ...cur, picks })
-                        }}
-                        className="accent-violet-600"
-                      />
-                      {needsN(t.template) ? (
-                        <>
-                          <span>{before}</span>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            aria-label={`${t.template} 숫자`}
-                            value={cur.picks[t.id] ?? ''}
-                            disabled={!on}
-                            onChange={(e) => set({ ...cur, picks: { ...cur.picks, [t.id]: e.target.value } })}
-                            min={0}
-                            max={MAX_OPTION_N}
-                            placeholder="n"
-                            className="h-7 w-14 rounded-md border border-neutral-300 bg-white px-2 text-xs outline-none ring-violet-500 focus:ring-2 disabled:bg-neutral-50"
-                          />
-                          <span>{rest.join('{n}')}</span>
-                        </>
-                      ) : (
-                        <span>{t.template}</span>
-                      )}
-                      {/* 어드민이 이 디자이너에게만 만들어 준 항목 */}
-                      {t.designerId && (
-                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                          전용
-                        </span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+              {s.tier === 'premium' && (
+                <div className="mt-2.5">
+                  <OptionChecklist usable={usable} picks={cur.picks} onChange={(picks) => set({ ...cur, picks })} />
+                </div>
+              )}
 
               <div className="mt-3 flex items-center gap-2">
                 <button

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { getPublicDesigner } from '@/lib/public-designers'
 import { displayNameOf } from '@/lib/display-name'
 import {
+  getDesignerOptionSetup,
   getDesignerPlanDetails,
   getDesignerPremiums,
   getDesignerPlanOptions,
@@ -12,16 +13,15 @@ import {
   listOptionTemplates,
 } from '@/lib/site-settings'
 import {
+  bucketOf,
+  COMMON_BUCKET,
   formatPrice,
-  formatPriceRange,
   livePremium,
-  LOGO_PRICE_MAX,
   resolveTier,
   slotOf,
+  type BucketPlan,
 } from '@/lib/plans'
-import { acceptsScope, SCOPES, type Scope } from '@/lib/scopes'
-import { SCOPE_INQUIRY_TYPE } from '@/lib/inquiry-types'
-import { designerChoices } from '@/lib/inquiry-choices'
+import { designerChoices, SCOPE_PLAN } from '@/lib/inquiry-choices'
 import { listCategoryMetas } from '@/lib/specialties'
 import { Img } from '@/components/img'
 import { WorkGallery } from '@/components/work-gallery'
@@ -56,7 +56,8 @@ export default function DesignerDetailPage(props: PageProps<'/designers/[id]'>) 
 async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>['params'] }) {
   const { id } = await params
   /* 플랜 문구·프리미엄·기간은 디자이너 조회를 기다릴 필요가 없어 동시에 받는다 */
-  const [d, copies, premiums, planDetails, showDuration, templates, planOptions, metas] = await Promise.all([
+  const [d, copies, premiums, planDetails, showDuration, templates, planOptions, metas, optionSetup] =
+    await Promise.all([
     getPublicDesigner(id),
     getPlanCopies(),
     getDesignerPremiums(id),
@@ -65,53 +66,71 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
     listOptionTemplates({ designerId: id }),
     getDesignerPlanOptions(id),
     listCategoryMetas(),
+    getDesignerOptionSetup(id),
   ])
   if (!d) notFound()
 
   const name = displayNameOf(d)
 
-  /* 유형마다 기본 금액 — 메인 시안·로고는 "시작가 ~ 상한", 디자인 전체·프로젝트는 "N원~" */
-  const priceLabel: Record<Scope, string> = {
-    sample: formatPriceRange(d.design_price, d.price_max),
-    logo: formatPriceRange(d.logo_price, LOGO_PRICE_MAX),
-    full_design: `${formatPrice(d.full_design_price)}~`,
-    with_dev: `${formatPrice(d.project_price)}~`,
-  }
+  /* 의뢰 패널 — 의뢰 폼과 같은 선택지(분야 × 범위), 같은 차례·같은 금액으로.
+     이름·설명·기간은 어드민 설정의 공통값에 디자이너별 덮어쓰기를 얹는다.
+     포함 항목은 디자이너가 등록한 것만 나간다(처음엔 비어 있다) —
+       공통 방식이면 모든 줄에 같은 목록, 분야별이면 그 분야·범위의 목록(0004).
+       0004 전이면 예전 플랜별 목록의 기본 칸.
+     프리미엄은 유형 전체·디자이너별 스위치가 모두 켜졌을 때만, 항목은 플랜별 목록에서. */
+  const choices = designerChoices(d, metas, { copies, premiums })
+  const metaOf = new Map(metas.map((m) => [m.name, m]))
+  /* 고객이 범위를 고르는 분야가 둘 이상이면 같은 플랜 이름이 겹친다 — 그때만 분야 이름을 앞에 붙인다 */
+  const choiceCount = choices.filter((c) => metaOf.get(c.name)?.scope_mode === 'choice').length
 
-  /* 의뢰 패널 — 받는 유형만, 의뢰 폼과 같은 차례로.
-     이름·설명·기간은 어드민 설정의 공통값에 디자이너별 덮어쓰기를 얹고,
-     포함 항목은 디자이너가 플랜마다 등록한 것만 나간다(처음엔 비어 있다).
-     사이트에서 숨긴 플랜은 빠진다.
-     프리미엄은 유형 전체·디자이너별 스위치가 모두 켜졌을 때만. */
-  const entries: PanelEntry[] = SCOPES.filter((s) => copies[s].visible && acceptsScope(d, s)).map((s) => {
-    const tierOf = (t: 'basic' | 'premium') =>
-      resolveTier(
-        copies[s][t],
-        planDetails[s]?.[t],
+  const entries: PanelEntry[] = choices.flatMap((c) =>
+    c.options.map((o): PanelEntry => {
+      const plan = SCOPE_PLAN[o.key] as BucketPlan
+      const meta = metaOf.get(c.name)
+      const registered = !optionSetup
+        ? planOptions[slotOf(plan, 'basic')]
+        : optionSetup.mode === 'common' || !meta
+          ? optionSetup.buckets[COMMON_BUCKET]
+          : optionSetup.buckets[bucketOf(meta.id, plan)]
+      const basic = resolveTier(
+        copies[plan].basic,
+        planDetails[plan]?.basic,
         showDuration,
-        slotOf(s, t),
+        slotOf(plan, 'basic'),
         templates,
-        planOptions[slotOf(s, t)],
+        registered,
       )
-    const basic = tierOf('basic')
-    const live = livePremium(copies, premiums, s)
-    const premium = live ? tierOf('premium') : null
-    return {
-      key: s,
-      type: SCOPE_INQUIRY_TYPE[s],
-      basic: { name: copies[s].basic.name, desc: copies[s].basic.desc, priceLabel: priceLabel[s], ...basic },
-      ...(live && premium
-        ? {
-            premium: {
-              name: live.name,
-              desc: live.desc,
-              priceLabel: `${formatPrice(live.price)}~`,
-              ...premium,
-            },
-          }
-        : {}),
-    }
-  })
+      const live = livePremium(copies, premiums, plan)
+      const premium = live
+        ? resolveTier(
+            copies[plan].premium,
+            planDetails[plan]?.premium,
+            showDuration,
+            slotOf(plan, 'premium'),
+            templates,
+            planOptions[slotOf(plan, 'premium')],
+          )
+        : null
+      const name = o.title ?? (choiceCount > 1 ? `${c.name} · ${o.label}` : o.label)
+      return {
+        key: `${c.name}:${o.key}`,
+        category: c.name,
+        scope: o.key,
+        /* 범위가 정해진 분야는 플랜 설명 대신 비운다 — 로고에 '서비스 전체 디자인' 설명이 붙지 않게 */
+        basic: { name, desc: o.title ? '' : copies[plan].basic.desc, priceLabel: o.priceLabel, ...basic },
+        ...(live && premium
+          ? {
+              premium: {
+                name: live.name,
+                desc: live.desc,
+                priceLabel: `${formatPrice(live.price)}~`,
+                ...premium,
+              },
+            }
+          : {}),
+      }
+    }),
+  )
 
   return (
     <div className="flex-1 bg-white">
@@ -176,7 +195,7 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
             <PlanPanel
               designerId={d.id}
               designerName={name}
-              choices={designerChoices(d, metas, { copies, premiums })}
+              choices={choices}
               entries={entries}
             />
           </aside>

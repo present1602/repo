@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import {
@@ -10,39 +10,27 @@ import {
   MIN_PUBLIC_AI_WORKS,
   checkPublicReady,
 } from '@/lib/portfolio-limits'
-import { MAX_TAGS } from '@/lib/specialty-shape'
 import { NAME_MAX, nameError } from '@/lib/display-name'
 import { updateProfile, updateAvatar, setProfilePublic } from '@/app/studio/actions'
 import { Img } from '@/components/img'
-import type { SpecialtyOption } from '@/lib/specialty-shape'
 
 export function ProfileForm({
   designer: d,
-  options,
   works,
+  onGoSettings,
 }: {
   designer: AdminDesigner
-  /* 고를 수 있는 분야 — 숨긴 분야까지 전부, 메뉴(탐색 사이드바)에 나오는 분야가 앞 */
-  options: SpecialtyOption[]
+  /* 분야는 설정 탭에서 고친다 — 그 탭으로 옮겨 준다 */
+  onGoSettings: () => void
   /* 공개 조건을 재는 데 쓴다 — 작업 수와 AI 표기를 센다 */
   works: Pick<WorkRow, 'visible' | 'ai_used'>[]
 }) {
   const [name, setName] = useState(d.name ?? '')
   const [oneLiner, setOneLiner] = useState(d.one_liner ?? '')
   const [bio, setBio] = useState(d.bio ?? '')
-  /* 서버에는 지금까지처럼 쉼표 문자열로 보낸다 — 화면만 체크박스로 바뀌었다 */
-  const [tags, setTags] = useState(d.tags.join(', '))
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, start] = useTransition()
   const router = useRouter()
-
-  /* 지금 고른 분야. 목록에 없는 것(어드민이 바꾸거나 지운 이름)은
-     체크박스로 끌 수 없으므로 따로 모아 알려준다. */
-  const picked = tags
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const orphans = picked.filter((t) => !options.some((o) => o.name === t))
 
   /* 관리자가 이름을 정해줬으면 잠겨 있다 — 변경은 관리자에게 요청한다 */
   const locked = d.name_locked
@@ -50,8 +38,7 @@ export function ProfileForm({
   const dirty =
     (!locked && name !== (d.name ?? '')) ||
     oneLiner !== (d.one_liner ?? '') ||
-    bio !== (d.bio ?? '') ||
-    tags !== d.tags.join(', ')
+    bio !== (d.bio ?? '')
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,7 +46,7 @@ export function ProfileForm({
     const bad = locked ? null : nameError(name)
     if (bad) return setMsg({ ok: false, text: bad })
     start(async () => {
-      const r = await updateProfile({ name, oneLiner, bio, tags })
+      const r = await updateProfile({ name, oneLiner, bio })
       if (!r.ok) {
         setMsg({ ok: false, text: r.error })
         return
@@ -137,73 +124,6 @@ export function ProfileForm({
           </span>
         </label>
 
-        {/* 전문 분야 — 어드민이 정한 목록에서 고른다(011_specialties.sql).
-            자유 입력을 두면 같은 분야가 조금씩 다른 이름으로 서서
-            탐색 필터가 금세 지저분해진다. */}
-        <div>
-          <span className="mb-1.5 block text-xs font-medium text-neutral-600">
-            전문 분야{' '}
-            <span className="font-normal text-neutral-400">(최대 {MAX_TAGS}개)</span>
-          </span>
-
-          {options.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-neutral-300 px-3 py-4 text-xs text-neutral-500">
-              아직 고를 수 있는 분야가 없습니다. 관리자에게 문의해 주세요.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {options.map(({ name, visible }) => {
-                const on = picked.includes(name)
-                /* 상한에 닿으면 켜져 있는 것만 끌 수 있다 */
-                const blocked = !on && picked.length >= MAX_TAGS
-                return (
-                  <label
-                    key={name}
-                    className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm transition ${
-                      on
-                        ? 'border-violet-600 bg-violet-50 font-medium text-violet-700'
-                        : blocked
-                          ? 'border-neutral-200 text-neutral-300'
-                          : /* 메뉴에 나오는 분야는 옅은 보라 테두리로 가른다 */
-                            visible
-                            ? 'cursor-pointer border-violet-300 hover:bg-violet-50/60'
-                            : 'cursor-pointer border-neutral-300 hover:bg-neutral-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      disabled={blocked}
-                      onChange={() =>
-                        setTags(
-                          (on ? picked.filter((t) => t !== name) : [...picked, name]).join(', '),
-                        )
-                      }
-                      className="accent-violet-600"
-                    />
-                    {name}
-                  </label>
-                )
-              })}
-            </div>
-          )}
-
-          {options.some((o) => o.visible) && (
-            <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
-              <span className="mr-1 inline-block size-2 rounded-sm border border-violet-400 align-middle" />
-              보라 테두리는 탐색 메뉴에 나오는 분야입니다. 나머지도 고를 수 있고 프로필에 표시됩니다.
-            </p>
-          )}
-
-          {/* 목록에서 빠진 분야를 쓰고 있으면 알려준다 — 어드민이 이름을
-              바꾸거나 지운 경우다. 저장하면 사라지므로 미리 보여준다. */}
-          {orphans.length > 0 && (
-            <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
-              {orphans.join(', ')} — 지금은 고를 수 없는 분야입니다. 저장하면 빠집니다.
-            </p>
-          )}
-        </div>
-
         <div className="flex items-center gap-2 pt-1">
           <button
             type="submit"
@@ -217,6 +137,38 @@ export function ProfileForm({
           )}
         </div>
       </form>
+
+      {/* 전문 분야(designers.tags) — 의뢰 받는 분야·프로필 태그는 같은 칸·같은 상한을 써서
+          설정 탭의 가격 플랜에서 함께 고친다(plan-form.tsx). 여기서는 보여주기만 한다.
+          폼 밖에 선을 긋고 둔다 — 저장 버튼 위에 있으면 여기서 고쳐 저장할 수 있는 칸으로 읽히지 않는다 */}
+      <section className="border-t border-neutral-200 pt-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold">전문 분야 · 프로필 태그</h3>
+            <p className="mt-1 text-xs text-neutral-500">
+              의뢰 받는 분야와 함께 설정 탭의 가격 플랜에서 변경합니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onGoSettings}
+            className="shrink-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100"
+          >
+            설정에서 변경 →
+          </button>
+        </div>
+        {d.tags.length > 0 ? (
+          <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm text-violet-500">
+            {d.tags.map((t) => (
+              <span key={t}>#{t}</span>
+            ))}
+          </p>
+        ) : (
+          <p className="mt-3 rounded-lg border border-dashed border-neutral-300 px-3 py-3 text-xs text-neutral-500">
+            아직 고른 분야가 없습니다. 설정 탭의 가격 플랜에서 의뢰 받는 분야와 프로필 태그를 골라 주세요.
+          </p>
+        )}
+      </section>
     </div>
   )
 }
@@ -362,6 +314,14 @@ function AvatarPicker({
   const fileRef = useRef<HTMLInputElement>(null)
   const [pending, start] = useTransition()
   const router = useRouter()
+  const [toast, setToast] = useState(false)
+
+  /* 잠깐 보여주고 스스로 사라진다(settings-panel.tsx 의 비밀번호 변경 알림과 같은 모양) */
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(false), 2500)
+    return () => clearTimeout(t)
+  }, [toast])
 
   const pick = (file: File) => {
     onMessage(null)
@@ -373,12 +333,23 @@ function AvatarPicker({
         onMessage({ ok: false, text: r.error })
         return
       }
+      setToast(true)
       router.refresh()
     })
   }
 
   return (
     <div className="flex items-center gap-4">
+      {toast && (
+        <div
+          role="status"
+          className="pointer-events-none fixed inset-x-0 top-6 z-[60] flex justify-center px-4"
+        >
+          <p className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+            프로필 이미지를 변경했습니다.
+          </p>
+        </div>
+      )}
       {d.avatar_url ? (
         <Img src={d.avatar_url} alt="" className="size-16 shrink-0 rounded-full" />
       ) : (

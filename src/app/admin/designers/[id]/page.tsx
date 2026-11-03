@@ -4,8 +4,9 @@ import { notFound, redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
 import { getDesignerById, listWorks } from '@/lib/designers-db'
 import { getDesignerCardPreview } from '@/lib/public-designers'
-import { listSpecialtyOptions } from '@/lib/specialties'
+import { listCategoryMetas, listSpecialtyOptions } from '@/lib/specialties'
 import {
+  getDesignerOptionSetup,
   getDesignerPlanDetails,
   getDesignerPlanOptions,
   getDesignerPremiums,
@@ -44,7 +45,7 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
   const tab = isDesignerTab(rawTab) ? rawTab : 'profile'
 
   /* 포트폴리오·목록 미리보기·분야 목록은 서로 기다릴 이유가 없다 */
-  const [works, cardPreview, specialties, premiums, copies, planDetails, templates, planOptions] =
+  const [works, cardPreview, specialties, premiums, copies, planDetails, templates, planOptions, metas, optionSetup] =
     await Promise.all([
       listWorks(id),
       getDesignerCardPreview(id),
@@ -54,6 +55,8 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
       getDesignerPlanDetails(id),
       listOptionTemplates({ designerId: id }),
       getDesignerPlanOptions(id),
+      listCategoryMetas(),
+      getDesignerOptionSetup(id),
     ])
 
   /* 설정에서 프리미엄을 켠 유형 — 켜진 유형만 디자이너별로 켤 수 있다 */
@@ -88,6 +91,8 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
         planDetails={planDetails}
         templates={templates}
         planOptions={planOptions}
+        metas={metas}
+        optionSetup={optionSetup}
         portfolio={<AdminPortfolio designerId={id} works={works} />}
       />
     </main>
