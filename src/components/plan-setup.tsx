@@ -16,6 +16,7 @@ import type { Scope } from '@/lib/scopes'
 import { setDesignerPlanSetup } from '@/app/admin/designers/actions'
 import { setMyPlanOptions } from '@/app/studio/actions'
 import { OptionChecklist, optionsOf, picksOf, type Picks } from './option-setup'
+import { Flash } from '@/components/flash'
 
 /* 등록할 수 있는 플랜 하나 — 부모가 정한다(받는 유형, 켜진 프리미엄) */
 export type SetupSlot = { scope: Scope; tier: PlanTier }
@@ -111,15 +112,7 @@ export function PlanSetup({
           : '켜진 프리미엄 플랜에 보여줄 항목을 고르고 숫자를 넣어 저장하세요.'}
       </p>
 
-      {msg && (
-        <p
-          className={`mt-4 rounded-lg px-3 py-2.5 text-sm ${
-            msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {msg.text}
-        </p>
-      )}
+      <Flash msg={msg} onDone={() => setMsg(null)} className="mt-4" />
 
       {slots.length === 0 && (
         <p className="mt-4 rounded-lg border border-dashed border-neutral-300 py-6 text-center text-xs text-neutral-400">

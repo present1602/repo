@@ -13,6 +13,7 @@ import {
 import { NAME_MAX, nameError } from '@/lib/display-name'
 import { updateProfile, updateAvatar, setProfilePublic } from '@/app/studio/actions'
 import { Img } from '@/components/img'
+import { Flash } from '@/components/flash'
 
 export function ProfileForm({
   designer: d,
@@ -63,15 +64,7 @@ export function ProfileForm({
       <AvatarPicker designer={d} onMessage={setMsg} />
 
       <form onSubmit={submit} className="space-y-3.5">
-        {msg && (
-          <p
-            className={`rounded-lg px-3 py-2.5 text-sm ${
-              msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-            }`}
-          >
-            {msg.text}
-          </p>
-        )}
+        <Flash msg={msg} onDone={() => setMsg(null)} />
 
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-neutral-600">
@@ -345,7 +338,7 @@ function AvatarPicker({
           role="status"
           className="pointer-events-none fixed inset-x-0 top-6 z-[60] flex justify-center px-4"
         >
-          <p className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+          <p className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
             프로필 이미지를 변경했습니다.
           </p>
         </div>

@@ -13,6 +13,7 @@ import {
 import { MAX_TAGS } from '@/lib/specialty-shape'
 import { menuCategories, type CategoryMeta } from '@/lib/inquiry-choices'
 import { updateRequestSettings } from '@/app/studio/actions'
+import { Flash } from '@/components/flash'
 
 /* 설정 탭의 가격 플랜(0004_plan_options_by_category.sql).
 
@@ -93,15 +94,7 @@ export function PlanForm({
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      {msg && (
-        <p
-          className={`rounded-lg px-3 py-2.5 text-sm ${
-            msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {msg.text}
-        </p>
-      )}
+      <Flash msg={msg} onDone={() => setMsg(null)} />
 
       <div>
         <h2 className="text-sm font-semibold">가격 플랜</h2>

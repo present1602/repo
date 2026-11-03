@@ -23,6 +23,7 @@ import {
   reshapeCrop,
 } from '@/lib/crop'
 import { makeThumb, makeThumbFromUrl } from '@/lib/make-thumb'
+import { Flash } from '@/components/flash'
 
 export function PortfolioManager({ works }: { works: WorkRow[] }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -39,15 +40,7 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
 
   return (
     <div className="space-y-5">
-      {msg && (
-        <p
-          className={`rounded-lg px-3 py-2.5 text-sm ${
-            msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {msg.text}
-        </p>
-      )}
+      <Flash msg={msg} onDone={() => setMsg(null)} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* 좌상단 — 편집 들어가기·나가기 */}

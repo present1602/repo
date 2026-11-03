@@ -25,6 +25,7 @@ import {
   setDesignerBucketOptions,
 } from '@/app/admin/designers/actions'
 import { addMyCustomOption, removeMyCustomOption, setMyBucketOptions } from '@/app/studio/actions'
+import { Flash } from '@/components/flash'
 
 /* 화면에서 고치는 값 — 있으면 체크한 것, 값은 숫자 칸의 글자 */
 export type Picks = Record<string, string>
@@ -316,15 +317,7 @@ export function OptionSetup({
         개별 항목이 이어서 나갑니다.
       </p>
 
-      {msg && (
-        <p
-          className={`mt-4 rounded-lg px-3 py-2.5 text-sm ${
-            msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {msg.text}
-        </p>
-      )}
+      <Flash msg={msg} onDone={() => setMsg(null)} className="mt-4" />
 
       <div className="mt-4 grid items-start gap-5 lg:grid-cols-2">
         <div>
