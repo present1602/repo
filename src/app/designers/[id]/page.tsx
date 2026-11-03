@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { getPublicDesigner } from '@/lib/public-designers'
@@ -20,6 +19,7 @@ import { WorkGallery } from '@/components/work-gallery'
 import { PlanPanel } from '@/components/plan-panel'
 import { BioText } from '@/components/bio-text'
 import { RefCapture } from '@/components/ref-capture'
+import { ExploreLink } from '@/components/explore-gate'
 
 /* 공개 여부가 수시로 바뀌므로 캐시하지 않는다 — 비공개로 돌리면 곧 404 가 된다.
    "use cache" 를 쓰지 않으면 cacheComponents 아래에서 요청마다 새로 읽는다.
@@ -84,9 +84,7 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
       <RefCapture designerId={d.id} />
       <div className="mx-auto max-w-7xl px-5 pb-16 md:px-8">
         <nav className="py-5 text-sm text-neutral-500">
-          <Link href="/explore" className="transition hover:text-neutral-900">
-            ← 탐색으로
-          </Link>
+          <ExploreLink className="transition hover:text-neutral-900">← 탐색으로</ExploreLink>
         </nav>
 
         {/* 머리 — 사진·이름·한 줄 소개를 한 줄로, 분야는 오른쪽 */}

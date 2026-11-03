@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { InquiryModal } from '@/components/inquiry/inquiry-modal'
+import { ExploreLink } from '@/components/explore-gate'
 
 /* 사이트 공통 바.
 
@@ -25,12 +26,10 @@ export function Navbar() {
           </Link>
 
           <div className="ml-auto flex items-center gap-5">
-            <Link
-              href="/explore"
-              className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
-            >
+            {/* 공개 전에는 탐색 대신 지원 안내를 띄운다(explore-gate.tsx) */}
+            <ExploreLink className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900">
               탐색
-            </Link>
+            </ExploreLink>
 
             {/* 가장 하고 싶은 일 — 유일하게 색을 채운 버튼으로 둔다.
                 페이지를 옮기지 않고 그 자리에서 폼을 띄운다. */}

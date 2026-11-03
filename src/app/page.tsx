@@ -1,8 +1,9 @@
-import Link from 'next/link'
 import { Suspense } from 'react'
 import { HomeFeed } from '@/components/home-feed'
 import { HomeCta } from '@/components/home-cta'
 import { HtmlClass } from '@/components/html-class'
+import { ExploreLink, PRE_LAUNCH } from '@/components/explore-gate'
+import { WorksTeaser } from '@/components/works-teaser'
 import { listRecentWorks } from '@/lib/public-designers'
 import { listActivePopups } from '@/lib/popups-db'
 import { SitePopups } from '@/components/site-popup'
@@ -31,20 +32,22 @@ export default function Home() {
       <section id="works" className="mx-auto max-w-7xl scroll-mt-14 px-4 pb-16 md:px-8 md:pb-20">
         <div className="mb-6 flex items-end justify-between gap-4">
           <h2 className="text-xl font-bold tracking-tight md:text-2xl">SOOM 디자이너들의 작업</h2>
-          <Link
-            href="/explore"
-            className="shrink-0 text-sm text-neutral-500 transition hover:text-neutral-900"
-          >
+          <ExploreLink className="shrink-0 text-sm text-neutral-500 transition hover:text-neutral-900">
             전체 디자이너 →
-          </Link>
+          </ExploreLink>
         </div>
 
         {/* 피드는 캐시하지 않는다 — 디자이너가 작업을 올리거나 프로필을 숨기면
             곧 반영돼야 한다. 대신 Suspense 로 감싸 히어로가 먼저 나가게 한다
             (탐색 화면과 같은 방식). */}
-        <Suspense fallback={<FeedSkeleton />}>
-          <Feed />
-        </Suspense>
+        {/* 공개 전에는 흐린 임시 이미지 위에 공개 예정 문구를 띄운다(works-teaser.tsx) */}
+        {PRE_LAUNCH ? (
+          <WorksTeaser />
+        ) : (
+          <Suspense fallback={<FeedSkeleton />}>
+            <Feed />
+          </Suspense>
+        )}
       </section>
 
       {/* 작업을 쭉 본 뒤 바로 의뢰로 넘어가는 자리 — 푸터 바로 위에 둔다 */}
@@ -102,12 +105,9 @@ function Hero() {
         </p>
 
         <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-          <Link
-            href="/explore"
-            className="rounded-xl bg-neutral-900 px-7 py-4 text-sm font-semibold text-white transition hover:bg-violet-600"
-          >
+          <ExploreLink className="rounded-xl bg-neutral-900 px-7 py-4 text-sm font-semibold text-white transition hover:bg-violet-600">
             디자이너 탐색하기
-          </Link>
+          </ExploreLink>
           {/* 같은 화면 안으로 내려가는 앵커다 — Link 로 바꾸면 라우터를 거쳐
               스크롤이 끊긴다. 브라우저 기본 동작(부드러운 스크롤은 globals.css)에 맡긴다. */}
           <a
