@@ -44,6 +44,9 @@ export type InquiryRow = {
      그 디자이너가 지워졌어도 이름은 남아 있다. */
   designer_id: string | null
   designer_name: string | null
+  /* 그 디자이너의 초대 링크로 들어와 보낸 의뢰(0006_invite_link.sql) — 다른 디자이너에게 넘기지 않는다.
+     0006 전에는 select('*') 에 없어 undefined 로 온다. */
+  via_ref?: boolean
 
   files: InquiryFile[]
 
@@ -57,11 +60,12 @@ export type InquiryRow = {
 }
 
 /* 목록 필터 — 전체와 두 상태 */
-export const INQUIRY_FILTERS = ['all', 'unread', 'read'] as const
+export const INQUIRY_FILTERS = ['all', 'unread', 'read', 'ref'] as const
 export type InquiryFilter = (typeof INQUIRY_FILTERS)[number]
 
 export const FILTER_LABELS: Record<InquiryFilter, string> = {
   all: '전체',
   unread: '미확인',
   read: '확인',
+  ref: '초대 링크',
 }

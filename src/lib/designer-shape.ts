@@ -53,6 +53,8 @@ export type DesignerRow = {
      035 전에는 select('*') 에 없어 undefined 로 온다. */
   full_design_price?: number
   project_price?: number
+  /* 고객 초대 링크 코드(0006_invite_link.sql) — 0006 전에는 undefined */
+  ref_code?: string
 }
 
 /* 화면으로 내려보내는 모양 — 비밀번호 해시를 뺀 나머지 전부 */

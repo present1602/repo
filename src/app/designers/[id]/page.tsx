@@ -19,6 +19,7 @@ import { Img } from '@/components/img'
 import { WorkGallery } from '@/components/work-gallery'
 import { PlanPanel } from '@/components/plan-panel'
 import { BioText } from '@/components/bio-text'
+import { RefCapture } from '@/components/ref-capture'
 
 /* 공개 여부가 수시로 바뀌므로 캐시하지 않는다 — 비공개로 돌리면 곧 404 가 된다.
    "use cache" 를 쓰지 않으면 cacheComponents 아래에서 요청마다 새로 읽는다.
@@ -80,6 +81,7 @@ async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>[
 
   return (
     <div className="flex-1 bg-white">
+      <RefCapture designerId={d.id} />
       <div className="mx-auto max-w-7xl px-5 pb-16 md:px-8">
         <nav className="py-5 text-sm text-neutral-500">
           <Link href="/explore" className="transition hover:text-neutral-900">

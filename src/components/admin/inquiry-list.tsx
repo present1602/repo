@@ -37,12 +37,18 @@ export function InquiryList({
       all: inquiries.length,
       unread: inquiries.filter((i) => i.status === 'unread').length,
       read: inquiries.filter((i) => i.status === 'read').length,
+      ref: inquiries.filter((i) => i.via_ref).length,
     }),
     [inquiries],
   )
 
   const shown = useMemo(
-    () => (filter === 'all' ? inquiries : inquiries.filter((i) => i.status === filter)),
+    () =>
+      filter === 'all'
+        ? inquiries
+        : filter === 'ref'
+          ? inquiries.filter((i) => i.via_ref)
+          : inquiries.filter((i) => i.status === filter),
     [inquiries, filter],
   )
 
@@ -162,6 +168,12 @@ function InquiryItem({
             {q.designer_name && (
               <span className="text-xs text-neutral-500">→ {q.designer_name}</span>
             )}
+            {/* 디자이너가 데려온 고객 — 다른 디자이너에게 넘기지 않는다 */}
+            {q.via_ref && (
+              <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                초대 링크
+              </span>
+            )}
             {/* 메일이 안 나갔으면 알린다 — 메일만 보는 사람은 놓친다 */}
             {!q.mailed && (
               <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-800">
@@ -235,6 +247,11 @@ function Detail({
             ) : (
               q.designer_name
             )}
+          </Row>
+        )}
+        {q.via_ref && (
+          <Row k="경로">
+            <span className="text-emerald-700">초대 링크 — 이 디자이너에게 전달 · 본계약 시 섭외 보너스</span>
           </Row>
         )}
         {q.status_at && (

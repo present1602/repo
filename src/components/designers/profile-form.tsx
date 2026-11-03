@@ -14,6 +14,7 @@ import { NAME_MAX, nameError } from '@/lib/display-name'
 import { updateProfile, updateAvatar, setProfilePublic } from '@/app/studio/actions'
 import { Img } from '@/components/img'
 import { Flash } from '@/components/flash'
+import { InviteLinkRow } from './invite-link-row'
 
 export function ProfileForm({
   designer: d,
@@ -62,6 +63,8 @@ export function ProfileForm({
       <PublicToggle designer={d} works={works} onMessage={setMsg} />
 
       <AvatarPicker designer={d} onMessage={setMsg} />
+
+      <InviteLinkRow code={d.ref_code} />
 
       <form onSubmit={submit} className="space-y-3.5">
         <Flash msg={msg} onDone={() => setMsg(null)} />

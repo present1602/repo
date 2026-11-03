@@ -93,6 +93,7 @@ export async function POST(req: Request) {
     const designerId = String(form.get('designerId') ?? '').trim()
     let designerName = String(form.get('designerName') ?? '').trim()
     const submitKey = String(form.get('submitKey') ?? '').trim()
+    const ref = String(form.get('ref') ?? '').trim().slice(0, 40)
 
     if (!name || !email || !phone || !message) {
       return bad('성함, 이메일, 연락처, 문의내용은 필수입니다.')
@@ -142,6 +143,19 @@ export async function POST(req: Request) {
       const { data: d } = await db.from('designers').select('name').eq('id', designerId).maybeSingle()
       const real = (d?.name as string | null | undefined)?.trim()
       if (real) designerName = real
+    }
+
+    /* 초대 링크(0006) — 받는 디자이너의 코드와 같을 때만 초대로 친다.
+       다른 디자이너 링크로 들어왔거나 지어낸 코드면 그냥 일반 의뢰다 */
+    let viaRef = false
+    if (designerId && ref) {
+      const { data: d, error: refErr } = await db
+        .from('designers')
+        .select('ref_code')
+        .eq('id', designerId)
+        .maybeSingle()
+      if (refErr) console.warn('[inquiry] 초대 코드 확인 실패(0006 전?):', refErr.message)
+      viaRef = d?.ref_code === ref
     }
 
     /* 이미 받은 접수면 파일도 메일도 다시 처리하지 않는다.
@@ -211,6 +225,8 @@ export async function POST(req: Request) {
       designer_name: designerName || null,
       files: uploaded,
       submit_key: submitKey || null,
+      /* 0006 전 DB 에는 칸이 없다 — 그때는 코드도 맞을 수 없어 값이 붙지 않는다 */
+      ...(viaRef ? { via_ref: true } : {}),
     }
     const insert = (row: Record<string, unknown>) =>
       db.from('inquiries').insert(row).select('id').single()
@@ -259,7 +275,7 @@ export async function POST(req: Request) {
           /* 답장을 누르면 바로 문의한 사람에게 간다 */
           replyTo: email,
           subject: designerName
-            ? `[${typeLabel}] ${name} → ${designerName}`
+            ? `[${typeLabel}] ${name} → ${designerName}${viaRef ? ' (초대 링크)' : ''}`
             : `[${typeLabel}] ${name}`,
           html: mailHtml({
             id: row.id as string,
@@ -269,6 +285,7 @@ export async function POST(req: Request) {
             message,
             inquiryType: typeLabel,
             designerName,
+            viaRef,
             uploaded,
           }),
         })
@@ -298,6 +315,7 @@ function mailHtml({
   message,
   inquiryType,
   designerName,
+  viaRef,
   uploaded,
 }: {
   id: string
@@ -307,6 +325,7 @@ function mailHtml({
   message: string
   inquiryType: string
   designerName: string
+  viaRef: boolean
   uploaded: Uploaded[]
 }) {
   const rows: [string, string][] = [
@@ -314,7 +333,7 @@ function mailHtml({
     ['성함 / 회사명', name],
     ['이메일', email],
     ['연락처', phone],
-    ['받는 디자이너', designerName || '지정 안 함'],
+    ['받는 디자이너', designerName ? `${designerName}${viaRef ? ' · 초대 링크로 온 의뢰' : ''}` : '지정 안 함'],
   ]
 
   return `

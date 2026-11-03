@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { Consent, Dialog, Done, Field, FileField, ReadonlyRow, inputCls } from './form-bits'
 import { dividerBefore, type CategoryChoice, type InquiryScope, type ScopeOption } from '@/lib/inquiry-choices'
 import { getGeneralInquiryChoices } from '@/app/inquiry-actions'
+import { recalledRef } from '@/lib/invite-link'
 
 /* 유형 카드 안의 기본·프리미엄 전환 한 칸.
    라디오 label 안에 있으므로 type="button" — 폼을 보내지 않고, 누름이
@@ -145,6 +146,9 @@ export function InquiryModal({
       body.set('submitKey', submitKey)
       if (designerId) body.set('designerId', designerId)
       if (designerName) body.set('designerName', designerName)
+      /* 그 디자이너의 초대 링크로 들어왔으면 코드를 함께 — 맞는지는 서버가 본다 */
+      const ref = designerId ? recalledRef(designerId) : null
+      if (ref) body.set('ref', ref)
 
       const res = await fetch('/api/inquiry', { method: 'POST', body })
       const data = (await res.json()) as { ok: boolean; error?: string }
