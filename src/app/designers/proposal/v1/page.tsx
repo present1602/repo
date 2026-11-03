@@ -16,25 +16,21 @@ export const metadata: Metadata = {
 
 /* 디자이너 모집 제안서 v1.
 
-   v1-2 와 같고 마지막 쪽만 다르다 — 메일로 받던 지원을 디자이너 신청
-   화면(/designers/apply)으로 보낸다. 메일 주소는 문의 창구로 남겼다.
-
-   아래는 v1.1 때의 설명이다.
-
-   ref/soom-design 의 ProposalV2 를 옮겼다. v1(5쪽)보다 두 쪽이 늘고
-   이야기가 다시 짜였다 —
-     02 수익       숫자로 보는 샘플 시안 수익 + 네 가지 이점
-     03 시안 먼저   기존 외주와의 대비, 본계약으로 가는 흐름
-     04 의뢰 유형   받을 유형을 직접 체크
-     05 부업       소액만 체크하면 부업, 더 받으면 본업
-     06 자격
-     07 11월 이벤트  첫 거래 축하 선물 + 소개 페이지 직접 공유
-     08 지원
+   v0.1 의 소액 외주·부업 이야기를 걷어냈다 — 메인 시안을 맡긴 디자이너와
+   본계약까지 가길 바라는 클라이언트에게, 본계약은 다른 디자이너가 한다는
+   구조는 거부감을 준다. 그래서 SOOM 이 받는 의뢰와 AI 로 일하는 방식을 앞에 둔다.
+     01 표지
+     02 SOOM 이 받는 의뢰  랜딩페이지 개발 · Web/App 개발 · 로고/일러스트, 메인 시안 우선 의뢰
+     03 AI               투입 시간은 줄이고 퀄리티는 높인다, AI 활용 포트폴리오
+     04 선택             받을 분야만 고른다 + 바이브코딩 기술 지원
+     05 자격
+     06 11월 이벤트       첫 거래 축하 선물
+     07 지원
 
    원본의 picsum 자리 채우기 사진은 넣지 않는다 — 내용이 없는 그림이
    모바일에서 화면을 통째로 먹는다. 분위기가 필요한 자리는 색으로 대신한다. */
 
-const TOTAL = 8
+const TOTAL = 7
 const BRAND = 'SOOM · Designer Proposal'
 
 export default function ProposalV14Page() {
@@ -96,17 +92,20 @@ export default function ProposalV14Page() {
 
             {/* 이 제안서가 한 줄로 말하는 것 — 표지 우측에 둔다.
                 표지에서 가장 먼저 읽혀야 하므로 크게 세운다. */}
-            <div className="relative ml-auto mt-14 max-w-[16rem] text-right text-white md:mt-0 md:max-w-[20rem] md:flex-1 md:self-center">
+            {/* @container — 글씨 크기를 화면이 아니라 이 쪽의 폭에 맞춘다(cqw). 펼침면은
+                화면 폭의 반이라 화면 기준으로 잡으면 md~lg 에서 줄이 넘친다.
+                폭을 꽉 채워야(w-full) 쪽의 폭이 잡힌다 — 내용 폭으로 줄면 cqw 가 0 이 된다. */}
+            <div className="@container relative mt-14 w-full pr-1 text-right text-white md:mt-0 md:flex md:flex-1 md:flex-col md:justify-center md:pr-4">
               <span className="ml-auto block h-0.5 w-12 bg-violet-400" />
               {/* 큰 글씨 세 줄이 PC에서는 너무 붙어 보인다 — 넓은 화면만 줄간격을 올린다.
-                  줄은 <br /> 로만 나눈다 — '디자이너들의'가 상자 폭에 거의 꽉 차서,
-                  그림으로 뜰 때 글자 폭이 조금만 넓게 잡혀도 '의'가 넘어간다 */}
-              <p className="mt-6 whitespace-nowrap text-3xl font-semibold leading-tight md:text-5xl md:leading-[1.4]">
-                책임감 있는
+                  줄은 <br /> 로만 나누고 꺾지 않는다. 가장 긴 둘째 줄(약 12글자 폭)이
+                  쪽 폭의 90% 안에 들도록 7.5cqw 로 잡고, 넓은 화면에서는 2.75rem 에서 멈춘다 */}
+              <p className="mt-6 whitespace-nowrap text-[min(7.5cqw,2.75rem)] font-semibold leading-tight md:leading-[1.4]">
+                소액의뢰로 시작해                <br />
+                더 큰 계약으로 <br/>
+                이어질 수 있는
                 <br />
-                디자이너들의
-                <br />
-                <span className="text-violet-300">부업 플랫폼</span>
+                <span className="text-violet-300">디자인 외주 플랫폼</span>
               </p>
             </div>
 
@@ -117,231 +116,142 @@ export default function ProposalV14Page() {
           </div>
         </Spread>
 
-        {/* ─────────── 02 REVENUE ─────────── */}
+        {/* ─────────── 02 WHAT WE DO ─────────── */}
         <Spread id={2}>
-          <Half
-            tone="cream"
-            top={['Feature · 01', 'SOOM Edition · Vol. 01']}
-            foot={[BRAND, 'L']}
-          >
-            <Label>Revenue</Label>
-            <h2 className="mt-5 text-2xl font-semibold leading-snug tracking-tight md:text-4xl">
-              <span className="text-violet-600"></span>
-            </h2>
-            {/* 금액은 줄바꿈 없이 한 줄로 읽혀야 한다 — 좁은 화면에서
-                글자를 줄여 끊기지 않게 한다 */}
-            <p className="mt-1 text-2xl font-light tracking-tight text-violet-600 sm:text-3xl md:text-4xl md:mb-8">
-              건당 ₩29,000<span className="text-base md:text-2xl">~</span>129,000
-            </p>
-
-            {/* 건당 금액보다 "한 달에 얼마"가 와닿는다 — 여기를 크게 둔다 */}
-            <p className="mt-4 text-lg font-semibold leading-snug tracking-tight md:text-2xl">
-              퇴근 후 한 건, 주말에 한 건,
+          <Half tone="cream" top={['Feature · 01', 'What we do']} foot={[BRAND, 'L']}>
+            <Label>What we do</Label>
+            <h2 className="mt-5 text-3xl font-semibold leading-snug tracking-tight md:text-5xl">
+              SOOM에서는
               <br />
-              매주 두 건 정도만 해도{' '}
-              <span className="text-violet-600">50~80만원</span>의 부가수익을 얻을 수 있어요.
+              <span className="text-violet-600">세 가지 의뢰</span>를 받아요.
+            </h2>
+            <Rule />
+            {/* 분야 이름만 크게 — 무엇을 어떻게 하는지는 오른쪽 쪽에서 */}
+            <ul className="border-t border-neutral-300">
+              {['랜딩페이지 개발', 'Web/App 개발', '로고/일러스트'].map((t, i) => (
+                <li
+                  key={t}
+                  className="flex items-baseline gap-4 border-b border-neutral-300 py-3.5 md:py-4"
+                >
+                  <span className="font-mono text-xs text-violet-600">{pad(i + 1)}</span>
+                  <span className="text-lg font-semibold md:text-2xl">{t}</span>
+                </li>
+              ))}
+            </ul>
+          </Half>
+
+          <Half tone="white" top={['How it works', '2026']} foot={[BRAND, `02 / ${pad(TOTAL)}`]}>
+            <Label>How it works</Label>
+            <dl className="mt-6 space-y-5 md:mt-7">
+              {[
+                [
+                  '랜딩페이지',
+                  '디자인과 개발까지 포함된 의뢰예요. 디자이너는 디자인만 맡고, 개발은 SOOM이 해요.',
+                ],
+                [
+                  'Web/App',
+                  '클라이언트가 디자인 의뢰, 또는 디자인 + 개발 전체 의뢰 중에서 골라요. 개발은 마찬가지로 SOOM 개발자와 협력해요.',
+                ],
+                ['로고/일러스트', '로고 · 일러스트 디자인 의뢰예요.'],
+              ].map(([t, s]) => (
+                <div key={t}>
+                  <dt className="font-semibold">{t}</dt>
+                  <dd className="mt-1 text-sm leading-relaxed text-neutral-600">{s}</dd>
+                </div>
+              ))}
+            </dl>
+
+            {/* 메인 시안 우선 의뢰 — 클라이언트 쪽 장치지만 디자이너에게는
+                더 큰 계약으로 가는 길이라 이 쪽의 결론으로 둔다 */}
+            <div className="mt-7 bg-violet-600 px-5 py-5 text-white md:mt-8 md:px-6">
+              <p className="text-[10px] tracking-[0.3em] text-violet-200">MAIN DRAFT FIRST</p>
+              <p className="mt-2 font-semibold md:text-lg">메인 시안 우선 의뢰</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-violet-50">
+                클라이언트는 Web/App 메인 시안만 먼저 의뢰할 수 있어 의뢰 부담이 낮아요. 시안이
+                마음에 들면 더 큰 계약, 더 큰 수익으로 이어져요.
+              </p>
+            </div>
+          </Half>
+        </Spread>
+
+        {/* ─────────── 03 AI ─────────── */}
+        <Spread id={3}>
+          <Half tone="cream" top={['Feature · 02', 'AI workflow']} foot={[BRAND, 'L']}>
+            <Label>AI × Design</Label>
+            <h2 className="mt-5 text-3xl font-semibold leading-snug tracking-tight md:text-5xl">
+              투입 시간은 줄이고,
+              <br />
+              <span className="text-violet-600">퀄리티는 높이고.</span>
+            </h2>
+            <Rule />
+            <p className="max-w-md text-base leading-relaxed text-neutral-600 md:text-lg">
+              SOOM은 AI의 효율적인 활용을 추구해요. 반복되는 작업은 AI에 맡기고, 디자이너는
+              판단과 완성도에 집중합니다.
             </p>
-            <p className="mt-2 text-sm text-neutral-600">웹/앱 메인 · 주요 화면 시안 2장 ~ 6장</p>
-            {/* <p className="mt-2 text-sm text-neutral-600">AI 활용으로 빠르고 효율적으로 작업합니다.</p> */}
+          </Half>
 
-            {/* 상한은 디자이너마다 다르다 — 금액 바로 아래에서 짚어야
-                처음 보는 사람이 129,000원부터 받는 것으로 오해하지 않는다 */}
-            {/* <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-              처음에는 99,000원 이하 의뢰만 가능하지만, 경력이나 프로젝트 실적에 따라 상한
-              금액이 올라갑니다.
-            </p> */}
+          <Half tone="white" top={['For designers', '2026']} foot={[BRAND, `03 / ${pad(TOTAL)}`]}>
+            <span className="grid size-9 place-items-center rounded-full bg-violet-600 font-serif text-lg text-white">
+              &ldquo;
+            </span>
+            <p className="mt-5 text-xl font-medium leading-snug md:text-3xl">
+              전통적인 웹 · UI/UX 디자이너에게는
+              <br />
+              <span className="text-violet-600">AI 실무 역량</span>을 키울 기회예요.
+            </p>
 
-            {/* 어떤 도구를 쓰는지 — 이 쪽의 주인공은 금액과 수익이라
-                테두리 없이 옅은 바탕으로만 두어 눈에 덜 걸리게 한다 */}
-            {/* <div className="mt-3 flex flex-wrap gap-1.5">
-              {['FIGMA AI', 'FIGMA MAKE', 'DESIGN SYSTEM'].map((t) => (
+            <div className="mt-7 grid grid-cols-2 gap-3 md:mt-8">
+              {[
+                ['실무 AI 활용', '실제 클라이언트 작업에서 AI 활용 기술을 높여요.'],
+                ['AI 포트폴리오', 'AI를 활용한 결과물이 포트폴리오로 쌓여요.'],
+              ].map(([t, s], i) => (
+                <div key={t} className="border border-neutral-300 p-4 md:p-5">
+                  <span className="text-[10px] tracking-[0.2em] text-neutral-500">NO.{pad(i + 1)}</span>
+                  <p className="mt-3 font-semibold md:mt-4">{t}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-neutral-600">{s}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              {['FIGMA AI', 'FIGMA MAKE', 'DESIGN SYSTEM', 'CHATGPT', 'CLAUDE', 'V0'].map((t) => (
                 <span
                   key={t}
-                  className="rounded bg-neutral-200/70 px-2 py-1 text-[10px] font-medium tracking-[0.12em] text-neutral-500"
+                  className="border border-neutral-300 py-2 text-center text-[10px] tracking-[0.2em]"
                 >
                   {t}
                 </span>
               ))}
-            </div> */}
-
-            <div className="mt-7 grid grid-cols-2 gap-6 border-t border-neutral-300 pt-7 md:mt-8 md:pt-8">
-              <div>
-                <p className="text-4xl font-light text-violet-600 md:text-5xl">
-                  0<span className="text-xl md:text-2xl">%</span>
-                </p>
-                <p className="mt-1 text-sm text-neutral-600">
-                  플랫폼 수수료
-                  <br />
-                  <span className="text-neutral-400">소액 의뢰 건은 수수료 0%</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-4xl font-light text-violet-600 md:text-5xl">
-                  1<span className="text-xl md:text-2xl">건~</span>
-                </p>
-                <p className="mt-1 text-sm text-neutral-600">
-                  원하는 만큼만
-                  <br />
-                  <span className="text-neutral-400">부담 없는 부업 구조</span>
-                </p>
-              </div>
             </div>
-          </Half>
-
-          <Half tone="white" top={['Why SOOM', '2026']} foot={[BRAND, `02 / ${pad(TOTAL)}`]}>
-            <Label>Four benefits</Label>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              {[
-                ['부업 수익', '퇴근 후 부업으로 더 벌 수 있어요.'],
-                ['디자이너 친화적 수익모델', '소액 외주 건과 개발협력 건에 대해서는 수수료 0%'],
-                ['포트폴리오', '돈을 벌면서 자연스럽게 결과물 쌓여요.'],
-                ['더 큰 계약', '소액 외주가 더 큰 계약으로 이어질 수 있어요.'],
-              ].map(([t, s], i) => (
-                <div key={t} className="border border-neutral-300 p-4 md:p-5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] tracking-[0.2em] text-neutral-500">
-                      NO.{pad(i + 1)}
-                    </span>
-                    <span className="grid size-6 place-items-center rounded-full bg-violet-600 text-[10px] text-white">
-                      ✓
-                    </span>
-                  </div>
-                  <p className="mt-4 font-semibold md:mt-5">{t}</p>
-                  <p className="mt-1 text-xs text-neutral-600">{s}</p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-4 bg-violet-600 px-5 py-4 text-sm font-semibold text-white">
-              + 주요 시안: 웹 / 앱 메인 화면 · 주요 화면
-            </p>
+            <p className="mt-3 text-[10px] tracking-[0.3em] text-neutral-500">AI DESIGN STACK</p>
           </Half>
         </Spread>
 
-        {/* ─────────── 03 SAMPLE FIRST ─────────── */}
-        <Spread id={3}>
-          <Half tone="cream" top={['Feature · 02', 'Your choice']} foot={[BRAND, 'L']}>
-            {/* 우측 쪽과 같은 값만큼 올려 두 쪽의 첫 줄이 같은 높이에서 시작한다 */}
-            <div className="md:-mt-12">
-              <Label>Choice</Label>
-
-              {/* 같은 문장이 우측에서 크게 나오므로 좌측은 한 줄로만 받는다.
-                  라벨 쪽으로 당겨 붙이고, 줄어든 만큼 아래 본문과 벌린다. */}
-              <h2 className="mt-3 text-2xl font-semibold leading-snug tracking-tight md:mt-4 md:text-4xl">
-                클라이언트와 디자이너 모두 <br/>
-                <span className="text-violet-600">원하는 의뢰 유형 선택</span>
-              </h2>
-
-              {/* 클라이언트가 무엇을 의뢰하는지 먼저 — 그걸 알아야
-                  "그중에서 고른다"가 이해된다. */}
-              <p className="mt-8 text-lg leading-relaxed text-neutral-600 md:mt-12 md:text-xl">
-                SOOM에게 의뢰를 주는 클라이언트는
-                <br />
-                <b className="font-semibold text-neutral-900">메인 시안만 의뢰</b>,{' '}
-                <b className="font-semibold text-neutral-900">디자인 전체 의뢰</b>,{' '}
-                <b className="font-semibold text-neutral-900">디자인 + 개발 의뢰</b> 중에서
-                선택합니다.
-              </p>
-            </div>
-          </Half>
-
-          <Half tone="white" top={['The client', '2026']} foot={[BRAND, `03 / ${pad(TOTAL)}`]}>
-            {/* Half 의 세로 가운데 정렬은 그대로 두고 그 자리에서만 조금 올린다 —
-                mb-auto 로 아래를 비우면 쪽 맨 위에 붙어버린다. */}
-            <div className="md:-mt-12">
-              <p className="text-sm font-medium tracking-[0.2em] text-violet-600">
-                클라이언트가 고르는 것
-              </p>
-
-              {/* 디자이너에게는 배경 설명일 뿐이다 — 테두리 대신 사이 구분선만 두고
-                  한 줄에 셋을 나란히 놓아 아래 핵심 문장에 자리를 넘긴다. */}
-              <ul className="mt-5 grid grid-cols-3 divide-x divide-neutral-200">
-                {[
-                  ['메인 시안만 의뢰', '29,000 ~ 129,000원'],
-                  ['디자인 전체 의뢰', '본계약'],
-                  ['디자인 + 개발 의뢰', '본계약'],
-                ].map(([t, price], i) => (
-                  /* 첫 칸만 왼쪽 패딩을 떼어 글자가 쪽의 왼쪽 선에 맞는다 */
-                  <li key={t} className={i === 0 ? 'pr-3' : 'px-3 last:pr-0'}>
-                    <span className="block font-mono text-xs text-violet-600">{pad(i + 1)}</span>
-                    <span className="mt-1.5 block text-sm font-medium">{t}</span>
-                    <span className="mt-1 block text-xs text-neutral-500">{price}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* 제안서의 핵심 문장 — 좌측에서 넘겨받아 여기서 크게 말한다 */}
-              <p className="mt-8 text-2xl md:text-3xl font-semibold leading-snug tracking-tight md:text-3xl md:leading-[1.45]">
-                디자이너는 그 중 <br/>
-                <span className="text-violet-600">받고자 하는 의뢰유형만
-                <br />
-                직접 선택</span> 합니다.
-              </p>
-
-             
-
-            </div>
-          </Half>
-        </Spread>
-
-        {/* ─────────── 04 SIDE JOB ─────────── */}
+        {/* ─────────── 04 CHOICE ─────────── */}
         <Spread id={4}>
-          <Half tone="cream" top={['Feature · 03', 'Side job']} foot={[BRAND, 'L']}>
-            <Label>For side job</Label>
+          <Half tone="cream" top={['Feature · 03', 'Your choice']} foot={[BRAND, 'L']}>
+            <Label>Your choice</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-snug tracking-tight md:text-5xl">
-              본업이 바빠 <br/>
-              <span className="text-violet-600">
-                시간이 별로 없다면
+              받고 싶은 의뢰만
               <br />
-              소액 의뢰만
-              체크</span>하세요.
+              <span className="text-violet-600">골라서 받으세요.</span>
             </h2>
             <Rule />
-            <p className="max-w-sm text-base leading-relaxed text-neutral-600 md:text-lg">
-              시간 부담 없이, 퇴근 후·주말에 한 건씩 진행할 수 있습니다.
+            <p className="max-w-md text-base leading-relaxed text-neutral-600 md:text-lg">
+              로고 디자인만 원한다면 로고만, 랜딩페이지나 Web/App만 원한다면 그것만. 설정에서
+              언제든 바꿀 수 있어요.
             </p>
           </Half>
 
-          <Half tone="white" top={['Types', '2026']} foot={[BRAND, `04 / ${pad(TOTAL)}`]}>
+          <Half tone="white" top={['Settings', '2026']} foot={[BRAND, `04 / ${pad(TOTAL)}`]}>
+            <p className="text-sm font-medium tracking-[0.2em] text-violet-600">받을 분야 고르기</p>
 
-            <p className="mt-4 text-md md:text-xl leading-relaxed">
-              <span className="text-violet-600 font-semibold">바쁠 때는 메인 시안만, 여유가 생기면 더 큰 건까지 — </span>
-              <br/>설정에서 언제든 바꿀 수
-              있습니다.
-            </p>
-
-            <p className="mt-4 text-md md:text-xl leading-relaxed">
-              <span className="text-violet-600 font-semibold">
-                혹시 소액외주는 싫다면 — </span>
-              <br/>
-              본계약 건 의뢰만 체크할 수도 있어요.            
-            </p>
-
-            <p className="mt-10 text-sm font-medium tracking-[0.2em] text-violet-600 md:mt-10">
-              받을 유형 고르기
-            </p>
-
-            {/* 앞 쪽에서 본 세 유형 중 무엇을 켤지 — 체크 모양 그대로 */}
+            {/* 앞 쪽의 세 가지 중 무엇을 켤지 — 체크 모양 그대로 */}
             <div className="mt-4 space-y-2.5">
               {[
-                {
-                  t: '메인 시안 의뢰',
-                  s: '웹/앱 메인 · 주요 화면 시안',
-                  price: '29,000 ~ 129,000원',
-                  on: true,
-                  tag: '기본',
-                },
-                {
-                  t: '디자인 전체 의뢰',
-                  s: '서비스 전체 화면 디자인',
-                  price: '본계약',
-                  on: false,
-                },
-                {
-                  t: '디자인 + 개발 의뢰',
-                  s: '개발자와 협업하는 통합 프로젝트',
-                  price: '본계약',
-                  on: false
-                },
+                { t: '랜딩페이지 개발', s: '디자인만 하면 개발은 SOOM이', on: true },
+                { t: 'Web/App 개발', s: '디자인 의뢰 · 디자인 + 개발 의뢰', on: true },
+                { t: '로고/일러스트', s: '로고 · 일러스트 디자인', on: false },
               ].map((x) => (
                 <div
                   key={x.t}
@@ -357,95 +267,33 @@ export default function ProposalV14Page() {
                     {x.on ? '✓' : ''}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold">{x.t}</span>
-                      {x.tag && (
-                        <span
-                          className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                            x.on ? 'bg-violet-600 text-white' : 'bg-neutral-200 text-neutral-600'
-                          }`}
-                        >
-                          {x.tag}
-                        </span>
-                      )}
-                    </span>
+                    <span className="block text-sm font-semibold">{x.t}</span>
                     <span className="mt-0.5 block text-xs text-neutral-500">{x.s}</span>
-                  </span>
-                  <span className="shrink-0 text-right text-xs font-semibold text-violet-600">
-                    {x.price}
                   </span>
                 </div>
               ))}
             </div>
-
             <p className="mt-2.5 text-xs leading-relaxed text-neutral-500">
-              * &lsquo;디자인 + 개발 의뢰&rsquo;건은 SOOM과 협력하는 일부 디자이너분들만 받을 수
-              있어요.
-            </p>
-          </Half>
-        </Spread>
-
-        {/* ─────────── 05 THE MODEL ─────────── */}
-        <Spread id={5}>
-          <Half tone="cream" top={['Feature · 04', 'The Model']} foot={[BRAND, 'L']}>
-            <Label>How it works</Label>
-            <h2 className="mt-5 text-2xl font-semibold leading-snug tracking-tight md:text-4xl">
-              소액 메인 시안 의뢰가
-              <br />더 큰 계약으로 이어질 수도 있어요.
-            </h2>
-            <ol className="mt-8 space-y-5 border-l border-violet-600 pl-6 md:mt-10 md:space-y-6">
-              {[
-                ['의뢰 접수', '고객이 29,000원 ~ 129,000원으로 웹/앱 메인 샘플시안 의뢰'],
-                [
-                  'AI 제작',
-                  'AI를 통해 빠르게 디자인시스템 생성, 혹은 기존 디자인시스템을 활용하면서, AI 활용으로 웹/앱 시안을 제작합니다.',
-                ],
-                ['시안 전달', '고객은 결과물을 보고 본 계약 여부를 결정'],
-                ['본 계약', '전체 디자인 외주 · 전체 개발 외주로 확장'],
-              ].map(([t, s], i) => (
-                <li key={t} className="relative">
-                  <span className="absolute -left-[1.85rem] top-1 size-2.5 rounded-full bg-violet-600" />
-                  <p className="text-[10px] tracking-[0.3em] text-neutral-500">
-                    STEP {pad(i + 1)}
-                  </p>
-                  <p className="mt-1 font-semibold">{t}</p>
-                  <p className="text-sm leading-relaxed text-neutral-600">{s}</p>
-                </li>
-              ))}
-            </ol>
-          </Half>
-
-          <Half tone="white" top={['Quote', '2026']} foot={[BRAND, `05 / ${pad(TOTAL)}`]}>
-            <span className="grid size-9 place-items-center rounded-full bg-violet-600 font-serif text-lg text-white">
-              &ldquo;
-            </span>
-            <p className="mt-5 text-xl font-medium leading-snug md:text-3xl">
-              작은 시안 하나가
-              <br />
-              <span className="text-violet-600">더 큰 프로젝트</span>의 시작이 됩니다.
-            </p>
-            <p className="mt-5 text-sm leading-relaxed text-neutral-600">
-              소액 외주로 시작하지만, 시안이 마음에 든 고객은 전체 디자인이나 개발까지 맡기게
-              됩니다. 첫 시안을 만든 디자이너에게 다음 계약의 기회가 먼저 돌아갑니다.
+              * Web/App의 &lsquo;디자인 + 개발 의뢰&rsquo;는 SOOM과 협력하는 일부 디자이너분들만
+              받을 수 있어요.
             </p>
 
-            <div className="mt-7 grid grid-cols-3 gap-2 md:mt-8">
-              {['FIGMA AI', 'FIGMA MAKE', 'DESIGN SYSTEM', 'CHATGPT', 'CLAUDE', 'V0'].map((t) => (
-                <span
-                  key={t}
-                  className="border border-neutral-300 py-2 text-center text-[10px] tracking-[0.2em]"
-                >
-                  {t}
-                </span>
-              ))}
+            {/* 개발은 SOOM 이 하지만, 직접 만들고 싶은 디자이너에게는 길을 열어 둔다 */}
+            <div className="mt-6 flex items-start gap-3 bg-neutral-900 px-5 py-4 text-white md:mt-7">
+              <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-violet-500 font-mono text-[9px] font-bold">
+                {'</>'}
+              </span>
+              <p className="text-sm leading-relaxed text-white/85">
+                <b className="font-semibold text-white">바이브코딩 기술 지원</b> — 원한다면 간단한
+                랜딩페이지는 디자이너가 바이브코딩으로 직접 제작할 수 있도록 SOOM이 도와드려요.
+              </p>
             </div>
-            <p className="mt-3 text-[10px] tracking-[0.3em] text-neutral-500">AI DESIGN STACK</p>
           </Half>
         </Spread>
 
-        {/* ─────────── 06 ELIGIBILITY ─────────── */}
-        <Spread id={6}>
-          <Half tone="cream" top={['Feature · 05', 'Who we look for']} foot={[BRAND, 'L']}>
+        {/* ─────────── 05 ELIGIBILITY ─────────── */}
+        <Spread id={5}>
+          <Half tone="cream" top={['Feature · 04', 'Who we look for']} foot={[BRAND, 'L']}>
             <Label>Eligibility</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
               이런 디자이너를
@@ -461,39 +309,50 @@ export default function ProposalV14Page() {
             </p>
           </Half>
 
-          <Half tone="white" top={['Requirements', '2026']} foot={[BRAND, `06 / ${pad(TOTAL)}`]}>
-            <p className="text-[11px] tracking-[0.35em] text-violet-600">REQUIRED</p>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 bg-neutral-900 px-5 py-4 text-white">
-              <span className="font-semibold">Figma 웹디자인 가능(웹 or 앱 포폴 필수)</span>
-            </div>
-
-            <p className="mt-6 text-[11px] tracking-[0.35em] text-violet-600">AND ONE OF</p>
-            <div className="mt-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 border border-neutral-300 px-5 py-4">
-                <span className="font-medium">실무 경력</span>
-                <span className="text-sm text-neutral-500">6개월 이상</span>
-              </div>
-              <div className="flex items-center gap-3 py-3">
-                <span className="h-px flex-1 bg-neutral-200" />
-                {/* 그림으로 뜰 때 글자 폭이 화면보다 조금 넓게 잡혀 '혹 / 은'으로
-                    끊긴다 — 줄을 못 바꾸게 묶고, 양옆 선이 대신 줄어들게 한다 */}
-                <span className="shrink-0 whitespace-nowrap text-xs tracking-widest text-neutral-400">
-                  OR
-                </span>
-                <span className="h-px flex-1 bg-neutral-200" />
-              </div>
-              <div className="border border-dashed border-neutral-300 px-5 py-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium">디자인계열 전공자</span>
+          <Half tone="white" top={['Requirements', '2026']} foot={[BRAND, `05 / ${pad(TOTAL)}`]}>
+            {/* 분야마다 요건이 다르다 — 필수 하나(검은 띠) + 둘 중 하나(나란히).
+                둘 중 하나를 위아래로 쌓으면 두 묶음이 한 쪽에 들어가지 않는다 */}
+            <div className="space-y-8 md:space-y-9">
+              {[
+                {
+                  area: 'Web/App · 랜딩페이지',
+                  required: 'Figma 웹디자인 가능 (웹 or 앱 포폴 필수)',
+                  oneOf: ['디자인 실무 경력 보유자', '디자인계열 전공자'],
+                },
+                {
+                  area: '로고/일러스트',
+                  required: '로고 포트폴리오 보유',
+                  oneOf: ['디자인 실무 경력 보유자', '디자인계열 전공자'],
+                },
+              ].map((g) => (
+                <div key={g.area}>
+                  <p className="text-sm font-semibold md:text-base">{g.area}</p>
+                  <p className="mt-3 text-[11px] tracking-[0.35em] text-violet-600">REQUIRED</p>
+                  <div className="mt-2 bg-neutral-900 px-5 py-3.5 text-sm font-semibold text-white md:text-base">
+                    {g.required}
+                  </div>
+                  <p className="mt-4 text-[11px] tracking-[0.35em] text-violet-600">AND ONE OF</p>
+                  <div className="mt-2 grid grid-cols-[1fr_auto_1fr] gap-2">
+                    <span className="grid place-items-center border border-neutral-300 px-3 py-3 text-center text-xs font-medium md:px-4 md:text-sm">
+                      {g.oneOf[0]}
+                    </span>
+                    {/* 그림으로 뜰 때 글자 폭이 조금 넓게 잡혀도 끊기지 않게 묶는다 */}
+                    <span className="self-center whitespace-nowrap text-[10px] tracking-widest text-neutral-400">
+                      OR
+                    </span>
+                    <span className="grid place-items-center border border-dashed border-neutral-300 px-3 py-3 text-center text-xs font-medium md:px-4 md:text-sm">
+                      {g.oneOf[1]}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </Half>
         </Spread>
 
-        {/* ─────────── 07 LAUNCH EVENT ─────────── */}
-        <Spread id={7}>
-          <Half tone="cream" top={['Feature · 06', 'Launch event']} foot={[BRAND, 'L']}>
+        {/* ─────────── 06 LAUNCH EVENT ─────────── */}
+        <Spread id={6}>
+          <Half tone="cream" top={['Feature · 05', 'Launch event']} foot={[BRAND, 'L']}>
             <Label>November Event</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
               첫 거래 <span className="text-violet-600">축하선물</span>
@@ -505,7 +364,7 @@ export default function ProposalV14Page() {
             </p>
           </Half>
 
-          <Half tone="white" top={['Gift', '2026']} foot={[BRAND, `07 / ${pad(TOTAL)}`]}>
+          <Half tone="white" top={['Gift', '2026']} foot={[BRAND, `06 / ${pad(TOTAL)}`]}>
             {/* 선물 카드 — 이 쪽의 주인공. 금액을 가장 크게 둔다 */}
             <div className="relative overflow-hidden bg-violet-950 p-6 text-white md:p-8">
               <div
@@ -550,8 +409,8 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 08 CONTACT ─────────── */}
-        <Spread id={8}>
+        {/* ─────────── 07 CONTACT ─────────── */}
+        <Spread id={7}>
           <div className="relative flex min-h-[18rem] flex-col justify-between overflow-hidden bg-violet-950 p-7 text-white md:min-h-[32rem] md:p-12">
             <div
               aria-hidden
@@ -589,45 +448,49 @@ export default function ProposalV14Page() {
             top={['Contact', '2026']}
             foot={[BRAND, `${pad(TOTAL)} / ${pad(TOTAL)}`]}
           >
-            <Label>How to apply</Label>
-            <h2 className="mt-5 text-2xl font-semibold leading-snug tracking-tight md:text-3xl">
-              신청은 두 가지면 충분해요.
-            </h2>
-            <ul className="mt-7 space-y-3 md:mt-8">
-              {[
-                ['01', '이력서', '파일 또는 짧은 자기소개'],
-                ['02', '포트폴리오', '파일 또는 URL'],
-              ].map(([n, t, s]) => (
-                <li
-                  key={n}
-                  className="flex items-center gap-4 border border-neutral-300 px-4 py-4 md:px-5"
-                >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-600 text-xs font-semibold text-white">
-                    {n}
-                  </span>
-                  <span className="font-semibold">{t}</span>
-                  <span className="ml-auto text-right text-xs text-neutral-500">{s}</span>
-                </li>
-              ))}
-            </ul>
+            {/* 신청 길은 둘 — 신청 화면에서 직접, 또는 포트폴리오 링크만 보내고
+                계정은 SOOM 이 만들어 준다. 첫 길은 작게 줄이고 둘째 길에 자리를 넘긴다 */}
+            <div className="md:-mt-6">
+              <Label>How to apply</Label>
+              <p className="mt-4 text-sm text-neutral-600">아래 링크에서 신청해 주세요.</p>
+              <Link
+                href="/designers/apply"
+                className="group mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 bg-violet-600 px-5 py-3.5 text-white transition hover:bg-violet-700"
+              >
+                <span className="text-[10px] tracking-[0.3em] text-violet-200">APPLY</span>
+                <span className="text-sm font-semibold md:text-base">SOOM 디자이너 신청하기</span>
+                <span className="ml-auto transition group-hover:translate-x-1">→</span>
+              </Link>
 
-            {/* v1-2 에서는 여기가 지원 메일이었다 — 신청은 신청 화면으로 보내고,
-                메일은 궁금한 점을 묻는 창구로 작게 남긴다 */}
-            <Link
-              href="/designers/apply"
-              className="group mt-6 flex flex-wrap items-center gap-x-4 gap-y-1 bg-violet-600 px-5 py-5 text-white transition hover:bg-violet-700"
-            >
-              <span className="text-[10px] tracking-[0.3em] text-violet-200">APPLY</span>
-              <span className="text-base font-semibold md:text-lg">SOOM 디자이너 신청하기</span>
-              <span className="ml-auto transition group-hover:translate-x-1">→</span>
-            </Link>
-            <a
-              href="mailto:manager@soom.it?subject=[SOOM 디자이너 문의]"
-              className="mt-3 flex items-center gap-3 text-sm text-neutral-500 transition hover:text-violet-600"
-            >
-              <span className="text-[10px] tracking-[0.3em]">문의</span>
-              manager@soom.it
-            </a>
+              <div className="flex items-center gap-3 py-4">
+                <span className="h-px flex-1 bg-neutral-200" />
+                <span className="shrink-0 whitespace-nowrap text-xs font-medium text-neutral-500">
+                  OR
+                </span>
+                <span className="h-px flex-1 bg-neutral-200" />
+              </div>
+
+              {/* 링크만 받으면 계정·포트폴리오는 SOOM 이 대신 만든다 — 신청 폼을
+                  채우기 번거로운 디자이너를 놓치지 않으려고 */}
+              <div className="bg-violet-50 px-5 py-4">
+                <p className="text-[15px] leading-relaxed text-neutral-700 md:text-base">
+                  포트폴리오를 다운받을 수 있는 링크(노트폴리오 등)가 있다면,{' '}
+                  <b className="font-semibold text-neutral-900">이메일 · 링크 · 이름 · 전공 </b>만 SOOM에게
+                  전달해 주세요. 
+                  <br/>
+                  직접 디자이너 계정을 만들고 포트폴리오까지 업로드한 뒤, 임시
+                  비밀번호와 함께 계정을 전달드려요.
+                  <br/>
+                  (물론 직접 로그인 후 모든 정보를 수정 가능합니다.)
+                </p>
+                {/* 링크(mailto)로 두지 않는다 — 웹메일을 쓰는 사람에게는 쓰지 않는 메일 앱이
+                    열린다. 주소만 보여 주고 각자 메일에서 보내게 한다(복사하기 쉽게 select-all) */}
+                <p className="mt-3 text-[15px] text-neutral-700 md:text-base">
+                  <span className="mr-2 text-[11px] tracking-[0.3em] text-neutral-500">EMAIL</span>
+                  <span className="select-all font-semibold text-violet-700">manager@soom.it</span>
+                </p>
+              </div>
+            </div>
 
             <div className="mt-8 flex justify-between border-t border-neutral-200 pt-6 text-[10px] tracking-[0.3em] text-neutral-500 md:mt-10">
               <span>END OF ISSUE 01</span>

@@ -41,7 +41,17 @@ function TierButton({
   )
 }
 
-/* 분야 버튼 줄 — 1~3개는 한 줄, 4개는 2×2, 5개 이상은 3열로 왼쪽부터 채운다 */
+/* 금액과 그 아래 'VAT 별도' — 폼에 나가는 금액은 모두 부가세 별도다 */
+function Price({ label, className }: { label: string; className: string }) {
+  return (
+    <span className="shrink-0 text-right">
+      <span className={`block ${className}`}>{label}</span>
+      <span className="block text-[11px] font-normal text-neutral-500">VAT 별도</span>
+    </span>
+  )
+}
+
+/* 분야 버튼 줄 —1~3개는 한 줄, 4개는 2×2, 5개 이상은 3열로 왼쪽부터 채운다 */
 const CATEGORY_COLS: Record<number, string> = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3' }
 function categoryCols(n: number) {
   return CATEGORY_COLS[n <= 3 ? n : n === 4 ? 2 : 3]
@@ -227,13 +237,20 @@ export function InquiryModal({
                 {/* 고른 분야의 범위 — 여럿이면 라디오, 하나면 한 줄 */}
                 {cat && single && (
                   <div className="flex items-start justify-between gap-3 rounded-xl bg-neutral-50 px-4 py-3.5 ring-1 ring-neutral-200">
-                    <div className="min-w-0">
-                      <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-700">
-                        {single.label}
-                      </span>
-                      <p className="mt-1.5 text-xs leading-relaxed text-neutral-600">{single.desc}</p>
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      {/* 범위가 정해진 분야는 제목만 — '디자인만 의뢰' 같은 범위 이름은 고를 게 없어 군더더기다 */}
+                      {single.title ? (
+                        <span className="text-sm font-semibold">{single.title}</span>
+                      ) : (
+                        <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-700">
+                          {single.label}
+                        </span>
+                      )}
+                      {single.desc && (
+                        <p className="w-full text-xs leading-relaxed text-neutral-600">{single.desc}</p>
+                      )}
                     </div>
-                    <span className="shrink-0 text-sm font-bold">{single.priceLabel}</span>
+                    <Price label={single.priceLabel} className="text-sm font-bold" />
                     <input type="hidden" name="scope" value={single.key} />
                   </div>
                 )}
@@ -267,9 +284,10 @@ export function InquiryModal({
                             <span className="min-w-0 flex-1">
                               <span className="flex items-baseline justify-between gap-3">
                                 <span className="text-sm font-medium">{o.label}</span>
-                                <span className="shrink-0 text-sm font-semibold text-neutral-800">
-                                  {o.priceLabel}
-                                </span>
+                                <Price
+                                  label={o.priceLabel}
+                                  className="text-sm font-semibold text-neutral-800"
+                                />
                               </span>
                               <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
                                 {o.desc}
@@ -318,7 +336,7 @@ export function InquiryModal({
                 maxLength={100}
                 autoComplete="name"
                 className={inputCls}
-                placeholder="홍길동 (숨 주식회사)"
+                placeholder=""
               />
             </Field>
 
@@ -333,7 +351,7 @@ export function InquiryModal({
                 maxLength={40}
                 autoComplete="tel"
                 className={inputCls}
-                placeholder="010-1234-5678"
+                placeholder="- 없이 휴대폰, 혹은 유선 연락처를 기재해주세요."
               />
             </Field>
 
@@ -347,7 +365,7 @@ export function InquiryModal({
                   maxLength={200}
                   autoComplete="email"
                   className={inputCls}
-                  placeholder="name@company.com"
+                  placeholder=""
                 />
               </Field>
             </div>

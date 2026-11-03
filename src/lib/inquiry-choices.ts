@@ -59,17 +59,19 @@ const SCOPE_TEXT: Record<InquiryScope, { label: string; desc: string }> = {
   design_dev: { label: '디자인 + 개발 의뢰', desc: 'SOOM 개발자가 팀이 되어 실제 서비스로 만들어요.' },
 }
 
-/* 범위가 하나로 정해진 분야의 설명 — 디자인 + 개발 묶음은 랜딩처럼
-   디자이너가 디자인을 맡고 SOOM 이 개발을 이어받는다 */
-const FIXED_DESC: Record<'design' | 'design_dev', string> = {
-  design: '디자인 작업을 맡겨요.',
-  design_dev: '디자이너가 디자인을 맡고, 컨펌 후 SOOM 개발팀이 이어서 개발해요.',
+/* 범위가 하나로 정해진 분야의 한 줄 제목 — 설명 대신 무엇을 맡기는지 분야 이름으로 적는다.
+   디자인 + 개발 묶음은 '랜딩페이지 개발', 디자인만은 '로고/일러스트' 그대로 */
+function fixedTitle(name: string, scope: 'design' | 'design_dev'): string {
+  return scope === 'design_dev' ? `${name} 개발` : name
 }
 
 export type ScopeOption = {
   key: InquiryScope
   label: string
+  /* 범위가 정해진 분야는 비운다 — 한 줄에 title 만 보인다 */
   desc: string
+  /* 범위가 정해진 분야의 한 줄 제목(fixedTitle) */
+  title?: string
   priceLabel: string
   /* 유형 전체·디자이너별 프리미엄이 모두 켜졌을 때만 */
   premium?: { name: string; priceLabel: string }
@@ -135,10 +137,12 @@ function build(
           fixed && s !== 'sample' && meta.price_from != null
             ? `${formatPrice(meta.price_from)}~`
             : prices[s]
+        const fixedScope = fixed && s !== 'sample' ? s : null
         return {
           key: s,
           label: SCOPE_TEXT[s].label,
-          desc: fixed && s !== 'sample' ? FIXED_DESC[s === 'design' ? 'design' : 'design_dev'] : SCOPE_TEXT[s].desc,
+          desc: fixedScope ? '' : SCOPE_TEXT[s].desc,
+          ...(fixedScope ? { title: fixedTitle(meta.name, fixedScope) } : {}),
           priceLabel,
           ...(live ? { premium: { name: live.name, priceLabel: `${formatPrice(live.price)}~` } } : {}),
         }
