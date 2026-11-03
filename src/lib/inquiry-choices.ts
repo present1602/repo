@@ -140,7 +140,9 @@ function build(
         const fixedScope = fixed && s !== 'sample' ? s : null
         return {
           key: s,
-          label: SCOPE_TEXT[s].label,
+          /* 이름은 어드민 플랜 이름(plan_copy)을 따른다 — 상세 패널과 같은 이름이어야
+             패널에서 고른 유형이 폼에서 다른 이름으로 보이지 않는다. 비어 있을 때만 기본 문구 */
+          label: copies[SCOPE_PLAN[s]].basic.name.trim() || SCOPE_TEXT[s].label,
           desc: fixedScope ? '' : SCOPE_TEXT[s].desc,
           ...(fixedScope ? { title: fixedTitle(meta.name, fixedScope) } : {}),
           priceLabel,

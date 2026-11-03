@@ -351,7 +351,7 @@ export function InquiryModal({
                 maxLength={40}
                 autoComplete="tel"
                 className={inputCls}
-                placeholder="- 없이 휴대폰, 혹은 유선 연락처를 기재해주세요."
+                placeholder="'-' 없이 휴대폰, 혹은 유선 연락처를 기재해주세요."
               />
             </Field>
 

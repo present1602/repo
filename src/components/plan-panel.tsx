@@ -76,7 +76,10 @@ export function PlanPanel({
                   className="shrink-0 accent-violet-600"
                 />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{e.basic.name}</span>
-                <span className="shrink-0 text-xs text-neutral-500">{e.basic.priceLabel}</span>
+                <span className="shrink-0 text-right text-xs text-neutral-500">
+                  {e.basic.priceLabel}
+                  <span className="block text-[10px] text-neutral-400">VAT 별도</span>
+                </span>
               </label>
             ))}
           </div>
@@ -141,7 +144,11 @@ function TierBox({ tier, premium }: { tier: PanelTier; premium?: boolean }) {
         )}
       </div>
 
-      <p className="mt-3 text-2xl font-bold tracking-tight">{tier.priceLabel}</p>
+      {/* 의뢰 폼과 같이 — 공개 화면의 금액은 모두 부가세 별도다 */}
+      <p className="mt-3 text-2xl font-bold tracking-tight">
+        {tier.priceLabel}
+        <span className="ml-1.5 text-xs font-normal tracking-normal text-neutral-500">VAT 별도</span>
+      </p>
 
       {tier.desc && (
         <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-neutral-500">{tier.desc}</p>

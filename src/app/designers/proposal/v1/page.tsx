@@ -53,13 +53,17 @@ export default function ProposalV14Page() {
         <Spread id={1}>
           <Half tone="cream" top={['Est. 2026', 'Vol. 01']} foot={['', '']}>
             <Label>Designer Proposal</Label>
-            <h1 className="mt-5 text-5xl font-bold leading-[0.95] tracking-tight md:mt-6 md:text-8xl">
-              The
-              <br />
-              <span className="text-violet-600">Designer</span>
-              <br />
-              Edition.
-            </h1>
+            {/* 제목 크기도 쪽 폭에 맞춘다(cqw) — 화면 기준(text-8xl)이면 태블릿에서
+                'Desig / ner'로 끊긴다. 가장 긴 'Designer'가 쪽 폭 안에 들도록 잡는다 */}
+            <div className="@container w-full">
+              <h1 className="mt-5 text-[min(18cqw,6rem)] font-bold leading-[0.95] tracking-tight md:mt-6">
+                The
+                <br />
+                <span className="text-violet-600">Designer</span>
+                <br />
+                Edition.
+              </h1>
+            </div>
             <Rule />
             {/* 줄바꿈 자리를 직접 정한다 — 흐르는 대로 두면 '계 / 약.' 처럼
                 마지막 낱말만 넘어가 끝이 허전해진다 */}
@@ -366,7 +370,9 @@ export default function ProposalV14Page() {
 
           <Half tone="white" top={['Gift', '2026']} foot={[BRAND, `06 / ${pad(TOTAL)}`]}>
             {/* 선물 카드 — 이 쪽의 주인공. 금액을 가장 크게 둔다 */}
-            <div className="relative overflow-hidden bg-violet-950 p-6 text-white md:p-8">
+            {/* @container — 금액 크기를 카드 폭에 맞춘다. 태블릿에서는 쪽이 좁아
+                화면 기준 크기(text-6xl)로는 '₩50,00'에서 잘렸다 */}
+            <div className="@container relative overflow-hidden bg-violet-950 p-6 text-white md:p-8">
               <div
                 aria-hidden
                 className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgb(139_92_246/0.5),transparent_55%)]"
@@ -378,7 +384,7 @@ export default function ProposalV14Page() {
                 </span>
               </div>
               <p className="relative mt-6 text-sm text-white/80">네이버페이 상품권</p>
-              <p className="relative mt-1 whitespace-nowrap text-4xl font-light tracking-tight md:text-6xl">
+              <p className="relative mt-1 whitespace-nowrap text-[min(16cqw,3.75rem)] font-light tracking-tight">
                 ₩50,000
               </p>
             </div>
