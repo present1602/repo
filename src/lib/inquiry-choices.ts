@@ -54,10 +54,10 @@ export const SCOPE_PLAN: Record<InquiryScope, Scope> = {
 const SCOPE_TEXT: Record<InquiryScope, { label: string; desc: string }> = {
   sample: {
     label: '메인 시안 먼저 의뢰',
-    desc: '메인 화면 시안만 먼저 받고 본계약을 결정해요. 본계약으로 이어지면 먼저 낸 금액은 빠져요.',
+    desc: '메인화면 시안만 먼저 의뢰합니다. 이후 본계약 의뢰 시 메인화면 시안 비용을 제외한 나머지 본계약 비용을 지불합니다.',
   },
-  design: { label: '디자인만 의뢰', desc: '디자인까지 맡겨요. 개발은 직접 하거나 따로 맡겨요.' },
-  design_dev: { label: '디자인 + 개발 의뢰', desc: 'SOOM 개발자가 팀이 되어 실제 서비스로 만들어요.' },
+  design: { label: '디자인만 의뢰', desc: '' },
+  design_dev: { label: '디자인 + 개발 의뢰', desc: '' },
 }
 
 /* 범위가 하나로 정해진 분야의 한 줄 제목 — 설명 대신 무엇을 맡기는지 분야 이름으로 적는다.
@@ -73,6 +73,9 @@ export type ScopeOption = {
   desc: string
   /* 범위가 정해진 분야의 한 줄 제목(fixedTitle) */
   title?: string
+  /* 분야까지 붙인 한 줄 이름 — 상세 패널·의뢰 폼의 유형 목록이 같은 이름을 쓴다.
+     고르는 분야는 'web/app 디자인 의뢰', 범위가 정해진 분야는 '랜딩페이지 의뢰' */
+  fullLabel: string
   priceLabel: string
   /* 유형 전체·디자이너별 프리미엄이 모두 켜졌을 때만 */
   premium?: { name: string; priceLabel: string }
@@ -145,6 +148,13 @@ export function menuCategories<T extends Pick<CategoryMeta, 'visible' | 'scope_m
   return [...menu.filter((m) => m.scope_mode === 'choice'), ...menu.filter((m) => m.scope_mode !== 'choice')]
 }
 
+/* 유형 목록의 구분선 자리 — 여러 유형을 품은 분야(web/app) 묶음이 끝나는 곳에만.
+   cats 는 줄마다의 분야 이름. 한 줄짜리 분야(랜딩·로고)끼리는 긋지 않는다 */
+export function dividerBefore(cats: string[], i: number): boolean {
+  if (i === 0 || cats[i] === cats[i - 1]) return false
+  return cats.filter((c) => c === cats[i - 1]).length > 1
+}
+
 type Source = { copies: PlanCopies; premiums?: DesignerPremiums }
 
 function build(
@@ -169,11 +179,13 @@ function build(
             ? `${formatPrice(meta.price_from)}~`
             : prices[s]
         const fixedScope = fixed && s !== 'sample' ? s : null
+        const label = copies[SCOPE_PLAN[s]].basic.name.trim() || SCOPE_TEXT[s].label
         return {
           key: s,
           /* 이름은 어드민 플랜 이름(plan_copy)을 따른다 — 상세 패널과 같은 이름이어야
              패널에서 고른 유형이 폼에서 다른 이름으로 보이지 않는다. 비어 있을 때만 기본 문구 */
-          label: copies[SCOPE_PLAN[s]].basic.name.trim() || SCOPE_TEXT[s].label,
+          label,
+          fullLabel: fixedScope ? `${meta.name} 의뢰` : `${meta.name} ${label}`,
           desc: fixedScope ? '' : SCOPE_TEXT[s].desc,
           ...(fixedScope ? { title: fixedTitle(meta.name, fixedScope) } : {}),
           priceLabel,

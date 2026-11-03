@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Consent, Dialog, Done, Field, FileField, ReadonlyRow, inputCls } from './form-bits'
-import type { CategoryChoice, InquiryScope, ScopeOption } from '@/lib/inquiry-choices'
+import { dividerBefore, type CategoryChoice, type InquiryScope, type ScopeOption } from '@/lib/inquiry-choices'
 import { getGeneralInquiryChoices } from '@/app/inquiry-actions'
 
 /* 유형 카드 안의 기본·프리미엄 전환 한 칸.
@@ -51,19 +51,13 @@ function Price({ label, className }: { label: string; className: string }) {
   )
 }
 
-/* 분야 버튼 줄 —1~3개는 한 줄, 4개는 2×2, 5개 이상은 3열로 왼쪽부터 채운다 */
-const CATEGORY_COLS: Record<number, string> = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3' }
-function categoryCols(n: number) {
-  return CATEGORY_COLS[n <= 3 ? n : n === 4 ? 2 : 3]
-}
-
 /* 의뢰·문의 폼.
 
    보낸 내용은 /api/inquiry 로 가서 DB 에 쌓이고 어드민에게 메일이 간다.
 
-   먼저 무엇을 만드는지(분야)를 고르고, 그 분야에서 맡길 범위
-   (메인 시안 먼저 / 디자인만 / 디자인 + 개발)를 고른다(inquiry-choices.ts).
-   범위가 하나뿐인 분야는 묻지 않고 한 줄로 보여준다.
+   의뢰 유형을 한 목록에서 고른다 — 분야 × 범위를 한 줄씩 펼친 것으로, 상세 페이지의
+   의뢰 패널과 같은 이름·같은 차례다('web/app 디자인 의뢰', '랜딩페이지 의뢰', inquiry-choices.ts).
+   유형이 하나뿐이면 묻지 않고 골라 둔 채 보여준다.
 
    designerName 을 주면 그 디자이너에게 보내는 폼이고, 선택지(choices)도
    그 디자이너 설정으로 걸러 온다. 없으면 일반 의뢰 — 네비바·홈의 '의뢰하기'는
@@ -105,24 +99,24 @@ export function InquiryModal({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
-  /* 고른 분야·범위·단계. 분야를 바꾸면 범위는 다시 고른다 — 다른 분야의 범위를
-     따라오면 안 된다. 분야가 하나뿐이면 처음부터 골라 둔다. */
-  const [picked, setPicked] = useState<string | null>(initialCategory ?? null)
-  const [scope, setScope] = useState<InquiryScope | null>(null)
+  /* 의뢰 유형 한 줄 = 분야 × 범위. 상세 패널에서 고른 유형(initialCategory·initialScope)이
+     있으면 그 줄을 골라 둔다 — 범위가 없으면 그 분야의 첫 줄 */
+  const items = (choices ?? []).flatMap((c) => c.options.map((o) => ({ key: `${c.name}:${o.key}`, cat: c.name, o })))
+  const initialKey = initialCategory
+    ? (
+        items.find((it) => it.cat === initialCategory && (!initialScope || it.o.key === initialScope)) ??
+        items.find((it) => it.cat === initialCategory)
+      )?.key
+    : undefined
+  const [pickedKey, setPickedKey] = useState<string | null>(null)
   const [tier, setTier] = useState<'basic' | 'premium'>('basic')
 
-  const catName = picked ?? (choices?.length === 1 ? choices[0].name : null)
-  const cat = choices?.find((c) => c.name === catName) ?? null
-  const single = cat?.options.length === 1 ? cat.options[0] : null
-  const scopeKey: InquiryScope | null =
-    single?.key ??
-    (scope && cat?.options.some((o) => o.key === scope) ? scope : null) ??
-    (initialScope && cat?.options.some((o) => o.key === initialScope) ? initialScope : null)
-  const option: ScopeOption | null = cat?.options.find((o) => o.key === scopeKey) ?? null
+  const current = items.find((it) => it.key === (pickedKey ?? initialKey)) ?? (items.length === 1 ? items[0] : null)
+  const option: ScopeOption | null = current?.o ?? null
+  const cats = items.map((it) => it.cat)
 
-  const pickCategory = (name: string) => {
-    setPicked(name)
-    setScope(null)
+  const pick = (key: string) => {
+    setPickedKey(key)
     setTier('basic')
     setError('')
   }
@@ -135,9 +129,9 @@ export function InquiryModal({
     e.preventDefault()
     if (sending) return
 
-    /* 분야는 버튼이라 required 로 막을 수 없다 — 여기서 짚는다 */
-    if (choices && choices.length > 0 && !cat) {
-      setError('무엇을 만드는지 먼저 골라 주세요.')
+    /* 고른 유형은 숨은 칸으로 나간다 — 라디오 required 와 별도로 여기서 한 번 더 짚는다 */
+    if (items.length > 0 && !current) {
+      setError('의뢰 유형을 골라 주세요.')
       return
     }
 
@@ -170,11 +164,7 @@ export function InquiryModal({
   }
 
   return (
-    <Dialog
-      eyebrow="INQUIRY"
-      title={designerName ? '문의하기' : '의뢰 문의하기'}
-      onClose={onClose}
-    >
+    <Dialog eyebrow="INQUIRY" title={designerName ? '문의하기' : '의뢰 문의하기'} onClose={onClose}>
       {done ? (
         <Done
           title="문의가 전달되었습니다"
@@ -196,129 +186,92 @@ export function InquiryModal({
           />
 
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm text-neutral-600">
-              일정, 비용, 작업 방식 등 궁금한 점을 남겨주세요.
-            </p>
+            <p className="text-sm text-neutral-600">일정, 비용, 작업 방식 등 궁금한 점을 남겨주세요.</p>
             <p className="shrink-0 text-[11px] text-neutral-500">
               <span className="text-red-600">*</span> 필수
             </p>
           </div>
 
-          {/* 무엇을 만드는지 먼저 고른다 — 맡길 범위도, 견적도 여기서 갈린다 */}
+          {/* 의뢰 유형 — 견적도 여기서 갈린다 */}
           {choices == null ? (
             <p className="mt-6 text-sm text-neutral-400">의뢰 유형을 불러오는 중…</p>
           ) : (
-            choices.length > 0 && (
+            items.length > 0 && (
               <div className="mt-6 space-y-4">
-                <fieldset>
-                  <legend className="mb-2 text-xs font-medium text-neutral-700">
-                    무엇을 만드나요? <span className="text-red-600">*</span>
-                  </legend>
-                  <div className={`grid gap-2 ${categoryCols(choices.length)}`}>
-                    {choices.map((c) => {
-                      const on = c.name === catName
-                      return (
-                        <button
-                          key={c.name}
-                          type="button"
-                          aria-pressed={on}
-                          onClick={() => pickCategory(c.name)}
-                          className={`min-h-12 rounded-lg border px-3 py-3 text-left text-sm transition ${
-                            on
-                              ? 'border-violet-600 bg-violet-50 font-semibold text-violet-700 ring-1 ring-violet-600'
-                              : 'border-neutral-300 font-medium hover:bg-neutral-50'
-                          }`}
-                        >
-                          {c.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {cat && <input type="hidden" name="category" value={cat.name} />}
-                </fieldset>
-
-                {/* 고른 분야의 범위 — 여럿이면 라디오, 하나면 한 줄 */}
-                {cat && single && (
-                  <div className="flex items-start justify-between gap-3 rounded-xl bg-neutral-50 px-4 py-3.5 ring-1 ring-neutral-200">
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                      {/* 범위가 정해진 분야는 제목만 — '디자인만 의뢰' 같은 범위 이름은 고를 게 없어 군더더기다 */}
-                      {single.title ? (
-                        <span className="text-sm font-semibold">{single.title}</span>
-                      ) : (
-                        <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-700">
-                          {single.label}
-                        </span>
-                      )}
-                      {single.desc && (
-                        <p className="w-full text-xs leading-relaxed text-neutral-600">{single.desc}</p>
-                      )}
-                    </div>
-                    <Price label={single.priceLabel} className="text-sm font-bold" />
-                    <input type="hidden" name="scope" value={single.key} />
-                  </div>
+                {current && (
+                  <>
+                    <input type="hidden" name="category" value={current.cat} />
+                    <input type="hidden" name="scope" value={current.o.key} />
+                  </>
                 )}
 
-                {cat && !single && (
-                  <fieldset className="rounded-xl bg-neutral-50 p-3 ring-1 ring-neutral-200 md:p-4">
-                    <legend className="sr-only">어디까지 맡길까요?</legend>
-                    <p aria-hidden className="mb-2.5 text-xs font-medium text-neutral-700">
-                      어디까지 맡길까요? <span className="text-red-600">*</span>
-                    </p>
+                {/* 하나뿐이면 고를 게 없다 — 골라 둔 모양(보라 테두리)의 한 줄로 */}
+                {items.length === 1 && option ? (
+                  <div className="flex items-start justify-between gap-3 rounded-xl border border-violet-600 bg-violet-50 px-4 py-3.5">
+                    <div className="min-w-0">
+                      <span className="text-sm font-semibold text-violet-700">{option.fullLabel}</span>
+                      {option.desc && <p className="mt-0.5 text-xs leading-relaxed text-neutral-600">{option.desc}</p>}
+                    </div>
+                    <Price label={option.priceLabel} className="text-sm font-bold" />
+                  </div>
+                ) : (
+                  <fieldset>
+                    <legend className="mb-2 text-xs font-medium text-neutral-700">
+                      어떤 의뢰인가요? <span className="text-red-600">*</span>
+                    </legend>
                     <div className="space-y-2">
-                      {cat.options.map((o) => {
-                        const checked = o.key === scopeKey
+                      {items.map((it, i) => {
+                        const o = it.o
+                        const checked = it.key === current?.key
                         return (
-                          <label
-                            key={o.key}
-                            className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 bg-white p-3 transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50"
-                          >
-                            <input
-                              required
-                              type="radio"
-                              name="scope"
-                              value={o.key}
-                              checked={checked}
-                              onChange={() => {
-                                setScope(o.key)
-                                setTier('basic')
-                              }}
-                              className="mt-0.5 shrink-0 accent-violet-600"
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="flex items-baseline justify-between gap-3">
-                                <span className="text-sm font-medium">{o.label}</span>
-                                <Price
-                                  label={o.priceLabel}
-                                  className="text-sm font-semibold text-neutral-800"
-                                />
-                              </span>
-                              <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
-                                {o.desc}
-                              </span>
-                              {o.premium && !checked && (
-                                <span className="mt-1 block text-[11px] text-violet-700">
-                                  프리미엄 {o.premium.priceLabel} 선택 가능
+                          <Fragment key={it.key}>
+                            {/* web/app 묶음 아래에 한 줄 — 상세 패널과 같다 */}
+                            {dividerBefore(cats, i) && <hr className="!my-3 border-neutral-200" />}
+                            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 bg-white p-3 transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50">
+                              <input
+                                required
+                                type="radio"
+                                name="inquiryPick"
+                                value={it.key}
+                                checked={checked}
+                                onChange={() => pick(it.key)}
+                                className="mt-0.5 shrink-0 accent-violet-600"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-baseline justify-between gap-3">
+                                  <span className="text-sm font-medium">{o.fullLabel}</span>
+                                  <Price label={o.priceLabel} className="text-sm font-semibold text-neutral-800" />
                                 </span>
-                              )}
-                              {o.premium && checked && (
-                                <span className="mt-3 grid grid-cols-2 gap-1 rounded-lg bg-violet-100 p-1">
-                                  <TierButton
-                                    label="기본"
-                                    priceLabel={o.priceLabel}
-                                    on={tier === 'basic'}
-                                    onPick={() => setTier('basic')}
-                                  />
-                                  <TierButton
-                                    label="프리미엄"
-                                    title={o.premium.name}
-                                    priceLabel={o.premium.priceLabel}
-                                    on={tier === 'premium'}
-                                    onPick={() => setTier('premium')}
-                                  />
-                                </span>
-                              )}
-                            </span>
-                          </label>
+                                {o.desc && (
+                                  <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
+                                    {o.desc}
+                                  </span>
+                                )}
+                                {o.premium && !checked && (
+                                  <span className="mt-1 block text-[11px] text-violet-700">
+                                    프리미엄 {o.premium.priceLabel} 선택 가능
+                                  </span>
+                                )}
+                                {o.premium && checked && (
+                                  <span className="mt-3 grid grid-cols-2 gap-1 rounded-lg bg-violet-100 p-1">
+                                    <TierButton
+                                      label="기본"
+                                      priceLabel={o.priceLabel}
+                                      on={tier === 'basic'}
+                                      onPick={() => setTier('basic')}
+                                    />
+                                    <TierButton
+                                      label="프리미엄"
+                                      title={o.premium.name}
+                                      priceLabel={o.premium.priceLabel}
+                                      on={tier === 'premium'}
+                                      onPick={() => setTier('premium')}
+                                    />
+                                  </span>
+                                )}
+                              </span>
+                            </label>
+                          </Fragment>
                         )
                       })}
                     </div>
@@ -333,14 +286,7 @@ export function InquiryModal({
 
           <div className="mt-6 grid gap-6 md:grid-cols-2 md:gap-7">
             <Field label="성함 (회사명)" req>
-              <input
-                required
-                name="name"
-                maxLength={100}
-                autoComplete="name"
-                className={inputCls}
-                placeholder=""
-              />
+              <input required name="name" maxLength={100} autoComplete="name" className={inputCls} placeholder="" />
             </Field>
 
             {/* 형식은 묶지 않는다 — 02-123-4567, +82 10-…, 내선처럼
@@ -410,9 +356,7 @@ export function InquiryModal({
 
           <Consent />
 
-          {error && (
-            <p className="mt-4 rounded-lg bg-red-50 px-3.5 py-3 text-sm text-red-700">{error}</p>
-          )}
+          {error && <p className="mt-4 rounded-lg bg-red-50 px-3.5 py-3 text-sm text-red-700">{error}</p>}
 
           <button
             type="submit"
@@ -421,9 +365,7 @@ export function InquiryModal({
           >
             {sending ? '보내는 중…' : '문의 보내기'}
           </button>
-          <p className="mt-3 text-center text-xs text-neutral-500">
-            영업일 기준 1~3일 내 답변드립니다.
-          </p>
+          <p className="mt-3 text-center text-xs text-neutral-500">영업일 기준 1~3일 내 답변드립니다.</p>
         </form>
       )}
     </Dialog>

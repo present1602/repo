@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 /* 문의 폼의 공통 부품.
 
@@ -41,7 +42,7 @@ export function Dialog({
     }
   }, [onClose])
 
-  return (
+  return createPortal(
     /* 바깥 칸이 스크롤을 맡고, 모달은 내용만큼 늘어난다 —
        높이를 묶고 안쪽만 스크롤하면 내용이 길 때 위쪽이 화면 밖으로
        밀려 닿을 수 없게 된다.
@@ -49,22 +50,28 @@ export function Dialog({
        자리잡기는 flex 의 justify/items 가 아니라 바깥 여백(mt-auto)으로
        한다. flex 의 end 정렬은 내용이 칸보다 클 때 위쪽을 넘쳐 잘라내고,
        그 부분은 스크롤로도 닿지 않는다. auto 여백은 남는 공간이 있을 때만
-       밀어내므로 그런 일이 없다. */
+       밀어내므로 그런 일이 없다.
+
+       body 에 바로 붙인다(portal) — 의뢰 패널처럼 sticky 상자 안에서 열면 z-index 가 그 상자에
+       갇혀 사이트 바가 어두운 막 위로 올라온다. 위아래로 여백을 둬 창이 화면 끝에 붙지 않게 한다 */
     <div
       className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-neutral-950/70"
       onClick={onClose}
     >
-      <div className="flex min-h-full flex-col md:p-8">
+      <div className="flex min-h-full flex-col pt-10 md:px-8 md:py-14">
         <div
           role="dialog"
           aria-modal="true"
           onClick={(e) => e.stopPropagation()}
-          className="mt-auto w-full rounded-t-2xl bg-white md:mx-auto md:mb-auto md:max-w-2xl md:rounded-2xl"
+          /* 넓은 화면에서는 창 높이를 화면 안(위아래 여백 py-14 를 뺀 만큼)으로 묶고 본문만 스크롤한다 —
+             창이 화면보다 길면 아래 여백이 스크롤 끝에서야 보여 위아래가 어긋나 보인다.
+             머리는 flex 의 고정 칸이라 잘리지 않는다 */
+          className="mt-auto w-full rounded-t-2xl bg-white md:mx-auto md:mb-auto md:flex md:max-h-[calc(100dvh-7rem)] md:max-w-2xl md:flex-col md:overflow-hidden md:rounded-2xl"
         >
           {/* 손잡이 — 아래에서 올라온 시트라는 걸 알린다 */}
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-neutral-300 md:hidden" />
 
-          <div className="flex items-start justify-between gap-3 border-b border-neutral-200 px-6 py-4 md:px-10 md:py-5">
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-neutral-200 px-6 py-4 md:px-10 md:py-5">
             <div className="min-w-0">
               <p className="text-[11px] font-medium tracking-[0.2em] text-neutral-400">
                 {eyebrow}
@@ -82,10 +89,11 @@ export function Dialog({
             </button>
           </div>
 
-          {children}
+          <div className="md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">{children}</div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

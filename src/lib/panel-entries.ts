@@ -62,8 +62,6 @@ export function panelEntries(src: PanelSource): PanelEntry[] {
   }
 
   const metaOf = new Map(metas.map((m) => [m.name, m]))
-  /* 고객이 범위를 고르는 분야가 둘 이상이면 같은 플랜 이름이 겹친다 — 그때만 분야 이름을 앞에 붙인다 */
-  const choiceCount = choices.filter((c) => metaOf.get(c.name)?.scope_mode === 'choice').length
 
   return choices.flatMap((c) =>
     c.options.map((o): PanelEntry => {
@@ -80,7 +78,8 @@ export function panelEntries(src: PanelSource): PanelEntry[] {
             planOptions[slotOf(plan, 'premium')],
           )
         : null
-      const name = o.title ?? (choiceCount > 1 ? `${c.name} · ${o.label}` : o.label)
+      /* 의뢰 폼과 같은 한 줄 이름 — 'web/app 디자인 의뢰', '랜딩페이지 의뢰' */
+      const name = o.fullLabel
       return {
         key: `${c.name}:${o.key}`,
         category: c.name,

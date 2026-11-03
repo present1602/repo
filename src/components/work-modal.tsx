@@ -439,14 +439,9 @@ export function WorkModal<W extends PublicWork>({
   )
 }
 
-/* 표기 줄 — 클라이언트·AI·SOOM 중 있는 것만 이어 붙인다.
-
-   AI 사용 표기는 true 일 때만 붙인다 — null(묻기 전에 올라간 작업)과
-   false 를 구분해 보여주지 않는다. */
+/* 표기 줄 — 클라이언트 이름만. AI 활용·SOOM 의뢰는 설명 위에서 뺐다 */
 function metaOf(w: PublicWork): string {
-  return [w.client, w.ai_used ? 'AI 활용' : null, w.soom_work ? 'SOOM 의뢰' : null]
-    .filter(Boolean)
-    .join(' · ')
+  return w.client ?? ''
 }
 
 /* 시트 머리 — 표기 줄과 제목, 그리고 설명을 여닫는 화살표 */

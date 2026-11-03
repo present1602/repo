@@ -106,7 +106,7 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
       <p className="text-xs text-neutral-400">
         {editMode
           ? '왼쪽 손잡이를 끌어 순서를 바꿀 수 있습니다. 이 순서가 공개 화면에도 그대로 쓰입니다.'
-          : '카드를 누르면 제목·설명과 썸네일을 고칠 수 있습니다.'}
+          : '카드를 누르면 설명과 썸네일을 고칠 수 있습니다.'}
       </p>
 
       {/* 편집 레이어 — 목록 위에 띄운다. 모드와 상관없이 같은 화면을 쓴다. */}
@@ -241,8 +241,8 @@ function EditList({
 
             <div className="min-w-0 flex-1 px-3 py-3">
               <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-sm font-medium">
-                  {w.title ?? <span className="text-neutral-400">제목 없음</span>}
+                <span className="line-clamp-1 text-sm">
+                  {w.description || <span className="text-neutral-400">설명 없음</span>}
                 </span>
                 {!w.visible && (
                   <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-600">
@@ -260,9 +260,6 @@ function EditList({
                   </span>
                 )}
               </div>
-              {w.description && (
-                <p className="mt-0.5 line-clamp-1 text-xs text-neutral-500">{w.description}</p>
-              )}
             </div>
 
             {/* 여기서도 같은 편집 레이어를 연다 — 순서를 바꾸다 내용도
@@ -557,7 +554,7 @@ function WorkCard({
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/70 to-transparent p-2">
-        <span className="min-w-0 truncate text-[11px] text-white">{w.title ?? ' '}</span>
+        <span className="min-w-0 truncate text-[11px] text-white">{w.description ?? ' '}</span>
         <button
           onClick={onEdit}
           className="pointer-events-auto shrink-0 rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-neutral-900"
@@ -586,7 +583,7 @@ function WorkEditDialog({
   onClose: () => void
   onMessage: (m: { ok: boolean; text: string } | null) => void
 }) {
-  const [title, setTitle] = useState(w.title ?? '')
+  const [title] = useState(w.title ?? '')
   const [description, setDescription] = useState(w.description ?? '')
   const [client, setClient] = useState(w.client ?? '')
   /* 묻기 전에 올라간 작업은 null 이다 — 체크박스로는 둘 중 하나만 고를 수
@@ -695,19 +692,12 @@ function WorkEditDialog({
             </button>
           </div>
 
+          {/* 제목은 숨겼다 — 설명만 선택으로 받는다. 칸(title)은 남겨 두고 저장된 값을 그대로 보낸다 */}
           <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-neutral-600">제목</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="제목 없음"
-              className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
-            />
-          </label>
-
-          <label className="mt-3 block">
             <span className="mb-1.5 flex items-baseline justify-between text-xs font-medium text-neutral-600">
-              설명
+              <span>
+                설명 <span className="font-normal text-neutral-400">(선택)</span>
+              </span>
               <span className="font-normal text-neutral-400">
                 {description.length} / {MAX_DESCRIPTION}
               </span>

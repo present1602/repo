@@ -195,12 +195,10 @@ export function AdminPortfolio({
                   }`}
                 />
 
-                {/* 제목·설명 */}
+                {/* 설명 */}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-2">
-                    <span className="text-sm font-medium">
-                      {w.title ?? <span className="text-neutral-400">제목 없음</span>}
-                    </span>
+
                     {!w.visible && (
                       <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-600">
                         숨김
@@ -306,9 +304,7 @@ function AddWorkButton({
       form.set('designerId', designerId)
       form.set('image', file)
       if (thumb) form.set('thumb', thumb.file)
-      /* 파일명을 제목의 출발점으로 쓴다 — 확장자는 뗀다.
-         어드민이 여러 장을 올릴 때 하나하나 제목을 적기 어렵다. */
-      form.set('title', file.name.replace(/\.[^.]+$/, ''))
+      /* 제목은 받지 않는다(숨김) — 설명만 나중에 선택으로 적는다 */
       if (opts.width) form.set('width', String(opts.width))
       if (opts.height) form.set('height', String(opts.height))
       /* 답했다는 사실과 답 자체를 따로 보낸다 — 체크하지 않은 체크박스는
@@ -712,7 +708,7 @@ export function WorkDialog({
   onClose: () => void
   onNotice: (n: Notice) => void
 }) {
-  const [title, setTitle] = useState(w.title ?? '')
+  const [title] = useState(w.title ?? '')
   const [description, setDescription] = useState(w.description ?? '')
   const [client, setClient] = useState(w.client ?? '')
   /* 묻기 전에 올라간 작업은 null 이다 — 체크박스로는 둘 중 하나만 고를 수
@@ -826,19 +822,12 @@ export function WorkDialog({
             </button>
           </div>
 
+          {/* 제목은 숨겼다 — 설명만 선택으로 받는다. 칸(title)은 남겨 두고 저장된 값을 그대로 보낸다 */}
           <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-neutral-600">제목</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="제목 없음"
-              className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
-            />
-          </label>
-
-          <label className="mt-3 block">
             <span className="mb-1.5 flex items-baseline justify-between text-xs font-medium text-neutral-600">
-              설명
+              <span>
+                설명 <span className="font-normal text-neutral-400">(선택)</span>
+              </span>
               <span className="font-normal text-neutral-400">
                 {description.length} / {MAX_DESCRIPTION}
               </span>
