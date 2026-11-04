@@ -7,6 +7,7 @@ import { displayName } from '@/lib/display-name'
 import { shortDate } from '@/lib/format-date'
 import { WorkModal } from '@/components/work-modal'
 import { WorkDialog, type Notice } from './admin-portfolio'
+import { Flash } from '@/components/flash'
 
 /* 포트폴리오 모아보기의 격자.
 
@@ -26,15 +27,7 @@ export function WorksGrid({ works }: { works: FeaturedCandidate[] }) {
 
   return (
     <>
-      {notice && (
-        <p
-          className={`mb-4 rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} className="mb-4" />
 
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 min-[1920px]:grid-cols-4">
         {works.map((w, i) => {

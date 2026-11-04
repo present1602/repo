@@ -17,6 +17,7 @@ import {
   deleteOptionTemplate,
   updateOptionTemplate,
 } from '@/app/admin/settings/actions'
+import { Flash } from '@/components/flash'
 
 type Draft = { template: string; targets: PlanSlot[] | null }
 
@@ -68,15 +69,7 @@ export function OptionTemplateManager({
         넣으세요.
       </p>
 
-      {msg && (
-        <p
-          className={`mt-4 rounded-lg px-3 py-2.5 text-sm ${
-            msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {msg.text}
-        </p>
-      )}
+      <Flash msg={msg} onDone={() => setMsg(null)} className="mt-4" />
 
       <ul className="mt-4 space-y-3">
         {templates.map((t) => (

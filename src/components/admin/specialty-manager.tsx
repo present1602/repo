@@ -20,6 +20,7 @@ import {
   reorderSpecialties,
   deleteSpecialty,
 } from '@/app/admin/settings/actions'
+import { Flash } from '@/components/flash'
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null
 
@@ -107,15 +108,7 @@ export function SpecialtyManager({
         </p>
       </div>
 
-      {notice && (
-        <p
-          className={`mt-3 rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} className="mt-3" />
 
       {/* 추가 */}
       <form

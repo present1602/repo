@@ -13,6 +13,7 @@ import {
 } from '@/lib/plans'
 import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
 import { updatePlanCopies } from '@/app/admin/settings/actions'
+import { Flash } from '@/components/flash'
 
 /* 금액을 누가 정하는지 — 문구를 맞출 때 참고하라고 각 유형 옆에 적는다 */
 const PRICE_NOTES: Record<Scope, string> = {
@@ -79,15 +80,7 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
         설정은 남아 있어 다시 노출하면 돌아옵니다.
       </p>
 
-      {msg && (
-        <p
-          className={`mt-4 rounded-lg px-3 py-2.5 text-sm ${
-            msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {msg.text}
-        </p>
-      )}
+      <Flash msg={msg} onDone={() => setMsg(null)} className="mt-4" />
 
       <div className="mt-4 space-y-5">
         {SCOPES.map((plan) => (

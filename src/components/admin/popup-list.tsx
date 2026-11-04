@@ -14,6 +14,7 @@ import {
 } from '@/lib/popup-shape'
 import { deletePopup, setPopupStatus } from '@/app/admin/popups/actions'
 import { ghostButton } from './form-bits'
+import { Flash } from '@/components/flash'
 
 type Filter = 'all' | PopupStatus
 type Notice = { kind: 'ok' | 'error'; text: string } | null
@@ -58,15 +59,7 @@ export function PopupList({ popups }: { popups: PopupRow[] }) {
         ))}
       </nav>
 
-      {notice && (
-        <p
-          className={`mb-4 rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} className="mb-4" />
 
       {shown.length === 0 ? (
         <p className="rounded-xl border border-dashed border-neutral-300 py-16 text-center text-sm text-neutral-500">

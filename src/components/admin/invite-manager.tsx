@@ -20,6 +20,7 @@ import {
 import { dateTime } from '@/lib/format-date'
 import { cancelInvite, createInvite } from '@/app/admin/invites/actions'
 import { Field, ghostButton, input } from './form-bits'
+import { Flash } from '@/components/flash'
 
 type Filter = 'all' | InviteStatus
 type Notice = { kind: 'ok' | 'error'; text: string } | null
@@ -50,15 +51,7 @@ export function InviteManager({ invites }: { invites: InviteWithUser[] }) {
     <div className="space-y-6">
       <IssueForm onNotice={setNotice} />
 
-      {notice && (
-        <p
-          className={`rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} />
 
       <section className="min-w-0">
         <nav className="mb-4 flex gap-1 overflow-x-auto border-b border-neutral-200">

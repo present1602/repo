@@ -30,6 +30,10 @@ import {
 import { createPopup, preparePopupUpload, updatePopup } from '@/app/admin/popups/actions'
 import { PopupCard, PopupFooter } from '@/components/site-popup'
 import { Field, ghostButton, input } from './form-bits'
+import { Flash } from '@/components/flash'
+
+/* 저장 알림 — 매번 새 객체를 만들면 토스트 타이머가 다시 걸린다 */
+const SAVED = { ok: true, text: '저장했습니다.' }
 
 /* 화면에서만 쓰는 꼬리표 — 순서를 바꿔도 입력칸이 섞이지 않게 key 로 쓴다.
    업로드 중인 이미지는 아직 경로가 없어 미리보기 주소(preview)로 그린다. */
@@ -582,7 +586,7 @@ export function PopupForm({ popup }: { popup?: PopupRow }) {
         </div>
 
         {error && <p className="rounded-lg bg-red-50 px-3.5 py-3 text-sm text-red-700">{error}</p>}
-        {saved && <p className="rounded-lg bg-emerald-50 px-3.5 py-3 text-sm text-emerald-800">저장했습니다.</p>}
+        <Flash msg={saved ? SAVED : null} onDone={() => setSaved(false)} />
 
         <button
           type="submit"

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updatePassword } from '@/app/studio/actions'
+import { Flash } from '@/components/flash'
 
 export function ChangePasswordForm({ onChanged }: { onChanged?: () => void }) {
   const [current, setCurrent] = useState('')
@@ -40,15 +41,7 @@ export function ChangePasswordForm({ onChanged }: { onChanged?: () => void }) {
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      {msg && (
-        <p
-          className={`rounded-lg px-3 py-2.5 text-sm ${
-            msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {msg.text}
-        </p>
-      )}
+      <Flash msg={msg} onDone={() => setMsg(null)} />
 
       <label className="block">
         <span className="mb-1.5 block text-xs font-medium text-neutral-600">현재 비밀번호</span>

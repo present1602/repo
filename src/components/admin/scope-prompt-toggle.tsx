@@ -123,7 +123,7 @@ function SettingSwitch({
           role="status"
           className="pointer-events-none fixed inset-x-0 top-6 z-[60] flex justify-center px-4"
         >
-          <p className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+          <p className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
             {toast}
           </p>
         </div>

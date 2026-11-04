@@ -24,6 +24,7 @@ import {
   reshapeCrop,
 } from '@/lib/crop'
 import { makeThumb, makeThumbFromUrl } from '@/lib/make-thumb'
+import { Flash } from '@/components/flash'
 
 export type Notice = { kind: 'ok' | 'error'; text: string } | null
 
@@ -123,15 +124,7 @@ export function AdminPortfolio({
         />
       </header>
 
-      {notice && (
-        <p
-          className={`mb-4 rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} className="mb-4" />
 
       {works.length === 0 ? (
         <p className="rounded-xl border border-dashed border-neutral-300 py-16 text-center text-sm text-neutral-500">

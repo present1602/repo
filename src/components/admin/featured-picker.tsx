@@ -7,6 +7,7 @@ import { displayName } from '@/lib/display-name'
 import { isSearchable, searchHint, matches } from '@/lib/search-term'
 import { setWorkFeatured } from '@/app/admin/designers/actions'
 import { Img } from '@/components/img'
+import { Flash } from '@/components/flash'
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null
 type Tab = 'portfolio' | 'recent'
@@ -70,15 +71,7 @@ export function FeaturedPicker({ works }: { works: FeaturedCandidate[] }) {
         </TabButton>
       </nav>
 
-      {notice && (
-        <p
-          className={`mb-4 rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} className="mb-4" />
 
       {shown.length === 0 ? (
         <p className="rounded-xl border border-dashed border-neutral-300 py-16 text-center text-sm text-neutral-500">

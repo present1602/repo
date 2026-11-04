@@ -44,6 +44,7 @@ import { PlanSetup, type SetupSlot } from '@/components/plan-setup'
 import { OptionSetup } from '@/components/option-setup'
 import { optionCategories, type CategoryMeta } from '@/lib/inquiry-choices'
 import { OptionTemplateManager } from './option-template-manager'
+import { Flash } from '@/components/flash'
 
 type Notice = { kind: 'ok' | 'warn' | 'error'; text: string } | null
 
@@ -156,19 +157,7 @@ export function DesignerDetail({
         </div>
       </header>
 
-      {notice && (
-        <p
-          className={`rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok'
-              ? 'bg-emerald-50 text-emerald-800'
-              : notice.kind === 'warn'
-                ? 'bg-amber-50 text-amber-800'
-                : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} />
 
       {/* 탭 줄 — 링크라서 주소가 바뀐다. 페이지가 탭마다 key 를 바꿔 새로 그리므로
           알림 문구는 다음 탭으로 넘어가지 않는다 */}

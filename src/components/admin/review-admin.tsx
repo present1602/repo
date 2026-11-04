@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import type { ReviewRow, ReviewTokenRow } from '@/lib/review-shape'
 import { createReviewLink, setReviewStatus } from '@/app/admin/reviews/actions'
+import { Flash } from '@/components/flash'
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null
 type DesignerOption = { id: string; name: string | null; label: string }
@@ -52,15 +53,7 @@ export function ReviewAdmin({
     <section className="min-w-0">
       <NewLink designers={designers} onNotice={setNotice} />
 
-      {notice && (
-        <p
-          className={`mb-4 rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} className="mb-4" />
 
       <nav className="mb-4 flex gap-1 border-b border-neutral-200">
         {TABS.map((t) => (

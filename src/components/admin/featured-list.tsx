@@ -8,6 +8,7 @@ import { displayName } from '@/lib/display-name'
 import { cropOf } from '@/lib/crop'
 import { setWorkFeatured } from '@/app/admin/designers/actions'
 import { Img } from '@/components/img'
+import { Flash } from '@/components/flash'
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null
 
@@ -43,15 +44,7 @@ export function FeaturedList({ works }: { works: FeaturedCandidate[] }) {
 
   return (
     <section className="min-w-0">
-      {notice && (
-        <p
-          className={`mb-4 rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} className="mb-4" />
 
       {/* 홈과 같은 벽 — 걸어 둔 차례대로 깔린다(featured_at 내림차순) */}
       <div className="columns-2 gap-3 md:columns-3 md:gap-4 lg:columns-4">

@@ -11,6 +11,7 @@ import {
 } from '@/lib/inquiry-shape'
 import { setInquiryStatus } from '@/app/admin/inquiries/actions'
 import { sendReviewLinkForInquiry } from '@/app/admin/reviews/actions'
+import { Flash } from '@/components/flash'
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null
 
@@ -75,15 +76,7 @@ export function InquiryList({
         ))}
       </nav>
 
-      {notice && (
-        <p
-          className={`mb-4 rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} className="mb-4" />
 
       {shown.length === 0 ? (
         <p className="rounded-xl border border-dashed border-neutral-300 py-16 text-center text-sm text-neutral-500">

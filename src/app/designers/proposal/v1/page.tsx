@@ -30,7 +30,7 @@ export const metadata: Metadata = {
    원본의 picsum 자리 채우기 사진은 넣지 않는다 — 내용이 없는 그림이
    모바일에서 화면을 통째로 먹는다. 분위기가 필요한 자리는 색으로 대신한다. */
 
-const TOTAL = 7
+const TOTAL = 8
 const BRAND = 'SOOM · Designer Proposal'
 
 export default function ProposalV14Page() {
@@ -181,6 +181,7 @@ export default function ProposalV14Page() {
             </div>
             <p className="mt-2.5 text-xs leading-relaxed text-neutral-500">
               * 디자이너는 디자인만, 개발은 SOOM에서 이어서 진행합니다.
+              * 개발과 디자인이 결합된 형태의 의뢰는 SOOM과 디자이너 측이 참여율에 따라 합리적으로 수익을 배분합니다.
             </p>
 
           </Half>
@@ -295,9 +296,53 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 05 ELIGIBILITY ─────────── */}
+        {/* ─────────── 05 FOUNDER ─────────── */}
         <Spread id={5}>
-          <Half tone="cream" top={['Feature · 04', 'Who we look for']} foot={[BRAND, 'L']}>
+          <Half tone="cream" top={['Feature · 04', 'Founder']} foot={[BRAND, 'L']}>
+            <Label>Founder</Label>
+            <h2 className="mt-5 text-3xl font-semibold leading-snug tracking-tight md:text-5xl">
+              SOOM의 창업자를
+              <br />
+              <span className="text-violet-600">소개합니다.</span>
+            </h2>
+          </Half>
+
+          <Half tone="white" top={['Profile', '2026']} foot={[BRAND, `05 / ${pad(TOTAL)}`]}>
+            <p className="text-[11px] tracking-[0.35em] text-violet-600">TECH STACK &amp; EDUCATION</p>
+            <ul className="mt-2 space-y-1.5 text-[15px] leading-relaxed text-neutral-700 md:text-base">
+              <li>
+                <b className="font-semibold text-neutral-900">웹 풀스택 개발자</b>
+              </li>
+              <li>
+                앱도 개발해요 <span className="text-neutral-500">(React Native)</span>
+              </li>
+              <li>실무에서 개발뿐 아니라 기획도 다수 참여했어요.</li>
+              <li>고려대 경영학과 졸업</li>
+            </ul>
+
+            <p className="mt-7 text-[11px] tracking-[0.35em] text-violet-600 md:mt-8">MAJOR PROJECTS</p>
+            <ul className="mt-2 divide-y divide-neutral-200 border-y border-neutral-200">
+              {[
+                'KB카드 QR결제 가맹점 관리자페이지 개발',
+                'LG전자 길안내 로봇 UI 개발',
+                '비상교육 AI 디지털교과서 관리자페이지 개발',
+                '울림엔터 팬커뮤니티 관리자페이지 개발',
+                'OCR 기반 모의고사 영어학습앱 개발',
+                'IP 출원업무 안내 자동화 서비스 개발',
+              ].map((t, i) => (
+                <li key={t} className="flex items-baseline gap-3 py-2.5 text-sm md:text-[15px]">
+                  <span className="w-5 shrink-0 text-[10px] tracking-widest text-neutral-400">{pad(i + 1)}</span>
+                  {t}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-sm text-neutral-500">그 외 다수의 프로젝트 진행</p>
+          </Half>
+        </Spread>
+
+        {/* ─────────── 06 ELIGIBILITY ─────────── */}
+        <Spread id={6}>
+          <Half tone="cream" top={['Feature · 05', 'Who we look for']} foot={[BRAND, 'L']}>
             <Label>Eligibility</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
               이런 디자이너를
@@ -313,7 +358,7 @@ export default function ProposalV14Page() {
             </p>
           </Half>
 
-          <Half tone="white" top={['Requirements', '2026']} foot={[BRAND, `05 / ${pad(TOTAL)}`]}>
+          <Half tone="white" top={['Requirements', '2026']} foot={[BRAND, `06 / ${pad(TOTAL)}`]}>
             {/* 분야마다 요건이 다르다 — 필수 하나(검은 띠) + 둘 중 하나(나란히).
                 둘 중 하나를 위아래로 쌓으면 두 묶음이 한 쪽에 들어가지 않는다 */}
             <div className="space-y-8 md:space-y-9">
@@ -354,9 +399,9 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 06 LAUNCH EVENT ─────────── */}
-        <Spread id={6}>
-          <Half tone="cream" top={['Feature · 05', 'Launch event']} foot={[BRAND, 'L']}>
+        {/* ─────────── 07 LAUNCH EVENT ─────────── */}
+        <Spread id={7}>
+          <Half tone="cream" top={['Feature · 06', 'Launch event']} foot={[BRAND, 'L']}>
             <Label>November Event</Label>
             <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
               첫 거래 <span className="text-violet-600">축하선물</span>
@@ -368,7 +413,7 @@ export default function ProposalV14Page() {
             </p>
           </Half>
 
-          <Half tone="white" top={['Gift', '2026']} foot={[BRAND, `06 / ${pad(TOTAL)}`]}>
+          <Half tone="white" top={['Gift', '2026']} foot={[BRAND, `07 / ${pad(TOTAL)}`]}>
             {/* 선물 카드 — 이 쪽의 주인공. 금액을 가장 크게 둔다 */}
             {/* @container — 금액 크기를 카드 폭에 맞춘다. 태블릿에서는 쪽이 좁아
                 화면 기준 크기(text-6xl)로는 '₩50,00'에서 잘렸다 */}
@@ -415,8 +460,8 @@ export default function ProposalV14Page() {
           </Half>
         </Spread>
 
-        {/* ─────────── 07 CONTACT ─────────── */}
-        <Spread id={7}>
+        {/* ─────────── 08 CONTACT ─────────── */}
+        <Spread id={8}>
           <div className="relative flex min-h-[18rem] flex-col justify-between overflow-hidden bg-violet-950 p-7 text-white md:min-h-[32rem] md:p-12">
             <div
               aria-hidden

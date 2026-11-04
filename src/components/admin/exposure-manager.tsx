@@ -10,6 +10,7 @@ import {
   removeExploreFeature,
   reorderExploreFeatures,
 } from '@/app/admin/exposure/actions'
+import { Flash } from '@/components/flash'
 
 export type ExposureDesigner = {
   id: string
@@ -97,15 +98,7 @@ export function ExposureManager({
 
   return (
     <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200 md:p-6">
-      {notice && (
-        <p
-          className={`mb-4 rounded-lg px-3.5 py-3 text-sm ${
-            notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <Flash msg={notice} onDone={() => setNotice(null)} className="mb-4" />
 
       <div className="flex flex-col gap-6 lg:flex-row">
         {/* 모양 — 이 묶음이 탐색에서 어떻게 보이는지 */}

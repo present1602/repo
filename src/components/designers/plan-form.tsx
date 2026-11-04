@@ -275,6 +275,7 @@ export function PlanForm({
                       <span className="block text-xs leading-relaxed text-neutral-500">
                         고객이 의뢰할 때 둘 중 하나를 고릅니다. 개발은 SOOM 개발자와 함께합니다.
                       </span>
+                      <DevShareNote />
                     </span>
                   </div>
                 ) : (
@@ -295,7 +296,9 @@ export function PlanForm({
                         ? '디자인 후 개발은 SOOM 이 이어받습니다. 금액은 관리자가 정합니다.'
                         : '이 분야를 고르면 받습니다. 금액은 관리자가 정합니다.'
                     }
-                  />
+                  >
+                    {c.scope_mode === 'design_dev' && <DevShareNote />}
+                  </Row>
                 )}
 
                 {/* 메인화면 시안 의뢰 — 받을지는 어드민 몫, 시작가만 디자이너가 고른다.
@@ -377,6 +380,15 @@ export function PlanForm({
 }
 
 /* 의뢰 유형 한 줄 — 체크 · 이름 · 금액 · 설명 */
+/* 개발이 들어가는 의뢰의 수익 배분 — 금액이 디자이너 몫 전부로 읽히지 않게 그 줄 아래에 붙인다 */
+function DevShareNote() {
+  return (
+    <span className="mt-1.5 block text-[11px] leading-relaxed text-violet-700">
+      * 개발과 디자인이 결합된 형태의 의뢰는 SOOM과 디자이너 측이 참여율에 따라 합리적으로 수익을 배분합니다.
+    </span>
+  )
+}
+
 function Row({
   dim,
   check,
