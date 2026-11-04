@@ -314,21 +314,21 @@ export default function ProposalV14Page() {
                 <b className="font-semibold text-neutral-900">웹 풀스택 개발자</b>
               </li>
               <li>
-                앱도 개발해요 <span className="text-neutral-500">(React Native)</span>
+                앱개발 <span className="text-neutral-500">(React Native)</span>
               </li>
-              <li>실무에서 개발뿐 아니라 기획도 다수 참여했어요.</li>
-              <li>고려대 경영학과 졸업</li>
+              <li>기획&middot;PM</li>
+              <li>경영학 전공</li>
             </ul>
 
             <p className="mt-7 text-[11px] tracking-[0.35em] text-violet-600 md:mt-8">MAJOR PROJECTS</p>
             <ul className="mt-2 divide-y divide-neutral-200 border-y border-neutral-200">
               {[
+                'IP 출원업무 안내 자동화 서비스 개발',
                 'KB카드 QR결제 가맹점 관리자페이지 개발',
-                'LG전자 길안내 로봇 UI 개발',
+                'LG전자 길안내 로봇 앱 프론트엔드 개발',
                 '비상교육 AI 디지털교과서 관리자페이지 개발',
                 '울림엔터 팬커뮤니티 관리자페이지 개발',
                 'OCR 기반 모의고사 영어학습앱 개발',
-                'IP 출원업무 안내 자동화 서비스 개발',
               ].map((t, i) => (
                 <li key={t} className="flex items-baseline gap-3 py-2.5 text-sm md:text-[15px]">
                   <span className="w-5 shrink-0 text-[10px] tracking-widest text-neutral-400">{pad(i + 1)}</span>
