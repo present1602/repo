@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════
--- 포트폴리오 이미지 한도 10MB → 20MB
+-- 포트폴리오 이미지 한도 10MB → 25MB
 -- Supabase 대시보드 → SQL Editor 에 붙여넣고 Run
 -- 여러 번 실행해도 안전합니다 (멱등). 0006_invite_link.sql 다음에 돌린다.
 -- ════════════════════════════════════════════════════════
@@ -9,5 +9,5 @@
 -- Free 플랜의 전역 한도(50MB) 안이라 플랜 변경은 필요 없다.
 
 update storage.buckets
-  set file_size_limit = 20971520  -- 20MB
+  set file_size_limit = 26214400  -- 25MB
   where id = 'designer-images';
