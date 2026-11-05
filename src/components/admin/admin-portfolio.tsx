@@ -6,6 +6,7 @@ import type { WorkRow } from '@/lib/portfolio-limits'
 import { MAX_WORKS, MAX_DESCRIPTION, thumbSrc } from '@/lib/portfolio-limits'
 import {
   adminAddWork,
+  adminPrepareWorkUpload,
   adminUpdateWork,
   adminSetWorkVisible,
   adminDeleteWork,
@@ -24,6 +25,7 @@ import {
   reshapeCrop,
 } from '@/lib/crop'
 import { makeThumb, makeThumbFromUrl } from '@/lib/make-thumb'
+import { DESIGNER_IMAGES_BUCKET, uploadSigned } from '@/lib/direct-upload'
 import { Flash } from '@/components/flash'
 
 export type Notice = { kind: 'ok' | 'error'; text: string } | null
@@ -291,11 +293,15 @@ function AddWorkButton({
     start(async () => {
       /* 목록에서 쓸 작은 이미지를 먼저 만든다 — 영역을 잡아 뒀으면
          그 부분만 자른다. 실패해도 그냥 올린다(make-thumb.ts). */
-      const thumb = await makeThumb(file, opts.crop)
+      /* 원본은 서명 주소로 바로 올린다 — 서버 액션은 본문 1MB 제한에 걸린다(direct-upload.ts) */
+      const prep = await adminPrepareWorkUpload(designerId, file.name, file.size)
+      const [sent, thumb] = prep.ok
+        ? await Promise.all([uploadSigned(DESIGNER_IMAGES_BUCKET, prep, file), makeThumb(file, opts.crop)])
+        : [false, null]
 
       const form = new FormData()
       form.set('designerId', designerId)
-      form.set('image', file)
+      if (prep.ok) form.set('imagePath', prep.path)
       if (thumb) form.set('thumb', thumb.file)
       /* 제목은 받지 않는다(숨김) — 설명만 나중에 선택으로 적는다 */
       if (opts.width) form.set('width', String(opts.width))
@@ -312,7 +318,11 @@ function AddWorkButton({
         form.set('cropH', String(opts.crop.h))
       }
 
-      const r = await adminAddWork(form)
+      const r = !prep.ok
+        ? prep
+        : !sent
+          ? { ok: false as const, error: '이미지를 올리지 못했습니다.' }
+          : await adminAddWork(form)
 
       const rest = queue.slice(1)
       const nextFailed = r.ok ? failed : [...failed, `${file.name}: ${r.error}`]

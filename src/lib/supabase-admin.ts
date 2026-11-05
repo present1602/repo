@@ -15,7 +15,7 @@ export const supabaseAdmin = supabaseConfigured
     })
   : null
 
-export const DESIGNER_IMAGES_BUCKET = 'designer-images'
+export { DESIGNER_IMAGES_BUCKET } from './direct-upload'
 
 /* 문의 첨부 — 작업 이미지와 섞지 않는다(012_inquiries.sql).
    저쪽은 공개 버킷이라 주소만 알면 누구나 열 수 있는데, 문의 첨부는

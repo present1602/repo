@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { signIn, destroySession, changePassword, readSession } from '@/lib/designer-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { putImage } from '@/lib/upload'
+import { putImage, signImageUpload, claimImage } from '@/lib/upload'
 import {
   type WorkRow,
   MAX_WORKS,
@@ -370,10 +370,27 @@ function readCrop(form: FormData) {
   return { crop_x: x, crop_y: y, crop_w: w, crop_h: h }
 }
 
+/* 원본은 브라우저가 서명 주소로 바로 올린다(upload.ts) — 그 주소를 내준다.
+   상한을 넘었으면 올리기 전에 막는다 — 거부될 이미지가 버킷에 남지 않게 */
+export async function prepareWorkUpload(
+  name: string,
+  size: number,
+): Promise<{ ok: true; path: string; token: string } | { ok: false; error: string }> {
+  const { db, id } = await guard()
+
+  const { count } = await db
+    .from('designer_works')
+    .select('id', { count: 'exact', head: true })
+    .eq('designer_id', id)
+  if ((count ?? 0) >= MAX_WORKS) return fail(`포트폴리오는 최대 ${MAX_WORKS}개까지 올릴 수 있습니다.`)
+
+  return signImageUpload(`works/${id}`, name, size)
+}
+
 export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   const { db, id } = await guard()
 
-  const file = form.get('image')
+  const imageUrl = claimImage(`works/${id}`, String(form.get('imagePath') ?? ''))
   const title = String(form.get('title') ?? '').trim()
   const description = String(form.get('description') ?? '').trim()
   const client = String(form.get('client') ?? '').trim()
@@ -383,7 +400,7 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   /* 해당할 때만 켜는 표시라 '묻지 않음'이 없다 — 키가 있으면 켠 것 */
   const soomWork = form.get('soomWork') != null
 
-  if (!(file instanceof File) || file.size === 0) return fail('이미지를 선택해 주세요.')
+  if (!imageUrl) return fail('이미지를 선택해 주세요.')
   if (description.length > MAX_DESCRIPTION) {
     return fail(`설명은 ${MAX_DESCRIPTION}자 이내로 입력해 주세요.`)
   }
@@ -399,13 +416,10 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
     return fail(`포트폴리오는 최대 ${MAX_WORKS}개까지 올릴 수 있습니다.`)
   }
 
-  const up = await putImage(file, `works/${id}`)
-  if (!up.ok) return fail(up.error)
-
-  /* 썸네일 — 화면에서 만들어 함께 보낸다(make-thumb.ts).
+  /* 썸네일 — 화면에서 만들어 함께 보낸다(make-thumb.ts). 작아서 액션으로 받는다.
      못 만들었으면 원본을 가리킨다 — 어드민 등록(adminAddWork)과 같은 방침이다. */
   const thumb = form.get('thumb')
-  let thumbUrl = up.url
+  let thumbUrl = imageUrl
   if (thumb instanceof File && thumb.size > 0) {
     const t = await putImage(thumb, `works/${id}/thumbs`)
     if (t.ok) thumbUrl = t.url
@@ -420,7 +434,7 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
     .from('designer_works')
     .insert({
       designer_id: id,
-      image_url: up.url,
+      image_url: imageUrl,
       thumb_url: thumbUrl,
       width,
       height,

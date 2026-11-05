@@ -7,7 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { generateTempPassword, hashPassword } from '@/lib/password'
 import { sendTempPassword } from '@/lib/designer-mail'
 import { displayName } from '@/lib/display-name'
-import { putImage } from '@/lib/upload'
+import { putImage, signImageUpload, claimImage } from '@/lib/upload'
 import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
 import {
   MAX_DESCRIPTION,
@@ -652,13 +652,31 @@ function readCrop(form: FormData) {
    본인용(app/studio/actions.ts)은 세션에서 id 를 꺼내 범위를 묶지만,
    어드민은 어떤 디자이너든 다룰 수 있어야 하므로 designerId 를 받는다 —
    대신 guard() 로 관리자 권한을 확인한다. */
+/* 원본은 브라우저가 서명 주소로 바로 올린다(upload.ts) — 본인용(prepareWorkUpload)과 같다 */
+export async function adminPrepareWorkUpload(
+  designerId: string,
+  name: string,
+  size: number,
+): Promise<{ ok: true; path: string; token: string } | { ok: false; error: string }> {
+  const db = await guard()
+  if (!designerId) return fail('디자이너를 찾을 수 없습니다.')
+
+  const { count } = await db
+    .from('designer_works')
+    .select('id', { count: 'exact', head: true })
+    .eq('designer_id', designerId)
+  if ((count ?? 0) >= MAX_WORKS) return fail(`포트폴리오는 최대 ${MAX_WORKS}개까지 올릴 수 있습니다.`)
+
+  return signImageUpload(`works/${designerId}`, name, size)
+}
+
 export async function adminAddWork(form: FormData): Promise<Result<{ id: string }>> {
   const db = await guard()
 
   const designerId = String(form.get('designerId') ?? '')
   if (!designerId) return fail('디자이너를 찾을 수 없습니다.')
 
-  const file = form.get('image')
+  const imageUrl = claimImage(`works/${designerId}`, String(form.get('imagePath') ?? ''))
   const title = String(form.get('title') ?? '').trim()
   const width = Number(form.get('width')) || null
   const height = Number(form.get('height')) || null
@@ -666,7 +684,7 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
   /* 해당할 때만 켜는 표시라 '묻지 않음'이 없다 — 키가 있으면 켠 것 */
   const soomWork = form.get('soomWork') != null
 
-  if (!(file instanceof File) || file.size === 0) return fail('이미지를 선택해 주세요.')
+  if (!imageUrl) return fail('이미지를 선택해 주세요.')
 
   /* 상한은 DB 트리거가 최종 방어하지만, 업로드를 먼저 하면
      거부될 이미지가 버킷에 남는다 — 여기서 먼저 센다. */
@@ -679,16 +697,12 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
     return fail(`포트폴리오는 최대 ${MAX_WORKS}개까지 올릴 수 있습니다.`)
   }
 
-  /* 경로는 본인이 올릴 때와 같게 둔다 — 누가 올렸든 같은 디자이너의 폴더에 모인다 */
-  const up = await putImage(file, `works/${designerId}`)
-  if (!up.ok) return fail(up.error)
-
   /* 썸네일 — 화면에서 만들어 함께 보낸다(make-thumb.ts).
      못 만들었으면 원본을 가리킨다: 목록이 느려질 뿐이고, 여기서 막으면
      올리는 일 자체가 멈춘다. 화면 코드가 분기를 갖지 않도록
      thumb_url 은 항상 채워 둔다. */
   const thumb = form.get('thumb')
-  let thumbUrl = up.url
+  let thumbUrl = imageUrl
   if (thumb instanceof File && thumb.size > 0) {
     const t = await putImage(thumb, `works/${designerId}/thumbs`)
     if (t.ok) thumbUrl = t.url
@@ -702,7 +716,7 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
     .from('designer_works')
     .insert({
       designer_id: designerId,
-      image_url: up.url,
+      image_url: imageUrl,
       thumb_url: thumbUrl,
       width,
       height,

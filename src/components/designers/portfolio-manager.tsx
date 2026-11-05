@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { type WorkRow, MAX_WORKS, MAX_DESCRIPTION, thumbSrc } from '@/lib/portfolio-limits'
 import {
   addWork,
+  prepareWorkUpload,
   updateWork,
   updateWorkCrop,
   setWorkVisible,
@@ -23,6 +24,7 @@ import {
   reshapeCrop,
 } from '@/lib/crop'
 import { makeThumb, makeThumbFromUrl } from '@/lib/make-thumb'
+import { DESIGNER_IMAGES_BUCKET, uploadSigned } from '@/lib/direct-upload'
 import { Flash } from '@/components/flash'
 
 export function PortfolioManager({ works }: { works: WorkRow[] }) {
@@ -283,11 +285,7 @@ function AddButton({
   const fileRef = useRef<HTMLInputElement>(null)
   const [pending, start] = useTransition()
   const router = useRouter()
-  /* 고른 파일을 바로 올리지 않고 붙잡아 둔다 — AI 사용 여부를 먼저 묻는다.
-     기본값을 정해두면 아무 생각 없이 넘어가므로 고를 때까지 비워둔다. */
-  const [picked, setPicked] = useState<File | null>(null)
-  const [aiUsed, setAiUsed] = useState<boolean | null>(null)
-  /* SOOM 의뢰 여부 — 해당할 때만 켜는 표시라 꺼진 채로 시작한다 */
+  /* SOOM 의뢰 표시 — 해당할 때만 켜고 올린다. 다음 작업에 잘못 붙지 않게 올리면 끈다 */
   const [soomWork, setSoomWork] = useState(false)
 
   /* 올리기 전에 원본 크기를 읽어둔다 — 세로로 긴 이미지는 2칸으로 시작한다 */
@@ -306,37 +304,58 @@ function AddButton({
       img.src = url
     })
 
-  const upload = (file: File, ai: boolean, soom: boolean) => {
+  /* 고르면 바로 올린다. AI 사용·SOOM 의뢰 표시는 올린 뒤 편집에서 켠다 —
+     AI 는 묻지 않은 채(null)로 남는다(readAiUsed) */
+  const upload = (file: File) => {
     onMessage(null)
     start(async () => {
-      /* 목록에서 쓸 작은 이미지를 함께 만든다 — 실패해도 그냥 올린다(make-thumb.ts) */
-      const [{ width, height }, thumb] = await Promise.all([measure(file), makeThumb(file, null)])
+      const prep = await prepareWorkUpload(file.name, file.size)
+      if (!prep.ok) {
+        onMessage({ ok: false, text: prep.error })
+        return
+      }
+
+      /* 원본은 서명 주소로 바로 올린다(direct-upload.ts). 목록에서 쓸 작은 이미지도
+         함께 만든다 — 실패해도 그냥 올린다(make-thumb.ts) */
+      const [sent, { width, height }, thumb] = await Promise.all([
+        uploadSigned(DESIGNER_IMAGES_BUCKET, prep, file),
+        measure(file),
+        makeThumb(file, null),
+      ])
+      if (!sent) {
+        onMessage({ ok: false, text: '이미지를 올리지 못했습니다.' })
+        return
+      }
 
       const form = new FormData()
-      form.set('image', file)
+      form.set('imagePath', prep.path)
       if (thumb) form.set('thumb', thumb.file)
       if (width) form.set('width', String(width))
       if (height) form.set('height', String(height))
-      /* 답했다는 사실과 답 자체를 따로 보낸다 — 체크하지 않은 체크박스는
-         브라우저가 전송하지 않아 '아니오'와 '묻지 않음'이 구분되지 않는다. */
-      form.set('aiAnswered', '1')
-      if (ai) form.set('aiUsed', '1')
-      if (soom) form.set('soomWork', '1')
+      if (soomWork) form.set('soomWork', '1')
 
       const r = await addWork(form)
       if (!r.ok) {
         onMessage({ ok: false, text: r.error })
         return
       }
-      setPicked(null)
-      setAiUsed(null)
       setSoomWork(false)
       router.refresh()
     })
   }
 
   return (
-    <>
+    <div className="flex items-center gap-3">
+      <label className="flex cursor-pointer items-center gap-1.5 text-sm text-neutral-600">
+        <input
+          type="checkbox"
+          checked={soomWork}
+          onChange={(e) => setSoomWork(e.target.checked)}
+          disabled={disabled || pending}
+          className="accent-violet-600"
+        />
+        SOOM에서 수행한 의뢰
+      </label>
       <input
         ref={fileRef}
         type="file"
@@ -344,11 +363,7 @@ function AddButton({
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0]
-          if (f) {
-            setPicked(f)
-            setAiUsed(null)
-            setSoomWork(false)
-          }
+          if (f) upload(f)
           e.target.value = ''
         }}
       />
@@ -358,146 +373,9 @@ function AddButton({
         disabled={disabled || pending}
         className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
       >
-        작업 추가
+        {pending ? '올리는 중…' : '작업 추가'}
       </button>
-
-      {picked && (
-        <AiPromptDialog
-          fileName={picked.name}
-          value={aiUsed}
-          onChange={setAiUsed}
-          soomWork={soomWork}
-          onSoomWork={setSoomWork}
-          pending={pending}
-          onCancel={() => {
-            setPicked(null)
-            setAiUsed(null)
-            setSoomWork(false)
-          }}
-          onConfirm={() => {
-            if (aiUsed === null) return
-            upload(picked, aiUsed, soomWork)
-          }}
-        />
-      )}
-    </>
-  )
-}
-
-/* ─────────── AI 사용 여부 ───────────
-
-   올리기 전에 한 번 묻는다. 기본값을 정해두면 그대로 통과해 버리므로
-   둘 중 하나를 직접 고를 때까지 올리는 버튼을 잠근다. */
-
-function AiPromptDialog({
-  fileName,
-  value,
-  onChange,
-  soomWork,
-  onSoomWork,
-  pending,
-  onCancel,
-  onConfirm,
-}: {
-  fileName: string
-  value: boolean | null
-  onChange: (v: boolean) => void
-  soomWork: boolean
-  onSoomWork: (v: boolean) => void
-  pending: boolean
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-sm rounded-xl bg-white p-5">
-        <h3 className="text-sm font-semibold">이 작업에 AI를 사용했나요?</h3>
-        <p className="mt-1.5 truncate text-xs text-neutral-500">{fileName}</p>
-
-        <div className="mt-4 space-y-2">
-          <AiChoice
-            checked={value === true}
-            onSelect={() => onChange(true)}
-            label="AI를 사용했습니다"
-            hint="생성·보정·업스케일 등 과정 일부에 썼다면 포함됩니다."
-          />
-          <AiChoice
-            checked={value === false}
-            onSelect={() => onChange(false)}
-            label="사용하지 않았습니다"
-            hint="전 과정을 직접 작업했습니다."
-          />
-        </div>
-
-        {/* AI 질문과 달리 답을 강요하지 않는다 — 해당할 때만 켠다 */}
-        <label className="mt-4 flex cursor-pointer items-start gap-2.5 border-t border-neutral-200 pt-4">
-          <input
-            type="checkbox"
-            checked={soomWork}
-            onChange={(e) => onSoomWork(e.target.checked)}
-            disabled={pending}
-            className="mt-0.5 accent-violet-600"
-          />
-          <span className="min-w-0">
-            <span className="block text-sm font-medium">SOOM에서 수행한 의뢰</span>
-            <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
-              SOOM을 통해 받은 의뢰의 결과물이면 체크해 주세요.
-            </span>
-          </span>
-        </label>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={pending}
-            className="rounded-lg border border-neutral-300 px-3.5 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-50"
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={pending || value === null}
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
-          >
-            {pending ? '올리는 중…' : '올리기'}
-          </button>
-        </div>
-      </div>
     </div>
-  )
-}
-
-function AiChoice({
-  checked,
-  onSelect,
-  label,
-  hint,
-}: {
-  checked: boolean
-  onSelect: () => void
-  label: string
-  hint: string
-}) {
-  return (
-    <label
-      className={`flex cursor-pointer gap-2.5 rounded-lg border p-3 transition ${
-        checked ? 'border-violet-600 bg-violet-50' : 'border-neutral-300 hover:bg-neutral-50'
-      }`}
-    >
-      <input
-        type="radio"
-        name="ai-used"
-        checked={checked}
-        onChange={onSelect}
-        className="mt-0.5 accent-violet-600"
-      />
-      <span className="min-w-0">
-        <span className="block text-sm font-medium">{label}</span>
-        <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">{hint}</span>
-      </span>
-    </label>
   )
 }
 

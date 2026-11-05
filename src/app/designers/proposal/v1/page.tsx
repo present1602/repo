@@ -328,7 +328,7 @@ export default function ProposalV14Page() {
                 'LG전자 길안내 로봇 앱 프론트엔드 개발',
                 '비상교육 AI 디지털교과서 관리자페이지 개발',
                 '울림엔터 팬커뮤니티 관리자페이지 개발',
-                'OCR 기반 모의고사 영어학습앱 개발',
+                'OCR 기반 모의고사 영어학습앱 개발'
               ].map((t, i) => (
                 <li key={t} className="flex items-baseline gap-3 py-2.5 text-sm md:text-[15px]">
                   <span className="w-5 shrink-0 text-[10px] tracking-widest text-neutral-400">{pad(i + 1)}</span>
