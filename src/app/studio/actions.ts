@@ -447,6 +447,8 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
       ...(soomWork ? { soom_work: true } : {}),
       row_span: rowSpan,
       sort_order: count ?? 0,
+      /* 숨긴 채로 들어간다 — 설명·표시를 손본 뒤 본인이 공개한다 */
+      visible: false,
     })
     .select('id')
     .maybeSingle()

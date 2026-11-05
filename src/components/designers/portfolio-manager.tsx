@@ -239,11 +239,14 @@ function EditList({
                 <span className="line-clamp-1 text-sm">
                   {w.description || <span className="text-neutral-400">설명 없음</span>}
                 </span>
-                {!w.visible && (
-                  <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-600">
-                    숨김
-                  </span>
-                )}
+                {/* 올리면 숨김으로 시작한다 — 어느 쪽인지 늘 보이게 */}
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[11px] ${
+                    w.visible ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
+                  }`}
+                >
+                  {w.visible ? '노출' : '숨김'}
+                </span>
                 {w.ai_used && (
                   <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[11px] text-violet-700">
                     AI
@@ -285,8 +288,6 @@ function AddButton({
   const fileRef = useRef<HTMLInputElement>(null)
   const [pending, start] = useTransition()
   const router = useRouter()
-  /* SOOM 의뢰 표시 — 해당할 때만 켜고 올린다. 다음 작업에 잘못 붙지 않게 올리면 끈다 */
-  const [soomWork, setSoomWork] = useState(false)
 
   /* 올리기 전에 원본 크기를 읽어둔다 — 세로로 긴 이미지는 2칸으로 시작한다 */
   const measure = (file: File) =>
@@ -304,8 +305,8 @@ function AddButton({
       img.src = url
     })
 
-  /* 고르면 바로 올린다. AI 사용·SOOM 의뢰 표시는 올린 뒤 편집에서 켠다 —
-     AI 는 묻지 않은 채(null)로 남는다(readAiUsed) */
+  /* 고르면 바로 올린다. 숨긴 채로 들어가고(addWork), AI 사용·SOOM 의뢰 표시는
+     편집에서 켠다 — AI 는 묻지 않은 채(null)로 남는다(readAiUsed) */
   const upload = (file: File) => {
     onMessage(null)
     start(async () => {
@@ -332,30 +333,18 @@ function AddButton({
       if (thumb) form.set('thumb', thumb.file)
       if (width) form.set('width', String(width))
       if (height) form.set('height', String(height))
-      if (soomWork) form.set('soomWork', '1')
 
       const r = await addWork(form)
       if (!r.ok) {
         onMessage({ ok: false, text: r.error })
         return
       }
-      setSoomWork(false)
       router.refresh()
     })
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <label className="flex cursor-pointer items-center gap-1.5 text-sm text-neutral-600">
-        <input
-          type="checkbox"
-          checked={soomWork}
-          onChange={(e) => setSoomWork(e.target.checked)}
-          disabled={disabled || pending}
-          className="accent-violet-600"
-        />
-        SOOM에서 수행한 의뢰
-      </label>
+    <div className="flex flex-col items-end gap-1">
       <input
         ref={fileRef}
         type="file"
@@ -375,6 +364,8 @@ function AddButton({
       >
         {pending ? '올리는 중…' : '작업 추가'}
       </button>
+      {/* 버킷 한도(upload.ts 의 MAX_IMAGE_BYTES)와 같다 */}
+      <span className="text-[11px] text-neutral-400">10MB 이하</span>
     </div>
   )
 }
@@ -409,11 +400,14 @@ function WorkCard({
       </button>
 
       <div className="pointer-events-none absolute left-2 top-2 flex flex-wrap gap-1">
-        {!w.visible && (
-          <span className="rounded bg-neutral-900/80 px-1.5 py-0.5 text-[11px] text-white">
-            숨김
-          </span>
-        )}
+        {/* 올리면 숨김으로 시작한다 — 어느 쪽인지 늘 보이게 */}
+        <span
+          className={`rounded px-1.5 py-0.5 text-[11px] text-white ${
+            w.visible ? 'bg-emerald-600/90' : 'bg-neutral-900/80'
+          }`}
+        >
+          {w.visible ? '노출' : '숨김'}
+        </span>
         {w.ai_used && (
           <span className="rounded bg-violet-600/90 px-1.5 py-0.5 text-[11px] text-white">AI</span>
         )}
