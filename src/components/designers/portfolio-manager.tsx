@@ -42,7 +42,7 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
 
   return (
     <div className="space-y-5">
-      <Flash msg={msg} onDone={() => setMsg(null)} />
+      <Flash msg={msg} onDone={() => setMsg(null)} duration={msg?.text === UPLOADED ? 6000 : undefined} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* 좌상단 — 편집 들어가기·나가기 */}
@@ -278,6 +278,8 @@ function EditList({
 
 /* ─────────── 추가 ─────────── */
 
+const UPLOADED = '업로드했어요. "편집" 버튼을 눌러 포트폴리오 정보를 입력하고 "노출" 상태로 바꿔주세요.'
+
 function AddButton({
   disabled,
   onMessage,
@@ -339,6 +341,8 @@ function AddButton({
         onMessage({ ok: false, text: r.error })
         return
       }
+      /* 숨김으로 들어갔다 — 다음에 할 일을 알린다. 길어서 오래 띄운다 */
+      onMessage({ ok: true, text: UPLOADED })
       router.refresh()
     })
   }

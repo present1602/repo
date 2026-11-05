@@ -20,12 +20,15 @@ export function Flash({
   msg,
   onDone,
   className = '',
+  duration = 2500,
 }: {
   msg: FlashMsg
   /* 토스트가 사라질 때 — 보통 setMsg(null) */
   onDone: () => void
   /* 실패 줄의 바깥 여백 */
   className?: string
+  /* 토스트가 떠 있는 시간(ms) — 읽을 거리가 긴 안내만 늘린다 */
+  duration?: number
 }) {
   /* 부모가 그릴 때마다 새 함수가 와도 타이머를 다시 걸지 않게 */
   const done = useRef(onDone)
@@ -37,9 +40,9 @@ export function Flash({
 
   useEffect(() => {
     if (kind !== 'ok') return
-    const t = setTimeout(() => done.current(), 2500)
+    const t = setTimeout(() => done.current(), duration)
     return () => clearTimeout(t)
-  }, [msg, kind])
+  }, [msg, kind, duration])
 
   if (!msg) return null
 
