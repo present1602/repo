@@ -34,8 +34,8 @@ export async function putImage(
   return { ok: true, url: data.publicUrl }
 }
 
-/* 버킷 한도(0001_init.sql 의 file_size_limit)와 같다 */
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+/* 버킷 한도(0007_designer_images_20mb.sql 의 file_size_limit)와 같다 */
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
 const UPLOAD_NAME_RE = /^[0-9a-f-]{36}\.[a-z0-9]+$/
 
@@ -48,7 +48,7 @@ export async function signImageUpload(
   size: number,
 ): Promise<{ ok: true; path: string; token: string } | { ok: false; error: string }> {
   if (!supabaseAdmin) return { ok: false, error: '서버 설정이 완료되지 않았습니다.' }
-  if (!size || size > MAX_IMAGE_BYTES) return { ok: false, error: '이미지는 10MB를 넘을 수 없습니다.' }
+  if (!size || size > MAX_IMAGE_BYTES) return { ok: false, error: '이미지는 20MB를 넘을 수 없습니다.' }
 
   const ext = name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png'
   const path = `${prefix}/${crypto.randomUUID()}.${ext}`

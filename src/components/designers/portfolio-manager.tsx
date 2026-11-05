@@ -369,7 +369,7 @@ function AddButton({
         {pending ? '올리는 중…' : '작업 추가'}
       </button>
       {/* 버킷 한도(upload.ts 의 MAX_IMAGE_BYTES)와 같다 */}
-      <span className="text-[11px] text-neutral-400">10MB 이하</span>
+      <span className="text-[11px] text-neutral-400">20MB 이하</span>
     </div>
   )
 }
