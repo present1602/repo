@@ -18,14 +18,16 @@
    넘겨준다. */
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { MAX_DESCRIPTION, WORK_FILE_EXTS } from '@/lib/portfolio-limits'
-import { type PreparedWork, pagesField, prepareWorkFile, uploadAll } from '@/lib/work-file'
+import { type PreparedWork, isPdf, pagesField, prepareWorkFile, uploadAll } from '@/lib/work-file'
 import {
   type Crop,
   type RatioKey,
   THUMB_RATIOS,
   centeredCrop,
+  clampCrop,
   insetCrop,
   ratioValue,
   reshapeCrop,
@@ -35,7 +37,7 @@ import { firstPageCrop, stackSize } from '@/lib/work-stack'
 import { DESIGNER_IMAGES_BUCKET, uploadSigned } from '@/lib/direct-upload'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
 import { Flash, type FlashMsg } from '@/components/flash'
-import { StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
+import { CropActions, StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
 
 type Signed = { ok: true; path: string; token: string } | { ok: false; error: string }
 type SignedMany = { ok: true; uploads: { path: string; token: string }[] } | { ok: false; error: string }
@@ -80,6 +82,8 @@ export function WorkUploader({
   const [queue, setQueue] = useState<Queued[]>([])
   /* 고른 파일을 바꾸거나 올리는 중 — PDF 는 오래 걸려 글자로 알린다 */
   const [status, setStatus] = useState<string | null>(null)
+  /* PDF 를 이미지로 바꾸는 중 — 길면 수십 초 걸려 화면 전체를 덮어 알린다 */
+  const [converting, setConverting] = useState(false)
   /* 묶음에서 지금까지 올린 장수 — 진행 상황을 보여준다 */
   const [done, setDone] = useState(0)
   const [failed, setFailed] = useState<string[]>([])
@@ -197,15 +201,21 @@ export function WorkUploader({
 
   /* 고른 파일을 차례로 바꿔 대기열에 넣는다. 못 쓰는 파일(형식·크기·깨진 PDF)은
      빼고 토스트로 알린다 — 나머지는 그대로 이어서 묻는다. */
+  /* 고른 파일을 바꾸는 중 — transition 으로 감싸지 않는다. 그 안의 상태 변경은
+     작업이 끝날 때까지 화면에 나오지 않아, 변환 중 알림이 한 번도 뜨지 않는다 */
+  const [picking, setPicking] = useState(false)
   const pick = (files: File[]) => {
     onMessage(null)
-    start(async () => {
+    setPicking(true)
+    void (async () => {
       const ready: Queued[] = []
       const rejected: string[] = []
       for (const [i, f] of files.entries()) {
         const head = files.length > 1 ? `${i + 1}/${files.length} · ` : ''
         setStatus(`${head}준비 중…`)
+        setConverting(isPdf(f))
         const r = await prepareWorkFile(f, (t) => setStatus(head + t))
+        setConverting(false)
         if (r.ok) ready.push({ name: f.name, file: r.file, pages: r.pages })
         else rejected.push(files.length > 1 ? `${f.name}: ${r.error}` : r.error)
       }
@@ -222,7 +232,8 @@ export function WorkUploader({
         setDone(0)
         setFailed([])
       }
-    })
+      setPicking(false)
+    })()
   }
 
   return (
@@ -243,12 +254,14 @@ export function WorkUploader({
       <button
         type="button"
         onClick={() => fileRef.current?.click()}
-        disabled={disabled || pending}
+        disabled={disabled || pending || picking}
         title={disabled ? disabledTitle : undefined}
         className={className}
       >
-        {pending && !current ? (status ?? '준비 중…') : label}
+        {(pending || picking) && !current ? (status ?? '준비 중…') : label}
       </button>
+
+      {converting && <ConvertingOverlay />}
 
       {current && (
         <UploadDialog
@@ -266,6 +279,38 @@ export function WorkUploader({
         />
       )}
     </>
+  )
+}
+
+/* PDF 변환 중 — 화면 전체를 어둡게 덮어 다른 조작을 막고 가운데에 알린다.
+   점 셋이 차례로 튀어 멈춘 게 아님을 보인다. body 에 붙인다 — 버튼 둘레의
+   쌓임 맥락에 갇히면 다이얼로그·헤더 아래로 깔린다. */
+function ConvertingOverlay() {
+  return createPortal(
+    <div
+      role="alertdialog"
+      aria-busy="true"
+      aria-live="polite"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-4 backdrop-blur-[1px]"
+    >
+      <div className="rounded-2xl bg-white px-8 py-7 text-center shadow-xl">
+        <div className="flex h-6 items-end justify-center gap-2" aria-hidden>
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="size-2.5 animate-bounce rounded-full bg-violet-600"
+              style={{ animationDelay: `${i * 160}ms` }}
+            />
+          ))}
+        </div>
+        <p className="mt-4 text-sm font-medium leading-relaxed text-neutral-800">
+          PDF를 이미지로 변환중입니다.
+          <br />
+          다소 시간이 소요될 수 있습니다.
+        </p>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -330,26 +375,21 @@ function UploadDialog({
   /* 정보를 다 적고 올리는 것이므로 바로 공개로 시작한다 — 끄면 숨긴 채로 들어간다 */
   const [visible, setVisible] = useState(true)
 
-  /* 썸네일 — 영역을 잡거나(cropOn), 이미지를 따로 올리거나(thumbFile), 둘 다
-     아니면 올릴 그림 전체를 줄여 쓴다 */
+  /* 썸네일 — 영역을 정하거나(chosen), 이미지를 따로 올리거나(thumbFile), 둘 다
+     아니면 올릴 그림 전체를 줄여 쓴다(PDF 는 첫 장).
+     cropOn 은 왼쪽에서 영역을 잡는 중인지, crop 은 잡고 있는 영역이다 —
+     '선택한 영역으로 지정하기'를 눌러야 chosen 이 된다. */
   const [cropOn, setCropOn] = useState(false)
   const [crop, setCrop] = useState<Crop | null>(null)
+  const [chosen, setChosen] = useState<Crop | null>(null)
   /* 고른 비율. null 이면 자유 비율이다 — 체크를 끄면 여기로 돌아온다. */
   const [ratio, setRatio] = useState<RatioKey | null>(null)
   /* 오른쪽 미리보기에 띄울 영역 — 왼쪽에서 잡은 뒤 바깥을 누를 때 바뀐다 */
   const [shown, setShown] = useState<Crop | null>(null)
   /* 왼쪽 그림 칸 — 키워 둔 채 영역 지정을 켜면 보이는 부분에 처음 영역을 잡는다 */
   const zoomRef = useRef<ZoomAreaHandle>(null)
-  /* 영역을 잡는 중인지 — 바깥을 누르면 꺼지고 덮개·핸들이 걷힌다 */
-  const [editing, setEditing] = useState(true)
-  /* 영역을 정했다는 알림 — 바깥을 눌러도, '영역 지정'을 눌러도 같다 */
+  /* 영역을 정했다는 알림 — '선택한 영역으로 지정하기'를 눌렀을 때 */
   const [cropMsg, setCropMsg] = useState<FlashMsg>(null)
-  /* 지금 영역으로 정한다 — 미리보기를 바꾸고 덮개·핸들을 걷는다. 영역은 남는다 */
-  const commitCrop = (c: Crop) => {
-    setShown(c)
-    setEditing(false)
-    setCropMsg({ ok: true, text: '썸네일 영역이 설정됐습니다' })
-  }
   /* PDF 둘째 장부터 — 보기와 영역 잡기가 같은 그림을 쓴다 */
   const pageParts = item.pages.map((p, i) => ({ url: pageUrls[i], width: p.width, height: p.height }))
   const [thumbFile, setThumbFile] = useState<File | null>(null)
@@ -400,26 +440,34 @@ function UploadDialog({
   /* 영역을 잡지 않은 PDF 는 첫 장이 썸네일이 된다 */
   const firstCrop = size && isPdf ? firstPageCrop(size, item.pages) : null
 
-  /* 영역 지정을 켜면 가운데에 기본 영역을 깔아 둔다 —
-     빈 화면에서 직접 끌어 만들게 하면 처음 쓰는 사람이 막힌다.
-     따로 고른 썸네일 이미지는 내려놓는다 — 둘 중 하나만 쓴다. */
-  const toggleCrop = (on: boolean) => {
-    setCropOn(on)
-    if (!on) {
-      setCrop(null)
-      setRatio(null)
-      return
-    }
-    setThumbFile(null)
-    setThumbUrl(null)
-    /* PDF 는 첫 장을 덮은 채로 시작한다 — 그대로 저장하면 기본(첫 장)과 같다 */
-    /* 키워 둔 채 켜면 지금 보이는 부분 안에 처음 영역을 잡는다 */
-    const z = zoomRef.current
-    const v = z?.zoomed() ? z.visible() : null
-    const start = v ? insetCrop(v) : (crop ?? firstCrop ?? centeredCrop(imgRatio, imgRatio))
+  /* 영역 지정 시작 — 지금 스크롤로 보고 있는 부분 안에 새 영역을 잡는다.
+     긴 그림에서 화면 밖의 기존 영역을 찾아 내려가지 않아도 된다. */
+  const startCrop = () => {
+    const v = zoomRef.current?.visible()
+    const start = v ? clampCrop(insetCrop(v), imgRatio) : (firstCrop ?? centeredCrop(imgRatio, imgRatio))
     setCrop(start)
     setShown(start)
-    setEditing(true)
+    setRatio(null)
+    setCropOn(true)
+  }
+
+  /* 선택한 영역으로 지정 — 따로 고른 썸네일 이미지는 내려놓는다(둘 중 하나만 쓴다) */
+  const confirmCrop = () => {
+    if (!crop) return
+    setChosen(crop)
+    setShown(crop)
+    setThumbFile(null)
+    setThumbUrl(null)
+    setCropOn(false)
+    setCropMsg({ ok: true, text: '썸네일 영역이 설정됐습니다' })
+  }
+
+  /* 취소 — 잡던 영역을 버리고 정해 둔 영역으로 되돌린다 */
+  const cancelCrop = () => {
+    setCrop(chosen)
+    setShown(chosen)
+    setRatio(null)
+    setCropOn(false)
   }
 
   /* 비율 체크박스 — 같은 것을 다시 누르면 고정이 풀린다(자유 비율) */
@@ -436,6 +484,7 @@ function UploadDialog({
     setThumbFile(f)
     setThumbUrl(URL.createObjectURL(f))
     setCropOn(false)
+    setChosen(null)
     setCrop(null)
     setRatio(null)
   }
@@ -452,9 +501,8 @@ function UploadDialog({
           ratio={whole ? whole.width / whole.height : null}
           naturalWidth={size?.width ?? null}
           fit={isPdf ? 'width' : 'contain'}
-          className={`flex max-h-[38vh] min-h-0 shrink-0 justify-center-safe overflow-auto bg-neutral-100 p-3 md:max-h-none md:flex-1 md:shrink ${
-            isPdf ? 'items-start' : 'items-center-safe'
-          }`}
+          className="max-h-[38vh] shrink-0 md:max-h-none md:flex-1 md:shrink"
+          overlay={cropOn && <CropActions onConfirm={confirmCrop} onCancel={cancelCrop} />}
         >
           {cropOn && crop ? (
             <CropEditor
@@ -462,8 +510,7 @@ function UploadDialog({
               pages={pageParts}
               crop={crop}
               onChange={setCrop}
-              active={editing}
-              onCommit={commitCrop}
+              onCommit={setShown}
               lockedRatio={ratio == null ? null : ratioValue(ratio)}
               imgRatio={imgRatio}
             />
@@ -565,22 +612,23 @@ function UploadDialog({
                 }}
               />
               <div className="flex gap-1.5">
+                {/* 영역 지정 중에는 그림 칸 아래 두 버튼으로만 마친다 */}
+                {!cropOn && (
                 <button
                   type="button"
                   data-crop-keep
-                  /* 꺼져 있으면 켜고, 잡는 중이면 지금 영역으로 정하고(영역은 남는다),
-                     정한 뒤면 다시 잡는다 — 끄지 않는다 */
-                  onClick={() => (!cropOn ? toggleCrop(true) : editing ? crop && commitCrop(crop) : setEditing(true))}
+                  onClick={startCrop}
                   disabled={pending || size == null}
                   title={size == null ? '원본 크기를 몰라 영역을 잡을 수 없습니다' : undefined}
                   className={`rounded-md border px-2 py-1 text-[11px] font-medium transition disabled:opacity-40 ${
-                    cropOn
+                    chosen
                       ? 'border-violet-600 bg-violet-50 text-violet-700'
                       : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
                   }`}
                 >
                   영역 지정
                 </button>
+                )}
                 <button
                   type="button"
                   onClick={() => thumbRef.current?.click()}
@@ -592,7 +640,7 @@ function UploadDialog({
               </div>
             </div>
 
-            {cropOn ? (
+            {cropOn || chosen ? (
               <div className="mt-2.5 space-y-2.5">
                 {/* 영역 바깥을 누르면 그 영역으로 바뀐다 — 이 그림이 썸네일이 된다 */}
                 {shown && size && (
@@ -609,6 +657,7 @@ function UploadDialog({
                     ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.'
                     : '썸네일로 쓸 영역을 지정해 주세요.'}
                 </p>
+                {cropOn && (
                 <div data-crop-keep className="mt-2 flex flex-wrap gap-1.5">
                   {THUMB_RATIOS.map((r) => (
                     <label
@@ -630,6 +679,7 @@ function UploadDialog({
                     </label>
                   ))}
                 </div>
+                )}
               </div>
             ) : thumbFile && thumbUrl ? (
               <div className="mt-2.5 flex items-start gap-3">
@@ -675,7 +725,7 @@ function UploadDialog({
                 visible,
                 /* PDF 는 영역을 잡지 않았어도(썸네일을 따로 올렸어도) 첫 장 영역을
                    저장한다 — 목록·카드가 그 비율로 자리를 잡는다(work-stack.ts) */
-                crop: cropOn ? crop : firstCrop,
+                crop: chosen ?? firstCrop,
                 thumbFile,
               })
             }

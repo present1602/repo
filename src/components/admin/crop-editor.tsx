@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { type Crop, clampCrop, minCrop } from '@/lib/crop'
 import { StackView } from '@/components/zoom-area'
 
@@ -16,10 +16,9 @@ import { StackView } from '@/components/zoom-area'
    꽉 채워 그리고 영역만 다룬다. 그래야 보기와 영역 잡기를 오가도 키워 둔
    배율·스크롤이 그대로 남는다.
 
-   잡는 중(active)과 정한 뒤를 나눈다 — 잡는 중에 영역 바깥을 누르면 정한
-   것으로 보고 onCommit 으로 알린다. 부르는 쪽은 미리보기를 그 영역으로 바꾸고
-   active 를 끈다. 꺼지면 덮개·테두리·핸들을 모두 걷어 그림만 남긴다 —
-   다시 잡으려면 부르는 쪽의 '영역 지정' 버튼으로 active 를 켠다.
+   영역 바깥을 누르면 어두운 덮개만 걷고 onCommit 으로 알린다 — 부르는 쪽은
+   미리보기를 그 영역으로 바꾼다. 테두리·핸들은 남아 있어 그대로 다시 끌 수
+   있고, 끌기 시작하면 덮개가 다시 깔린다. 확정은 부르는 쪽의 버튼으로 한다.
 
    바깥으로 치지 않는 누름: data-crop-keep 이 붙은 요소('영역 지정'·'취소'·
    비율 버튼 — 누르면 그 버튼이 할 일을 한다)와 그림 칸 자체(스크롤바·여백 —
@@ -48,7 +47,6 @@ export function CropEditor({
      변 핸들은 한 축만 움직여 비율을 지킬 수 없다. */
   lockedRatio,
   imgRatio,
-  active = true,
   onCommit,
 }: {
   src: string
@@ -59,9 +57,7 @@ export function CropEditor({
   onChange: (c: Crop) => void
   lockedRatio: number | null
   imgRatio: number
-  /* 잡는 중인지 — 끄면 그림만 보인다 */
-  active?: boolean
-  /* 잡는 중에 영역 바깥을 눌렀을 때 — 그때의 영역 */
+  /* 영역 바깥을 눌렀을 때 — 그때의 영역 */
   onCommit?: (c: Crop) => void
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -84,7 +80,8 @@ export function CropEditor({
     commitRef.current = onCommit
   })
 
-  /* ─── 잡는 중 → 정함 ─── */
+  /* ─── 덮개 — 끄는 중에만 깐다 ─── */
+  const [active, setActive] = useState(true)
   useEffect(() => {
     if (!active) return
     const onDown = (e: PointerEvent) => {
@@ -92,6 +89,7 @@ export function CropEditor({
       if (frameRef.current?.contains(t)) return
       if (t.closest('[data-crop-keep]')) return
       if (t === boxRef.current?.closest('.overflow-auto')) return
+      setActive(false)
       commitRef.current?.(cropRef.current)
     }
     document.addEventListener('pointerdown', onDown)
@@ -124,6 +122,7 @@ export function CropEditor({
         return
       }
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+      setActive(true)
       drag.current = { mode, startX: e.clientX, startY: e.clientY, origin: crop }
     },
     [crop],
@@ -191,50 +190,50 @@ export function CropEditor({
               }}
             />
           </div>
-
-          {/* 영역 — 안쪽을 끌면 이동한다 */}
-          <div
-            ref={frameRef}
-            onPointerDown={(e) => onPointerDown(e, 'move')}
-            className="absolute cursor-move outline outline-2 outline-white"
-            style={{
-              left: pct(crop.x),
-              top: pct(crop.y),
-              width: pct(crop.w),
-              height: pct(crop.h),
-            }}
-          >
-            {/* 삼등분선 — 구도를 잡는 기준 */}
-            <div className="pointer-events-none absolute inset-0 opacity-40">
-              <div className="absolute inset-y-0 left-1/3 w-px bg-white" />
-              <div className="absolute inset-y-0 left-2/3 w-px bg-white" />
-              <div className="absolute inset-x-0 top-1/3 h-px bg-white" />
-              <div className="absolute inset-x-0 top-2/3 h-px bg-white" />
-            </div>
-
-            {HANDLES.map((h) => {
-              /* 비율이 잠겨 있으면 변 핸들은 쓰지 않는다 — 한 축만 움직여
-                 비율을 지킬 수 없기 때문이다. 자리만 비우지 않고 흐리게 남겨
-                 "지금은 대각선으로만 조절한다"는 걸 보이게 한다. */
-              const disabled = r != null && !h.corner
-              return (
-                <span
-                  key={h.key}
-                  onPointerDown={disabled ? undefined : (e) => onPointerDown(e, h.key)}
-                  style={{
-                    left: pct(h.x),
-                    top: pct(h.y),
-                    cursor: disabled ? 'default' : h.cursor,
-                  }}
-                  className={`absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-neutral-900 ${
-                    disabled ? 'bg-white/30' : 'bg-white'
-                  }`}
-                />
-              )
-            })}
-          </div>
         </>
       )}
+
+      {/* 영역 — 안쪽을 끌면 이동한다 */}
+      <div
+        ref={frameRef}
+        onPointerDown={(e) => onPointerDown(e, 'move')}
+        className="absolute cursor-move outline outline-2 outline-white"
+        style={{
+          left: pct(crop.x),
+          top: pct(crop.y),
+          width: pct(crop.w),
+          height: pct(crop.h),
+        }}
+      >
+        {/* 삼등분선 — 구도를 잡는 기준 */}
+        <div className="pointer-events-none absolute inset-0 opacity-40">
+          <div className="absolute inset-y-0 left-1/3 w-px bg-white" />
+          <div className="absolute inset-y-0 left-2/3 w-px bg-white" />
+          <div className="absolute inset-x-0 top-1/3 h-px bg-white" />
+          <div className="absolute inset-x-0 top-2/3 h-px bg-white" />
+        </div>
+
+        {HANDLES.map((h) => {
+          /* 비율이 잠겨 있으면 변 핸들은 쓰지 않는다 — 한 축만 움직여
+             비율을 지킬 수 없기 때문이다. 자리만 비우지 않고 흐리게 남겨
+             "지금은 대각선으로만 조절한다"는 걸 보이게 한다. */
+          const disabled = r != null && !h.corner
+          return (
+            <span
+              key={h.key}
+              onPointerDown={disabled ? undefined : (e) => onPointerDown(e, h.key)}
+              style={{
+                left: pct(h.x),
+                top: pct(h.y),
+                cursor: disabled ? 'default' : h.cursor,
+              }}
+              className={`absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-neutral-900 ${
+                disabled ? 'bg-white/30' : 'bg-white'
+              }`}
+            />
+          )
+        })}
+      </div>
     </div>
   )
 }

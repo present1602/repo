@@ -19,6 +19,9 @@ export const MAX_DESCRIPTION = 1000
 export const MAX_SOURCE_BYTES = 70 * 1024 * 1024
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 export const MAX_PDF_PAGES = 30
+/* 저장하는 조각 수의 상한 — 아주 긴 장은 세로로 여러 조각으로 잘라 저장하므로
+   쪽수보다 많아질 수 있다(pdf-pages.ts). */
+export const MAX_STACK_PARTS = 60
 export const WORK_FILE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'pdf']
 
 /* PDF 작업의 한 장 — 크기를 함께 둬야 그림이 받아지기 전에도 자리를 잡는다.

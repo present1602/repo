@@ -22,12 +22,13 @@ import {
 } from '@/app/studio/actions'
 import { Img } from '@/components/img'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
-import { StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
+import { CropActions, StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
 import {
   type Crop,
   type RatioKey,
   THUMB_RATIOS,
   centeredCrop,
+  clampCrop,
   insetCrop,
   cropOf,
   ratioValue,
@@ -420,16 +421,8 @@ function WorkEditDialog({
   const [shown, setShown] = useState<Crop | null>(null)
   /* 왼쪽 그림 칸 — 키워 둔 채 영역 지정을 켜면 보이는 부분에 처음 영역을 잡는다 */
   const zoomRef = useRef<ZoomAreaHandle>(null)
-  /* 영역을 잡는 중인지 — 바깥을 누르면 꺼지고 덮개·핸들이 걷힌다 */
-  const [editing, setEditing] = useState(true)
-  /* 영역을 정했다는 알림 — 바깥을 눌러도, '영역 지정'을 눌러도 같다 */
+  /* 영역을 정했다는 알림 — '선택한 영역으로 지정하기'로 저장했을 때 */
   const [cropMsg, setCropMsg] = useState<FlashMsg>(null)
-  /* 지금 영역으로 정한다 — 미리보기를 바꾸고 덮개·핸들을 걷는다. 영역은 남는다 */
-  const commitCrop = (c: Crop) => {
-    setShown(c)
-    setEditing(false)
-    setCropMsg({ ok: true, text: '썸네일 영역이 설정됐습니다' })
-  }
   const [savingCrop, startCrop] = useTransition()
   const thumbFileRef = useRef<HTMLInputElement>(null)
 
@@ -504,6 +497,58 @@ function WorkEditDialog({
     }
   }, [onClose, cropMode])
 
+  /* ─── 썸네일 영역 지정 ───
+     시작하면 지금 스크롤로 보고 있는 부분 안에 새 영역을 잡는다 — 기존 영역은
+     긴 그림 어딘가에 있어 화면 밖일 수 있다. 이어 붙인 장을 못 쓰는 옛 PDF 는
+     보기와 잡기의 그림이 달라 가운데에 잡는다. */
+  const startCropMode = () => {
+    const v = stack || !hasPages ? zoomRef.current?.visible() : null
+    const start = v ? clampCrop(insetCrop(v), imgRatio) : centeredCrop(imgRatio, imgRatio)
+    setCrop(start)
+    setShown(start)
+    setRatio(null)
+    setCropMode(true)
+  }
+
+  /* 취소 — 잡던 영역을 버리고 저장된 영역으로 되돌린다 */
+  const cancelCrop = () => {
+    setCrop(cropOf(w))
+    setRatio(null)
+    setShown(null)
+    setCropMode(false)
+  }
+
+  /* 선택한 영역으로 지정 — 썸네일을 만들어 저장하고 영역 지정을 마친다 */
+  const saveCrop = () => {
+    if (!crop) return
+startCrop(async () => {
+          onMessage(null)
+          /* 자르는 일은 여기서 한다 — 서버는 받은 파일을 저장만 한다 */
+          const thumb = stack
+            ? await makeStackThumb(stack, crop)
+            : await makeThumbFromUrl(w.image_url, crop)
+
+          const form = new FormData()
+          form.set('id', w.id)
+          form.set('cropX', String(crop.x))
+          form.set('cropY', String(crop.y))
+          form.set('cropW', String(crop.w))
+          form.set('cropH', String(crop.h))
+          if (thumb) form.set('thumb', thumb.file)
+
+          const r = await updateWorkCrop(form)
+          if (!r.ok) {
+            onMessage({ ok: false, text: r.error })
+            return
+          }
+          setCropMode(false)
+          setRatio(null)
+          router.refresh()
+          setShown(crop)
+          setCropMsg(thumb ? { ok: true, text: '썸네일 영역이 설정됐습니다' } : { ok: false, text: '영역만 저장했습니다(썸네일 생성 실패).' })
+        })
+  }
+
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) => {
     onMessage(null)
     start(async () => {
@@ -536,7 +581,8 @@ function WorkEditDialog({
           ratio={w.width && w.height ? w.width / w.height : null}
           naturalWidth={w.width}
           fit={hasPages ? 'width' : 'contain'}
-          className={`flex max-h-[38vh] min-h-0 shrink-0 justify-center-safe overflow-auto bg-neutral-100 p-3 md:max-h-none md:flex-1 ${hasPages ? 'items-start' : 'items-center-safe'}`}
+          className="max-h-[38vh] shrink-0 md:max-h-none md:flex-1"
+          overlay={cropMode && <CropActions onConfirm={saveCrop} onCancel={cancelCrop} busy={savingCrop} />}
         >
           {cropMode && crop ? (
             <CropEditor
@@ -544,8 +590,7 @@ function WorkEditDialog({
               pages={stack ? w.pages! : undefined}
               crop={crop}
               onChange={setCrop}
-              active={editing}
-              onCommit={commitCrop}
+              onCommit={setShown}
               lockedRatio={ratio == null ? null : ratioValue(ratio)}
               imgRatio={imgRatio}
             />
@@ -647,6 +692,7 @@ function WorkEditDialog({
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-neutral-600">썸네일</span>
               <div className="flex gap-1.5">
+                {/* 영역 지정 중에는 그림 칸 아래 두 버튼으로만 마친다 */}
                 {!cropMode && (
                   <>
                     <input
@@ -668,48 +714,18 @@ function WorkEditDialog({
                     >
                       {savingCrop ? '올리는 중…' : '이미지 올리기'}
                     </button>
+                    <button
+                      type="button"
+                      data-crop-keep
+                      onClick={startCropMode}
+                      disabled={savingCrop || !w.width || !w.height}
+                      title={!w.width || !w.height ? '원본 크기를 몰라 영역을 잡을 수 없습니다' : undefined}
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
+                    >
+                      썸네일 편집
+                    </button>
                   </>
                 )}
-                {/* 잡는 중이면 지금 영역으로 정하고, 정한 뒤면 다시 잡는다 */}
-                {cropMode && (
-                  <button
-                    type="button"
-                    data-crop-keep
-                    onClick={() => (editing ? crop && commitCrop(crop) : setEditing(true))}
-                    className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
-                  >
-                    영역 지정
-                  </button>
-                )}
-                <button
-                  type="button"
-                  data-crop-keep
-                  onClick={() => {
-                    if (cropMode) {
-                      /* 편집을 접으면 잡던 영역도 원래대로 — 저장하지 않고
-                         닫았는데 다음에 열었을 때 남아 있으면 헷갈린다 */
-                      setCrop(cropOf(w))
-                      setRatio(null)
-                      setShown(null)
-                    } else {
-                      /* 키워 둔 채 켜면 지금 보이는 부분 안에 처음 영역을 잡는다 — 이어 붙인
-                         장을 못 쓰는 옛 PDF 는 보기와 잡기의 그림이 달라 쓰지 않는다 */
-                      const z = zoomRef.current
-                      const v = z?.zoomed() && (stack || !hasPages) ? z.visible() : null
-                      const start = v ? insetCrop(v) : (crop ?? centeredCrop(imgRatio, imgRatio))
-                      setCrop(start)
-                      setShown(start)
-                      setEditing(true)
-                    }
-                    setCropMode((v) => !v)
-                  }}
-                  disabled={savingCrop || !w.width || !w.height}
-                  title={!w.width || !w.height ? '원본 크기를 몰라 영역을 잡을 수 없습니다' : undefined}
-                  className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
-                
-                >
-                  {cropMode ? '취소' : '썸네일 편집'}
-                </button>
               </div>
             </div>
 
@@ -752,46 +768,6 @@ function WorkEditDialog({
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!crop) return
-                    startCrop(async () => {
-                      onMessage(null)
-                      /* 자르는 일은 여기서 한다 — 서버는 받은 파일을 저장만 한다 */
-                      const thumb = stack
-                        ? await makeStackThumb(stack, crop)
-                        : await makeThumbFromUrl(w.image_url, crop)
-
-                      const form = new FormData()
-                      form.set('id', w.id)
-                      form.set('cropX', String(crop.x))
-                      form.set('cropY', String(crop.y))
-                      form.set('cropW', String(crop.w))
-                      form.set('cropH', String(crop.h))
-                      if (thumb) form.set('thumb', thumb.file)
-
-                      const r = await updateWorkCrop(form)
-                      if (!r.ok) {
-                        onMessage({ ok: false, text: r.error })
-                        return
-                      }
-                      setCropMode(false)
-                      setRatio(null)
-                      router.refresh()
-                      onMessage({
-                        ok: true,
-                        text: thumb
-                          ? '썸네일을 바꿨습니다.'
-                          : '영역만 저장했습니다(썸네일 생성 실패).',
-                      })
-                    })
-                  }}
-                  disabled={savingCrop || !crop}
-                  className="w-full rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
-                >
-                  {savingCrop ? '만드는 중…' : '썸네일 저장'}
-                </button>
               </div>
             ) : (
               <div className="flex items-start gap-3">

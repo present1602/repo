@@ -33,6 +33,7 @@ export function ZoomArea({
   fit,
   className,
   handle,
+  overlay,
   children,
 }: {
   /* 내용 전체의 가로/세로 — 모르면(아직 못 읽었으면) 칸 너비에 맞춘다 */
@@ -41,7 +42,10 @@ export function ZoomArea({
   naturalWidth: number | null
   /* contain — 칸 안에 통째로(일반 이미지), width — 너비에 맞추고 세로로 내려 본다(PDF) */
   fit: 'contain' | 'width'
+  /* 다이얼로그 안에서 이 칸이 차지할 자리(크기·늘어남) */
   className: string
+  /* 칸 아래쪽에 떠 있는 것 — 스크롤·확대와 상관없이 제자리에 있다 */
+  overlay?: React.ReactNode
   handle?: React.Ref<ZoomAreaHandle>
   children: React.ReactNode
 }) {
@@ -193,14 +197,28 @@ export function ZoomArea({
   )
 
   return (
-    <div ref={paneRef} className={className}>
+    /* min-w-0 — 키운 그림 폭이 이 칸의 최소 폭이 되어 다이얼로그의 오른쪽 입력
+       영역을 밖으로 밀어내지 않게 한다. 넘치는 만큼은 안쪽 칸이 스크롤한다. */
+    <div className={`relative flex min-h-0 min-w-0 ${className}`}>
       <div
-        ref={contentRef}
-        className="relative shrink-0"
-        style={base ? { width: base * zoom } : { width: '100%' }}
+        ref={paneRef}
+        className={`flex min-h-0 w-full min-w-0 justify-center-safe overflow-auto bg-neutral-100 p-3 ${
+          fit === 'width' ? 'items-start' : 'items-center-safe'
+        }`}
       >
-        {children}
+        <div
+          ref={contentRef}
+          className="relative shrink-0"
+          style={base ? { width: base * zoom } : { width: '100%' }}
+        >
+          {children}
+        </div>
       </div>
+      {overlay && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+          <div className="pointer-events-auto">{overlay}</div>
+        </div>
+      )}
     </div>
   )
 }
@@ -235,5 +253,38 @@ export function StackView({
         />
       ))}
     </>
+  )
+}
+
+/* 썸네일 영역 지정 중 그림 칸 아래에 띄우는 두 버튼 — 그림을 덜 가리게 반투명으로.
+   누르는 것이 영역 바깥 누름으로 치이지 않게 data-crop-keep 을 단다(crop-editor.tsx). */
+export function CropActions({
+  onConfirm,
+  onCancel,
+  busy,
+}: {
+  onConfirm: () => void
+  onCancel: () => void
+  busy?: boolean
+}) {
+  return (
+    <div data-crop-keep className="flex gap-2">
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={busy}
+        className="rounded-full border-2 border-violet-600 bg-white/70 px-4 py-2 text-sm font-semibold text-violet-700 shadow-lg backdrop-blur-sm transition hover:bg-violet-50/90 disabled:opacity-50"
+      >
+        {busy ? '저장 중…' : '선택한 영역으로 지정하기'}
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={busy}
+        className="rounded-full bg-white/75 px-4 py-2 text-sm font-medium text-neutral-800 shadow-lg ring-1 ring-neutral-300/70 backdrop-blur-sm transition hover:bg-white/90 disabled:opacity-50"
+      >
+        취소
+      </button>
+    </div>
   )
 }

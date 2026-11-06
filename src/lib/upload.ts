@@ -1,6 +1,6 @@
 import 'server-only'
 import { supabaseAdmin, DESIGNER_IMAGES_BUCKET } from './supabase-admin'
-import { MAX_PDF_PAGES, MAX_UPLOAD_BYTES, type WorkPage } from './portfolio-limits'
+import { MAX_STACK_PARTS, MAX_UPLOAD_BYTES, type WorkPage } from './portfolio-limits'
 
 /* 버킷에 이미지를 올리고 공개 URL을 돌려준다.
    파일명은 사용자가 준 이름을 쓰지 않는다 — 한글·공백·중복이 섞이면
@@ -77,7 +77,7 @@ export async function signPageUploads(
   prefix: string,
   files: { name: string; size: number }[],
 ): Promise<{ ok: true; uploads: { path: string; token: string }[] } | { ok: false; error: string }> {
-  if (files.length >= MAX_PDF_PAGES) return { ok: false, error: `PDF는 ${MAX_PDF_PAGES}쪽까지 올릴 수 있습니다.` }
+  if (files.length >= MAX_STACK_PARTS) return { ok: false, error: 'PDF가 너무 길어 올릴 수 없습니다.' }
   const uploads: { path: string; token: string }[] = []
   for (const f of files) {
     const r = await signImageUpload(`${prefix}/pages`, f.name, f.size)
@@ -98,7 +98,7 @@ export function claimPages(prefix: string, raw: FormDataEntryValue | null): Work
   } catch {
     return false
   }
-  if (!Array.isArray(list) || list.length >= MAX_PDF_PAGES) return false
+  if (!Array.isArray(list) || list.length >= MAX_STACK_PARTS) return false
 
   const pages: WorkPage[] = []
   for (const p of list) {
