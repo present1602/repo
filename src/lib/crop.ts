@@ -104,6 +104,13 @@ export function reshapeCrop(c: Crop, ratio: number, imgRatio: number): Crop {
   return clampCrop({ x: cx - w / 2, y: cy - h / 2, w, h }, imgRatio)
 }
 
+/* 보이는 부분 안쪽으로 조금 들인 영역 — 키워 둔 채 영역 지정을 켰을 때 처음
+   영역을 지금 보이는 곳에 잡는다. 가장자리에 딱 붙이면 핸들이 칸 끝에 걸려
+   잡기 어렵다. */
+export function insetCrop(v: Crop, k = 0.1): Crop {
+  return { x: v.x + v.w * k, y: v.y + v.h * k, w: v.w * (1 - 2 * k), h: v.h * (1 - 2 * k) }
+}
+
 /* DB 행에서 영역을 읽는다 — 넷 중 하나라도 비면 미지정으로 본다.
 
    일부만 채워진 상태는 만들지 않지만(DB check 제약), 마이그레이션 전의

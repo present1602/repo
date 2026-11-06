@@ -21,11 +21,21 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { MAX_DESCRIPTION, WORK_FILE_EXTS } from '@/lib/portfolio-limits'
 import { type PreparedWork, pagesField, prepareWorkFile, uploadAll } from '@/lib/work-file'
-import { type Crop, type RatioKey, THUMB_RATIOS, centeredCrop, ratioValue, reshapeCrop } from '@/lib/crop'
+import {
+  type Crop,
+  type RatioKey,
+  THUMB_RATIOS,
+  centeredCrop,
+  insetCrop,
+  ratioValue,
+  reshapeCrop,
+} from '@/lib/crop'
 import { makeStackThumb, makeThumb } from '@/lib/make-thumb'
 import { firstPageCrop, stackSize } from '@/lib/work-stack'
 import { DESIGNER_IMAGES_BUCKET, uploadSigned } from '@/lib/direct-upload'
-import { CropEditor } from '@/components/admin/crop-editor'
+import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
+import { Flash, type FlashMsg } from '@/components/flash'
+import { StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
 
 type Signed = { ok: true; path: string; token: string } | { ok: false; error: string }
 type SignedMany = { ok: true; uploads: { path: string; token: string }[] } | { ok: false; error: string }
@@ -326,6 +336,22 @@ function UploadDialog({
   const [crop, setCrop] = useState<Crop | null>(null)
   /* 고른 비율. null 이면 자유 비율이다 — 체크를 끄면 여기로 돌아온다. */
   const [ratio, setRatio] = useState<RatioKey | null>(null)
+  /* 오른쪽 미리보기에 띄울 영역 — 왼쪽에서 잡은 뒤 바깥을 누를 때 바뀐다 */
+  const [shown, setShown] = useState<Crop | null>(null)
+  /* 왼쪽 그림 칸 — 키워 둔 채 영역 지정을 켜면 보이는 부분에 처음 영역을 잡는다 */
+  const zoomRef = useRef<ZoomAreaHandle>(null)
+  /* 영역을 잡는 중인지 — 바깥을 누르면 꺼지고 덮개·핸들이 걷힌다 */
+  const [editing, setEditing] = useState(true)
+  /* 영역을 정했다는 알림 — 바깥을 눌러도, '영역 지정'을 눌러도 같다 */
+  const [cropMsg, setCropMsg] = useState<FlashMsg>(null)
+  /* 지금 영역으로 정한다 — 미리보기를 바꾸고 덮개·핸들을 걷는다. 영역은 남는다 */
+  const commitCrop = (c: Crop) => {
+    setShown(c)
+    setEditing(false)
+    setCropMsg({ ok: true, text: '썸네일 영역이 설정됐습니다' })
+  }
+  /* PDF 둘째 장부터 — 보기와 영역 잡기가 같은 그림을 쓴다 */
+  const pageParts = item.pages.map((p, i) => ({ url: pageUrls[i], width: p.width, height: p.height }))
   const [thumbFile, setThumbFile] = useState<File | null>(null)
   const [thumbUrl, setThumbUrl] = useState<string | null>(null)
   const thumbRef = useRef<HTMLInputElement>(null)
@@ -386,7 +412,13 @@ function UploadDialog({
     setThumbFile(null)
     setThumbUrl(null)
     /* PDF 는 첫 장을 덮은 채로 시작한다 — 그대로 저장하면 기본(첫 장)과 같다 */
-    setCrop(crop ?? firstCrop ?? centeredCrop(imgRatio, imgRatio))
+    /* 키워 둔 채 켜면 지금 보이는 부분 안에 처음 영역을 잡는다 */
+    const z = zoomRef.current
+    const v = z?.zoomed() ? z.visible() : null
+    const start = v ? insetCrop(v) : (crop ?? firstCrop ?? centeredCrop(imgRatio, imgRatio))
+    setCrop(start)
+    setShown(start)
+    setEditing(true)
   }
 
   /* 비율 체크박스 — 같은 것을 다시 누르면 고정이 풀린다(자유 비율) */
@@ -394,7 +426,9 @@ function UploadDialog({
     const next = ratio === key ? null : key
     setRatio(next)
     if (next == null || !crop) return
-    setCrop(reshapeCrop(crop, ratioValue(next), imgRatio))
+    const c = reshapeCrop(crop, ratioValue(next), imgRatio)
+    setCrop(c)
+    setShown(c)
   }
 
   const pickThumb = (f: File) => {
@@ -411,40 +445,31 @@ function UploadDialog({
         {/* 좌측 — 올릴 그림. 영역 지정을 켜면 여기서 직접 잡는다.
             PDF 는 첫 장 아래로 나머지 장을 이어 붙여 내려 보며 확인하고,
             영역도 그 이어진 그림 어디에서나 잡는다. */}
-        <div
-          className={`flex max-h-[38vh] min-h-0 shrink-0 justify-center overflow-auto bg-neutral-100 p-3 md:max-h-none md:flex-1 md:shrink ${
-            isPdf ? 'items-start' : 'items-center'
+        <Flash msg={cropMsg} onDone={() => setCropMsg(null)} duration={2000} />
+        <ZoomArea
+          handle={zoomRef}
+          ratio={whole ? whole.width / whole.height : null}
+          naturalWidth={size?.width ?? null}
+          fit={isPdf ? 'width' : 'contain'}
+          className={`flex max-h-[38vh] min-h-0 shrink-0 justify-center-safe overflow-auto bg-neutral-100 p-3 md:max-h-none md:flex-1 md:shrink ${
+            isPdf ? 'items-start' : 'items-center-safe'
           }`}
         >
           {cropOn && crop ? (
             <CropEditor
               src={url}
-              pages={item.pages.map((p, i) => ({ url: pageUrls[i], width: p.width, height: p.height }))}
+              pages={pageParts}
               crop={crop}
               onChange={setCrop}
+              active={editing}
+              onCommit={commitCrop}
               lockedRatio={ratio == null ? null : ratioValue(ratio)}
               imgRatio={imgRatio}
             />
-          ) : isPdf ? (
-            <div className="w-full max-w-3xl space-y-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="block h-auto w-full bg-white" />
-              {item.pages.map((p, i) => (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  key={pageUrls[i]}
-                  src={pageUrls[i]}
-                  alt=""
-                  style={{ aspectRatio: `${p.width} / ${p.height}` }}
-                  className="block h-auto w-full bg-white"
-                />
-              ))}
-            </div>
           ) : (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={url} alt="" className="max-h-[34vh] w-auto max-w-full object-contain md:max-h-[84vh]" />
+            <StackView src={url} pages={pageParts} />
           )}
-        </div>
+        </ZoomArea>
 
         {/* 우측 — 정보 입력과 저장 */}
         <div className="flex min-h-0 w-full flex-col overflow-y-auto border-t border-neutral-200 p-4 md:w-80 md:shrink-0 md:border-l md:border-t-0 md:p-5">
@@ -541,7 +566,10 @@ function UploadDialog({
               <div className="flex gap-1.5">
                 <button
                   type="button"
-                  onClick={() => toggleCrop(!cropOn)}
+                  data-crop-keep
+                  /* 꺼져 있으면 켜고, 잡는 중이면 지금 영역으로 정하고(영역은 남는다),
+                     정한 뒤면 다시 잡는다 — 끄지 않는다 */
+                  onClick={() => (!cropOn ? toggleCrop(true) : editing ? crop && commitCrop(crop) : setEditing(true))}
                   disabled={pending || size == null}
                   title={size == null ? '원본 크기를 몰라 영역을 잡을 수 없습니다' : undefined}
                   className={`rounded-md border px-2 py-1 text-[11px] font-medium transition disabled:opacity-40 ${
@@ -564,13 +592,23 @@ function UploadDialog({
             </div>
 
             {cropOn ? (
-              <div className="mt-2.5">
+              <div className="mt-2.5 space-y-2.5">
+                {/* 영역 바깥을 누르면 그 영역으로 바뀐다 — 이 그림이 썸네일이 된다 */}
+                {shown && size && (
+                  <CropPreview
+                    parts={[
+                      { src: url, width: size.width, height: size.height },
+                      ...item.pages.map((p, i) => ({ src: pageUrls[i], width: p.width, height: p.height })),
+                    ]}
+                    crop={shown}
+                  />
+                )}
                 <p className="text-[11px] leading-relaxed text-neutral-500">
                   {isPdf
                     ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.'
                     : '썸네일로 쓸 영역을 지정해 주세요.'}
                 </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <div data-crop-keep className="mt-2 flex flex-wrap gap-1.5">
                   {THUMB_RATIOS.map((r) => (
                     <label
                       key={r.key}

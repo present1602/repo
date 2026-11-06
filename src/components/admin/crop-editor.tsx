@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import { type Crop, clampCrop, minCrop } from '@/lib/crop'
+import { StackView } from '@/components/zoom-area'
 
 /* 썸네일 영역을 눈으로 잡는 편집기.
 
@@ -9,7 +10,20 @@ import { type Crop, clampCrop, minCrop } from '@/lib/crop'
    핸들로 크기를, 안쪽을 끌어 위치를 바꾼다.
 
    좌표는 전부 0~1 비율로 다룬다 — 화면 크기에 기대면 창을 줄였을 때
-   잡아 둔 영역이 함께 움직인다. 픽셀은 포인터 이동량을 환산할 때만 쓴다. */
+   잡아 둔 영역이 함께 움직인다. 픽셀은 포인터 이동량을 환산할 때만 쓴다.
+
+   그림 크기와 확대는 바깥 칸(ZoomArea)이 정한다 — 이 편집기는 받은 너비를
+   꽉 채워 그리고 영역만 다룬다. 그래야 보기와 영역 잡기를 오가도 키워 둔
+   배율·스크롤이 그대로 남는다.
+
+   잡는 중(active)과 정한 뒤를 나눈다 — 잡는 중에 영역 바깥을 누르면 정한
+   것으로 보고 onCommit 으로 알린다. 부르는 쪽은 미리보기를 그 영역으로 바꾸고
+   active 를 끈다. 꺼지면 덮개·테두리·핸들을 모두 걷어 그림만 남긴다 —
+   다시 잡으려면 부르는 쪽의 '영역 지정' 버튼으로 active 를 켠다.
+
+   바깥으로 치지 않는 누름: data-crop-keep 이 붙은 요소('영역 지정'·'취소'·
+   비율 버튼 — 누르면 그 버튼이 할 일을 한다)와 그림 칸 자체(스크롤바·여백 —
+   아래 장으로 내려 보는 중에 핸들이 사라지면 곤란하다). */
 
 /* 끌 수 있는 지점. 모서리 넷과 변 넷. */
 const HANDLES = [
@@ -34,6 +48,8 @@ export function CropEditor({
      변 핸들은 한 축만 움직여 비율을 지킬 수 없다. */
   lockedRatio,
   imgRatio,
+  active = true,
+  onCommit,
 }: {
   src: string
   /* PDF 작업의 둘째 장부터 — 첫 장(src) 아래로 이어 붙여 한 장처럼 잡는다.
@@ -43,8 +59,13 @@ export function CropEditor({
   onChange: (c: Crop) => void
   lockedRatio: number | null
   imgRatio: number
+  /* 잡는 중인지 — 끄면 그림만 보인다 */
+  active?: boolean
+  /* 잡는 중에 영역 바깥을 눌렀을 때 — 그때의 영역 */
+  onCommit?: (c: Crop) => void
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
 
   /* 드래그 중인 동작. 포인터가 움직일 때마다 state 를 쓰면 리렌더가 끼어
      끊겨 보이므로, 시작 시점의 값만 ref 에 담아 두고 계산에 쓴다. */
@@ -55,6 +76,42 @@ export function CropEditor({
     origin: Crop
   } | null>(null)
 
+  /* 마칠 때 알릴 값 — 바깥 누름은 문서 전체에서 듣는다 */
+  const cropRef = useRef(crop)
+  const commitRef = useRef(onCommit)
+  useEffect(() => {
+    cropRef.current = crop
+    commitRef.current = onCommit
+  })
+
+  /* ─── 잡는 중 → 정함 ─── */
+  useEffect(() => {
+    if (!active) return
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as HTMLElement
+      if (frameRef.current?.contains(t)) return
+      if (t.closest('[data-crop-keep]')) return
+      if (t === boxRef.current?.closest('.overflow-auto')) return
+      commitRef.current?.(cropRef.current)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [active])
+
+  /* 두 손가락이 닿으면 끌기를 멈춘다 — 그 제스처는 바깥 칸의 집어 키우기다 */
+  const fingers = useRef(0)
+  useEffect(() => {
+    const up = () => {
+      fingers.current = Math.max(0, fingers.current - 1)
+    }
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [])
+
   /* 0~1 공간에서의 비율 — 원본이 정사각형이 아니므로 환산해서 쓴다 */
   const r = lockedRatio == null ? null : lockedRatio / imgRatio
 
@@ -62,6 +119,10 @@ export function CropEditor({
     (e: React.PointerEvent, mode: 'move' | HandleKey) => {
       e.preventDefault()
       e.stopPropagation()
+      if (e.pointerType === 'touch' && ++fingers.current > 1) {
+        drag.current = null
+        return
+      }
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
       drag.current = { mode, startX: e.clientX, startY: e.clientY, origin: crop }
     },
@@ -106,88 +167,121 @@ export function CropEditor({
   const pct = (n: number) => `${n * 100}%`
 
   return (
-    <div ref={boxRef} className={`relative select-none touch-none ${pages?.length ? 'w-full max-w-3xl' : ''}`}>
-      {pages?.length ? (
-        /* 이어 붙인 장 — 너비를 칸에 맞추고 바깥 칸이 세로로 스크롤된다.
-           장 사이에 틈을 두지 않는다: 틈이 있으면 화면 비율과 좌표가 어긋난다. */
+    /* 이어 붙인 장(PDF) 사이에는 틈을 두지 않는다 — 틈이 있으면 화면과 좌표가 어긋난다 */
+    <div ref={boxRef} className="relative w-full select-none touch-none">
+      <StackView src={src} pages={pages} />
+
+      {active && (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt="" draggable={false} className="block h-auto w-full" />
-          {pages.map((p) => (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              key={p.url}
-              src={p.url}
-              alt=""
-              draggable={false}
-              style={{ aspectRatio: `${p.width} / ${p.height}` }}
-              className="block h-auto w-full"
+          {/* 바깥 어둡게 — 영역 네 변 바깥을 네 조각으로 덮는다.
+              하나의 큰 요소에 구멍을 뚫는 방법(box-shadow)은 영역이 이미지
+              가장자리에 붙었을 때 가장자리까지 덮여 어색해진다. */}
+          <div className="pointer-events-none absolute inset-0">
+            <Shade style={{ left: 0, top: 0, right: 0, height: pct(crop.y) }} />
+            <Shade style={{ left: 0, top: pct(crop.y + crop.h), right: 0, bottom: 0 }} />
+            <Shade
+              style={{ left: 0, top: pct(crop.y), width: pct(crop.x), height: pct(crop.h) }}
             />
-          ))}
+            <Shade
+              style={{
+                left: pct(crop.x + crop.w),
+                top: pct(crop.y),
+                right: 0,
+                height: pct(crop.h),
+              }}
+            />
+          </div>
+
+          {/* 영역 — 안쪽을 끌면 이동한다 */}
+          <div
+            ref={frameRef}
+            onPointerDown={(e) => onPointerDown(e, 'move')}
+            className="absolute cursor-move outline outline-2 outline-white"
+            style={{
+              left: pct(crop.x),
+              top: pct(crop.y),
+              width: pct(crop.w),
+              height: pct(crop.h),
+            }}
+          >
+            {/* 삼등분선 — 구도를 잡는 기준 */}
+            <div className="pointer-events-none absolute inset-0 opacity-40">
+              <div className="absolute inset-y-0 left-1/3 w-px bg-white" />
+              <div className="absolute inset-y-0 left-2/3 w-px bg-white" />
+              <div className="absolute inset-x-0 top-1/3 h-px bg-white" />
+              <div className="absolute inset-x-0 top-2/3 h-px bg-white" />
+            </div>
+
+            {HANDLES.map((h) => {
+              /* 비율이 잠겨 있으면 변 핸들은 쓰지 않는다 — 한 축만 움직여
+                 비율을 지킬 수 없기 때문이다. 자리만 비우지 않고 흐리게 남겨
+                 "지금은 대각선으로만 조절한다"는 걸 보이게 한다. */
+              const disabled = r != null && !h.corner
+              return (
+                <span
+                  key={h.key}
+                  onPointerDown={disabled ? undefined : (e) => onPointerDown(e, h.key)}
+                  style={{
+                    left: pct(h.x),
+                    top: pct(h.y),
+                    cursor: disabled ? 'default' : h.cursor,
+                  }}
+                  className={`absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-neutral-900 ${
+                    disabled ? 'bg-white/30' : 'bg-white'
+                  }`}
+                />
+              )
+            })}
+          </div>
         </>
-      ) : (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={src} alt="" draggable={false} className="block max-h-[70vh] w-auto" />
       )}
+    </div>
+  )
+}
 
-      {/* 바깥 어둡게 — 영역 네 변 바깥을 네 조각으로 덮는다.
-          하나의 큰 요소에 구멍을 뚫는 방법(box-shadow)은 영역이 이미지
-          가장자리에 붙었을 때 가장자리까지 덮여 어색해진다. */}
-      <div className="pointer-events-none absolute inset-0">
-        <Shade style={{ left: 0, top: 0, right: 0, height: pct(crop.y) }} />
-        <Shade style={{ left: 0, top: pct(crop.y + crop.h), right: 0, bottom: 0 }} />
-        <Shade
-          style={{ left: 0, top: pct(crop.y), width: pct(crop.x), height: pct(crop.h) }}
-        />
-        <Shade
-          style={{
-            left: pct(crop.x + crop.w),
-            top: pct(crop.y),
-            right: 0,
-            height: pct(crop.h),
-          }}
-        />
-      </div>
+/* 잘린 썸네일 미리보기 — 영역 비율의 칸에 그림을 키워 넣고 영역만 보이게 민다.
+   장을 이어 붙인 그림(PDF)도 같은 방식이다: 장마다 전체에서 차지하는 높이
+   비율로 세로를 나눠 이어 쌓는다. 파일을 만들지 않으므로 바로 바뀐다. */
+export function CropPreview({
+  parts,
+  crop,
+  maxHeight = 220,
+}: {
+  parts: { src: string; width: number; height: number }[]
+  crop: Crop
+  maxHeight?: number
+}) {
+  const width = parts[0].width
+  const heights = parts.map((p) => (p.height * width) / p.width)
+  const total = heights.reduce((a, b) => a + b, 0)
+  const ratio = (width * crop.w) / (total * crop.h)
 
-      {/* 영역 — 안쪽을 끌면 이동한다 */}
+  return (
+    <div
+      className="relative mx-auto overflow-hidden rounded-md bg-neutral-100 ring-1 ring-neutral-200"
+      /* 칸 너비를 넘지 않고, 높이도 maxHeight 를 넘지 않는 가장 큰 크기 */
+      style={{ aspectRatio: `${ratio}`, width: `min(100%, ${maxHeight * ratio}px)` }}
+    >
       <div
-        onPointerDown={(e) => onPointerDown(e, 'move')}
-        className="absolute cursor-move outline outline-2 outline-white"
+        className="absolute"
         style={{
-          left: pct(crop.x),
-          top: pct(crop.y),
-          width: pct(crop.w),
-          height: pct(crop.h),
+          width: `${100 / crop.w}%`,
+          height: `${100 / crop.h}%`,
+          left: `${(-crop.x * 100) / crop.w}%`,
+          top: `${(-crop.y * 100) / crop.h}%`,
         }}
       >
-        {/* 삼등분선 — 구도를 잡는 기준 */}
-        <div className="pointer-events-none absolute inset-0 opacity-40">
-          <div className="absolute inset-y-0 left-1/3 w-px bg-white" />
-          <div className="absolute inset-y-0 left-2/3 w-px bg-white" />
-          <div className="absolute inset-x-0 top-1/3 h-px bg-white" />
-          <div className="absolute inset-x-0 top-2/3 h-px bg-white" />
-        </div>
-
-        {HANDLES.map((h) => {
-          /* 비율이 잠겨 있으면 변 핸들은 쓰지 않는다 — 한 축만 움직여
-             비율을 지킬 수 없기 때문이다. 자리만 비우지 않고 흐리게 남겨
-             "지금은 대각선으로만 조절한다"는 걸 보이게 한다. */
-          const disabled = r != null && !h.corner
-          return (
-            <span
-              key={h.key}
-              onPointerDown={disabled ? undefined : (e) => onPointerDown(e, h.key)}
-              style={{
-                left: pct(h.x),
-                top: pct(h.y),
-                cursor: disabled ? 'default' : h.cursor,
-              }}
-              className={`absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-neutral-900 ${
-                disabled ? 'bg-white/30' : 'bg-white'
-              }`}
-            />
-          )
-        })}
+        {parts.map((p, i) => (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            key={`${p.src}-${i}`}
+            src={p.src}
+            alt=""
+            draggable={false}
+            style={{ height: `${(heights[i] / total) * 100}%` }}
+            className="block w-full max-w-none"
+          />
+        ))}
       </div>
     </div>
   )

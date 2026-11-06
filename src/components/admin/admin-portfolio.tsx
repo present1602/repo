@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { WorkRow } from '@/lib/portfolio-limits'
 import { MAX_WORKS, MAX_DESCRIPTION, thumbSrc } from '@/lib/portfolio-limits'
@@ -16,19 +16,21 @@ import {
   adminUpdateWorkCrop,
 } from '@/app/admin/designers/actions'
 import { Img } from '@/components/img'
-import { CropEditor } from '@/components/admin/crop-editor'
+import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
+import { StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
 import {
   type Crop,
   type RatioKey,
   THUMB_RATIOS,
   centeredCrop,
+  insetCrop,
   cropOf,
   ratioValue,
   reshapeCrop,
 } from '@/lib/crop'
 import { makeStackThumb, makeThumbFromUrl } from '@/lib/make-thumb'
 import { stackOfWork } from '@/lib/work-stack'
-import { Flash } from '@/components/flash'
+import { Flash, type FlashMsg } from '@/components/flash'
 
 export type Notice = { kind: 'ok' | 'error'; text: string } | null
 
@@ -325,6 +327,20 @@ export function WorkDialog({
   const [cropMode, setCropMode] = useState(false)
   const [crop, setCrop] = useState<Crop | null>(cropOf(w))
   const [ratio, setRatio] = useState<RatioKey | null>(null)
+  /* 오른쪽 미리보기에 띄울 영역 — 왼쪽에서 잡은 뒤 바깥을 누를 때 바뀐다 */
+  const [shown, setShown] = useState<Crop | null>(null)
+  /* 왼쪽 그림 칸 — 키워 둔 채 영역 지정을 켜면 보이는 부분에 처음 영역을 잡는다 */
+  const zoomRef = useRef<ZoomAreaHandle>(null)
+  /* 영역을 잡는 중인지 — 바깥을 누르면 꺼지고 덮개·핸들이 걷힌다 */
+  const [editing, setEditing] = useState(true)
+  /* 영역을 정했다는 알림 — 바깥을 눌러도, '영역 지정'을 눌러도 같다 */
+  const [cropMsg, setCropMsg] = useState<FlashMsg>(null)
+  /* 지금 영역으로 정한다 — 미리보기를 바꾸고 덮개·핸들을 걷는다. 영역은 남는다 */
+  const commitCrop = (c: Crop) => {
+    setShown(c)
+    setEditing(false)
+    setCropMsg({ ok: true, text: '썸네일 영역이 설정됐습니다' })
+  }
   const [savingCrop, startCrop] = useTransition()
 
   const imgRatio = w.width && w.height ? w.width / w.height : 1
@@ -333,6 +349,12 @@ export function WorkDialog({
   /* 이어 붙인 전체로 영역을 잡을 수 있는 PDF 작업인지(work-stack.ts).
      전체 크기가 저장되기 전에 올라간 PDF 는 null — 첫 장에서만 잡는다 */
   const stack = stackOfWork(w)
+  /* 미리보기 재료 — PDF 는 이어 붙인 장, 이미지는 원본 한 장 */
+  const previewParts = stack
+    ? stack.map((p) => ({ src: String(p.src), width: p.width, height: p.height }))
+    : w.width && w.height
+      ? [{ src: w.image_url, width: w.width, height: w.height }]
+      : null
 
   /* 아직 답하지 않은 작업(null)은 체크박스를 건드리지 않아도 저장할 수 있어야
      한다 — 끈 채로 저장하는 것이 '쓰지 않았다'는 답이다. null 을 false 와
@@ -384,49 +406,30 @@ export function WorkDialog({
         {/* 이미지 — 원본을 크게 본다. 썸네일을 편집할 때는 이 위에서 영역을 잡는다.
             PDF 작업은 첫 장 아래로 나머지 장을 이어 붙여 내려 보며 확인하고,
             영역도 그 이어진 그림 어디에서나 잡는다. */}
-        <div
-          className={`flex min-h-0 flex-1 justify-center overflow-auto bg-neutral-100 p-3 ${
-            hasPages && (!cropMode || stack) ? 'items-start' : 'items-center'
-          }`}
+        <Flash msg={cropMsg} onDone={() => setCropMsg(null)} duration={2000} />
+        <ZoomArea
+          handle={zoomRef}
+          ratio={w.width && w.height ? w.width / w.height : null}
+          naturalWidth={w.width}
+          fit={hasPages ? 'width' : 'contain'}
+          className={`flex min-h-0 flex-1 justify-center-safe overflow-auto bg-neutral-100 p-3 ${hasPages ? 'items-start' : 'items-center-safe'}`}
         >
-          {hasPages && !cropMode ? (
-            <div className="w-full max-w-3xl space-y-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={w.image_url} alt={w.title ?? ''} className="block h-auto w-full bg-white" />
-              {w.pages!.map((p) => (
-                /* 크기를 미리 알고 있어 받아지기 전에도 자리를 잡는다 — 내려 보는 동안 밀리지 않는다 */
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  key={p.url}
-                  src={p.url}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  style={{ aspectRatio: `${p.width} / ${p.height}` }}
-                  className="block h-auto w-full bg-white"
-                />
-              ))}
-            </div>
-          ) : cropMode && crop ? (
+          {cropMode && crop ? (
             <CropEditor
               src={w.image_url}
               pages={stack ? w.pages! : undefined}
               crop={crop}
               onChange={setCrop}
+              active={editing}
+              onCommit={commitCrop}
               lockedRatio={ratio == null ? null : ratioValue(ratio)}
               imgRatio={imgRatio}
             />
           ) : (
-            /* 상세에서는 잘리지 않은 원본 비율을 봐야 하므로 Img(object-cover) 대신
-               img + object-contain 을 쓴다. Storage 도메인이라 next/image 설정이 필요 없다. */
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={w.image_url}
-              alt={w.title ?? ''}
-              className="max-h-[52vh] w-auto max-w-full object-contain md:max-h-[84vh]"
-            />
+            /* 전체 크기가 저장되기 전에 올라간 PDF(stack 없음)는 보기만 이어 붙인다 */
+            <StackView src={w.image_url} pages={hasPages ? w.pages : null} alt={w.title ?? ''} />
           )}
-        </div>
+        </ZoomArea>
 
         {/* 편집 */}
         <div className="flex w-full shrink-0 flex-col overflow-y-auto border-t border-neutral-200 p-5 md:w-80 md:border-l md:border-t-0">
@@ -516,17 +519,36 @@ export function WorkDialog({
           <div className="mt-4 border-t border-neutral-200 pt-4">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-neutral-600">썸네일</span>
+              {/* 잡는 중이면 지금 영역으로 정하고, 정한 뒤면 다시 잡는다 */}
+              {cropMode && (
+                <button
+                  type="button"
+                  data-crop-keep
+                  onClick={() => (editing ? crop && commitCrop(crop) : setEditing(true))}
+                  className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
+                >
+                  영역 지정
+                </button>
+              )}
               <button
                 type="button"
+                data-crop-keep
                 onClick={() => {
                   if (cropMode) {
                     /* 편집을 접으면 잡던 영역도 원래대로 — 저장하지 않고
                        닫았는데 다음에 열었을 때 남아 있으면 헷갈린다 */
                     setCrop(cropOf(w))
                     setRatio(null)
-                  } else if (!crop) {
-                    /* 영역을 잡은 적이 없으면 가운데에 기본값을 깔아 준다 */
-                    setCrop(centeredCrop(imgRatio, imgRatio))
+                    setShown(null)
+                  } else {
+                    /* 키워 둔 채 켜면 지금 보이는 부분 안에 처음 영역을 잡는다 — 이어 붙인
+                       장을 못 쓰는 옛 PDF 는 보기와 잡기의 그림이 달라 쓰지 않는다 */
+                    const z = zoomRef.current
+                    const v = z?.zoomed() && (stack || !hasPages) ? z.visible() : null
+                    const start = v ? insetCrop(v) : (crop ?? centeredCrop(imgRatio, imgRatio))
+                    setCrop(start)
+                    setShown(start)
+                    setEditing(true)
                   }
                   setCropMode((v) => !v)
                 }}
@@ -537,6 +559,7 @@ export function WorkDialog({
                     : undefined
                 }
                 className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
+              
               >
                 {cropMode ? '취소' : '썸네일 편집'}
               </button>
@@ -544,11 +567,13 @@ export function WorkDialog({
 
             {cropMode ? (
               <div className="space-y-2.5">
+                {/* 영역 바깥을 누르면 그 영역으로 바뀐다 — 이 그림이 썸네일이 된다 */}
+                {shown && previewParts && <CropPreview parts={previewParts} crop={shown} />}
                 <p className="text-[11px] leading-relaxed text-neutral-500">
                   {hasPages ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.' : '썸네일로 쓸 영역을 지정해 주세요.'}
                 </p>
 
-                <div className="flex flex-wrap gap-1.5">
+                <div data-crop-keep className="flex flex-wrap gap-1.5">
                   {THUMB_RATIOS.map((r) => (
                     <label
                       key={r.key}
@@ -567,7 +592,9 @@ export function WorkDialog({
                           const next = ratio === r.key ? null : r.key
                           setRatio(next)
                           if (next && crop) {
-                            setCrop(reshapeCrop(crop, ratioValue(next), imgRatio))
+                            const c = reshapeCrop(crop, ratioValue(next), imgRatio)
+                            setCrop(c)
+                            setShown(c)
                           }
                         }}
                         className="accent-violet-600"
