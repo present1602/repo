@@ -7,7 +7,6 @@ import {
   type WorkRow,
   MAX_BIO,
   MIN_PUBLIC_WORKS,
-  MIN_PUBLIC_AI_WORKS,
   checkPublicReady,
 } from '@/lib/portfolio-limits'
 import { NAME_MAX, nameError } from '@/lib/display-name'
@@ -232,7 +231,7 @@ function PublicToggle({
               ? '탐색 화면에 프로필과 포트폴리오가 보입니다.'
               : ready.ok
                 ? '공개 조건을 갖췄습니다. 오른쪽 스위치로 켜 주세요.'
-                : '아직 공개되지 않았습니다. 아래 조건을 갖추면 켤 수 있습니다.'}
+                : '아직 공개되지 않았습니다.'}
           </p>
         </div>
 
@@ -257,17 +256,11 @@ function PublicToggle({
 
       {/* 공개 조건 — 켜져 있을 때는 숨긴다. 이미 지난 관문이다.
           무엇이 남았는지 눈에 보여야 "왜 안 켜지지"로 멈추지 않는다. */}
-      {!on && (
-        <ul className="mt-3 space-y-1.5 border-t border-neutral-200 pt-3">
-          <Requirement met={ready.shown >= MIN_PUBLIC_WORKS}>
-            공개된 작업 {MIN_PUBLIC_WORKS}개 이상
-            <span className="ml-1 text-neutral-400">(지금 {ready.shown}개)</span>
-          </Requirement>
-          <Requirement met={ready.ai >= MIN_PUBLIC_AI_WORKS}>
-            AI 활용 작업 {MIN_PUBLIC_AI_WORKS}개 이상
-            <span className="ml-1 text-neutral-400">(지금 {ready.ai}개)</span>
-          </Requirement>
-        </ul>
+      {!on && ready.shown === 0 && (
+        <p className="mt-3 rounded-lg bg-neutral-100 px-3 py-2.5 text-xs text-neutral-700">
+          <span className="font-semibold">공개된 작업 0개:</span> 공개된 작업이{' '}
+          {MIN_PUBLIC_WORKS}개 이상이어야 프로필 노출 가능합니다.
+        </p>
       )}
 
       {suspended && (
@@ -277,26 +270,6 @@ function PublicToggle({
         </p>
       )}
     </div>
-  )
-}
-
-/* 공개 조건 한 줄 — 갖췄으면 초록 체크, 아니면 빈 동그라미 */
-function Requirement({ met, children }: { met: boolean; children: React.ReactNode }) {
-  return (
-    <li className="flex items-start gap-2 text-xs">
-      <span
-        aria-hidden
-        className={`mt-px grid size-4 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
-          met ? 'bg-emerald-500 text-white' : 'border border-neutral-300 text-transparent'
-        }`}
-      >
-        ✓
-      </span>
-      <span className={met ? 'text-neutral-600' : 'font-medium text-neutral-900'}>
-        {children}
-      </span>
-      <span className="sr-only">{met ? '갖춤' : '아직 모자람'}</span>
-    </li>
   )
 }
 

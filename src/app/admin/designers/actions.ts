@@ -223,8 +223,8 @@ export async function setDesignerProfilePublic(
 
   let warning: string | undefined
   if (isPublic) {
-    const { data: works } = await db.from('designer_works').select('visible, ai_used').eq('designer_id', id)
-    const ready = checkPublicReady((works ?? []) as Pick<WorkRow, 'visible' | 'ai_used'>[])
+    const { data: works } = await db.from('designer_works').select('visible').eq('designer_id', id)
+    const ready = checkPublicReady((works ?? []) as Pick<WorkRow, 'visible'>[])
     if (!ready.ok) warning = `노출했지만 공개 조건이 모자랍니다: ${ready.reasons.join(', ')}`
   }
 

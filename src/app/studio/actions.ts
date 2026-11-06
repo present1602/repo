@@ -211,7 +211,7 @@ export async function setProfilePublic(isPublic: boolean): Promise<Result> {
   if (isPublic) {
     const { data: works, error: readErr } = await db
       .from('designer_works')
-      .select('visible, ai_used')
+      .select('visible')
       .eq('designer_id', id)
 
     if (readErr) {
@@ -219,7 +219,7 @@ export async function setProfilePublic(isPublic: boolean): Promise<Result> {
       return fail('확인에 실패했습니다. 잠시 후 다시 시도해 주세요.')
     }
 
-    const ready = checkPublicReady((works ?? []) as Pick<WorkRow, 'visible' | 'ai_used'>[])
+    const ready = checkPublicReady((works ?? []) as Pick<WorkRow, 'visible'>[])
     if (!ready.ok) {
       return fail(`공개하려면 ${ready.reasons.join(', ')}가 필요합니다.`)
     }

@@ -398,7 +398,7 @@ function UploadDialog({
 
   /* 원본 크기를 읽는다 — 브라우저가 이미지를 다 받은 뒤에야 알 수 있다.
      영역 계산과 row_span 에 쓰인다. 실패해도 막지 않는다 — 서버가 null 로
-     받아 기존 규칙대로 처리한다(work-ratio.ts). */
+     받아 기존 규칙대로 처리한다(work-thumb.tsx). */
   useEffect(() => {
     let alive = true
     const img = new Image()

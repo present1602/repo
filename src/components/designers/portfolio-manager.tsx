@@ -47,7 +47,7 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
   const openWork = works.find((w) => w.id === editing) ?? null
 
   /* 기본은 공개 화면과 비슷한 그리드, 편집을 켜면 어드민과 같은 리스트가 된다.
-     추가와 순서 바꾸기는 리스트에서만 한다 — 그리드에서 끌게 하면
+     순서 바꾸기는 리스트에서만 한다 — 그리드에서 끌게 하면
      구경하다 실수로 순서가 바뀐다. */
   const [editMode, setEditMode] = useState(false)
   const full = works.length >= MAX_WORKS
@@ -82,21 +82,17 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
           </p>
         </div>
 
-        {/* 추가는 편집 중에만 — 보기 화면에는 손댈 거리를 두지 않는다 */}
-        {editMode && <AddButton disabled={full} onMessage={setMsg} />}
+        {/* 추가는 모드와 상관없이 늘 보인다 — 편집을 켜야 찾을 수 있으면 첫 작업을 못 올린다 */}
+        <AddButton disabled={full} onMessage={setMsg} />
       </div>
 
       {works.length === 0 ? (
         <p className="rounded-xl border border-dashed border-neutral-300 py-16 text-center text-sm text-neutral-500">
           아직 올린 작업이 없습니다.
-          {!editMode && (
-            <>
-              <br />
-              <span className="text-xs text-neutral-400">
-                &lsquo;포트폴리오 편집&rsquo;으로 올릴 수 있습니다.
-              </span>
-            </>
-          )}
+          <br />
+          <span className="text-xs text-neutral-400">
+            &lsquo;작업 추가&rsquo;로 올릴 수 있습니다.
+          </span>
         </p>
       ) : editMode ? (
         <EditList works={works} onMessage={setMsg} onEdit={setEditing} />

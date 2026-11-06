@@ -90,7 +90,7 @@ export type PublicWork = {
   /* SOOM 에서 수행한 의뢰인지 — true 일 때만 화면에 표기한다 */
   soom_work: boolean
   /* 어드민이 잡아 둔 썸네일 영역 — 원본에 대한 0~1 비율.
-     넷 다 null 이면 work-ratio.ts 규칙으로 자리를 잡는다. */
+     넷 다 null 이면 썸네일 파일의 비율로 자리를 잡는다(work-thumb.tsx). */
   crop_x: number | null
   crop_y: number | null
   crop_w: number | null
