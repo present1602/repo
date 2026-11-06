@@ -1,7 +1,7 @@
 import 'server-only'
 import { cache } from 'react'
 import { supabaseAdmin } from './supabase-admin'
-import { MAX_WORKS, CARD_THUMBS } from './portfolio-limits'
+import { MAX_WORKS } from './portfolio-limits'
 import {
   DEFAULT_CONTRACT_PRICE,
   DEFAULT_FULL_DESIGN_PRICE,
@@ -73,16 +73,16 @@ function scopeFallback(msg: string | undefined): string | null {
 }
 const CROP_COLS = 'crop_x, crop_y, crop_w, crop_h'
 const WORK_COLS =
-  `id, designer_id, image_url, thumb_url, width, height, title, description, row_span, client, ai_used, soom_work, ${CROP_COLS}, sort_order`
+  `id, designer_id, image_url, thumb_url, pages, width, height, title, description, row_span, client, ai_used, soom_work, ${CROP_COLS}, sort_order`
 
 /* 008·009 마이그레이션 전에도 화면이 뜨게 하는 대비책.
 
    없는 컬럼을 물으면 질의가 통째로 실패한다 — 컬럼 하나 때문에 홈·탐색·
    상세가 전부 비는 건 과하다. 007 이 featured 에 쓴 방침과 같게, 그 컬럼이
    쓰이는 기능만 쉬고 화면은 평소대로 뜨게 한다.
-   020(soom_work)도 같다 — 빠지면 undefined 로 와 표기만 쉰다.
-   008·009·010·020 을 적용하고 나면 이 재시도는 지워도 된다. */
-const OPTIONAL_COLS = ['ai_used', 'soom_work', 'thumb_url', ...CROP_COLS.split(', ')]
+   020(soom_work)·0008(pages)도 같다 — 빠지면 undefined 로 와 그 표시만 쉰다.
+   008·009·010·020·0008 을 적용하고 나면 이 재시도는 지워도 된다. */
+const OPTIONAL_COLS = ['ai_used', 'soom_work', 'thumb_url', 'pages', ...CROP_COLS.split(', ')]
 
 /* 아직 없는 컬럼 때문에 실패했으면 그것만 빼고 한 번 더 묻는다.
 
@@ -258,13 +258,15 @@ export async function listPublicDesigners(): Promise<PublicDesignerCard[]> {
     else byDesigner.set(w.designer_id, [w])
   }
 
+  /* 작업은 자르지 않고 다 싣는다 — 카드 썸네일 줄은 화면이 CARD_THUMBS 장으로
+     자르고, 눌러 여는 다이얼로그는 그 사람의 작업을 전부(1/9 …) 넘겨 본다.
+     디자이너당 MAX_WORKS 가 상한이다. */
   return designers.map((d) => {
     const works = (byDesigner.get(d.id) ?? []).sort(byOrder)
     return {
       ...d,
-      /* 총 개수는 자르기 전에 센다 — "+N개" 가 틀리지 않게 */
       works_total: works.length,
-      works: works.slice(0, CARD_THUMBS).map(strip),
+      works: works.map(strip),
     }
   })
 }
@@ -311,9 +313,9 @@ export async function getDesignerCardPreview(id: string): Promise<PublicDesigner
 
   return {
     ...(data as PublicDesignerCard),
-    /* 총 개수는 자르기 전에 센다 — "+N개" 가 틀리지 않게 */
+    /* 공개 목록(listPublicDesigners)과 같게 전부 싣는다 — 자르는 일은 카드가 한다 */
     works_total: works.length,
-    works: works.slice(0, CARD_THUMBS).map(strip),
+    works: works.map(strip),
   }
 }
 

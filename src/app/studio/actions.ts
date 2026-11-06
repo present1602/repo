@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { signIn, destroySession, changePassword, readSession } from '@/lib/designer-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { putImage, signImageUpload, claimImage } from '@/lib/upload'
+import { putImage, signImageUpload, claimImage, signPageUploads, claimPages } from '@/lib/upload'
 import {
   type WorkRow,
   MAX_WORKS,
@@ -387,10 +387,29 @@ export async function prepareWorkUpload(
   return signImageUpload(`works/${id}`, name, size)
 }
 
+/* PDF 의 둘째 장부터 — 업로드 주소를 한 번에 내준다(upload.ts 의 signPageUploads) */
+export async function prepareWorkPages(
+  files: { name: string; size: number }[],
+): Promise<{ ok: true; uploads: { path: string; token: string }[] } | { ok: false; error: string }> {
+  const { db, id } = await guard()
+  if (files.length === 0) return { ok: true, uploads: [] }
+
+  const { count } = await db
+    .from('designer_works')
+    .select('id', { count: 'exact', head: true })
+    .eq('designer_id', id)
+  if ((count ?? 0) >= MAX_WORKS) return fail(`포트폴리오는 최대 ${MAX_WORKS}개까지 올릴 수 있습니다.`)
+
+  return signPageUploads(`works/${id}`, files)
+}
+
 export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   const { db, id } = await guard()
 
   const imageUrl = claimImage(`works/${id}`, String(form.get('imagePath') ?? ''))
+  /* PDF 작업이면 imagePath 는 첫 장이고, 둘째 장부터는 pages 로 따로 온다 */
+  const pages = claimPages(`works/${id}`, form.get('pages'))
+  if (pages === false) return fail('PDF 페이지를 찾을 수 없습니다. 다시 올려 주세요.')
   const title = String(form.get('title') ?? '').trim()
   const description = String(form.get('description') ?? '').trim()
   const client = String(form.get('client') ?? '').trim()
@@ -428,7 +447,24 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
 
   /* 세로로 긴 이미지는 기본 2칸 — 비율대로 쌓이는 모양이 자연스럽다.
      올린 뒤 본인이 조절할 수 있다. */
-  const rowSpan = width && height && height > width * 1.4 ? 2 : 1
+  /* 영역을 잡았으면 그 비율로 본다 — PDF 는 width·height 가 장을 이어 붙인
+     전체 크기라 그대로 재면 늘 길쭉하다(영역은 늘 함께 온다, work-stack.ts) */
+  const cropped = readCrop(form)
+  const tw = width && cropped.crop_w != null ? width * cropped.crop_w : width
+  const th = height && cropped.crop_h != null ? height * cropped.crop_h : height
+  const rowSpan = tw && th && th > tw * 1.4 ? 2 : 1
+
+  /* 새 작업은 맨 앞에 선다 — 지금 맨 앞보다 하나 작은 번호를 준다.
+     뒤 작업들의 번호를 하나씩 미는 것보다 한 줄로 끝난다. 음수가 되어도
+     순서만 맞으면 된다 — 끌어서 순서를 바꾸면 0부터 다시 매긴다. */
+  const { data: head } = await db
+    .from('designer_works')
+    .select('sort_order')
+    .eq('designer_id', id)
+    .order('sort_order', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  const sortOrder = head ? (head.sort_order as number) - 1 : 0
 
   const { data, error } = await db
     .from('designer_works')
@@ -445,16 +481,23 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
       /* 020 전 DB 에서는 컬럼이 없어 insert 가 통째로 실패한다 —
          켠 경우에만 싣는다. 끈 값은 DB 기본값(false)과 같다. */
       ...(soomWork ? { soom_work: true } : {}),
+      /* 0008 전 DB 에서는 컬럼이 없다 — PDF 일 때만 싣는다 */
+      ...(pages && pages.length > 0 ? { pages } : {}),
       row_span: rowSpan,
-      sort_order: count ?? 0,
-      /* 숨긴 채로 들어간다 — 설명·표시를 손본 뒤 본인이 공개한다 */
-      visible: false,
+      sort_order: sortOrder,
+      /* 올리기 창에서 정보를 다 적고 노출 여부도 고른다(work-uploader.tsx).
+         값이 오지 않으면 예전처럼 숨긴 채로 들어간다 */
+      visible: form.get('visible') === '1',
+      ...readCrop(form),
     })
     .select('id')
     .maybeSingle()
 
   if (error || !data) {
     console.error('[works] 등록 실패:', error?.message)
+    if (error?.message.includes('pages')) {
+      return fail('PDF 저장 칸이 없습니다. 0008_work_pdf_pages.sql 마이그레이션을 실행해 주세요.')
+    }
     /* 트리거가 막은 경우 메시지를 그대로 보여준다 */
     return fail(error?.message.includes('최대') ? error.message : '등록에 실패했습니다.')
   }

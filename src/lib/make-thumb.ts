@@ -7,6 +7,7 @@
    crop 영역이 있으면 그 부분만, 없으면 원본 전체를 줄인다. */
 
 import type { Crop } from './crop'
+import { type StackPart, stackSize } from './work-stack'
 
 /* 긴 변 기준 최대 길이. 목록 카드는 아무리 커도 한 변 600px 안쪽이고,
    고해상도 화면을 감안해 두 배로 잡는다. */
@@ -88,6 +89,82 @@ export async function makeThumbFromUrl(url: string, crop: Crop | null): Promise<
   } catch {
     return null
   }
+}
+
+/* PDF 작업(장을 이어 붙인 긴 그림, work-stack.ts)에서 영역만큼 썸네일을 만든다.
+
+   긴 그림 전체를 한 캔버스에 그리지 않는다 — 캔버스 면적 한도를 넘는다.
+   영역에 걸친 장만 받아, 각 장에서 겹치는 띠만 잘라 썸네일 캔버스에
+   위에서부터 차례로 붙인다. */
+export async function makeStackThumb(parts: StackPart[], crop: Crop): Promise<Thumb | null> {
+  try {
+    const first = parts[0]
+    const width = first.width
+    const height = stackSize(first, parts.slice(1)).height
+
+    /* 영역 — 이어 붙인 전체 좌표(첫 장 너비 기준 픽셀) */
+    const sx = crop.x * width
+    const sy = crop.y * height
+    const sw = crop.w * width
+    const sh = crop.h * height
+    if (sw < 1 || sh < 1) return null
+
+    const scale = Math.min(1, THUMB_MAX / Math.max(sw, sh))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(sw * scale))
+    canvas.height = Math.max(1, Math.round(sh * scale))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    ctx.imageSmoothingQuality = 'high'
+
+    let top = 0
+    for (const p of parts) {
+      /* 이 장이 전체에서 차지하는 세로 범위 */
+      const h = (p.height * width) / p.width
+      const from = Math.max(sy, top)
+      const to = Math.min(sy + sh, top + h)
+      if (to > from) {
+        const bitmap = await loadPart(p.src)
+        if (!bitmap) return null
+        /* 이 장의 실제 픽셀 / 전체 좌표 픽셀 — 그림이 받아진 크기로 잰다 */
+        const k = bitmap.width / width
+        ctx.drawImage(
+          bitmap,
+          sx * k,
+          (from - top) * k,
+          sw * k,
+          (to - from) * k,
+          0,
+          (from - sy) * scale,
+          canvas.width,
+          (to - from) * scale,
+        )
+        if ('close' in bitmap) bitmap.close()
+      }
+      top += h
+      if (top >= sy + sh) break
+    }
+
+    const blob = await toBlob(canvas)
+    if (!blob) return null
+    const ext = blob.type === 'image/webp' ? 'webp' : 'jpg'
+    return {
+      file: new File([blob], `thumb.${ext}`, { type: blob.type }),
+      width: canvas.width,
+      height: canvas.height,
+    }
+  } catch {
+    return null
+  }
+}
+
+/* 장 하나를 그릴 수 있는 모양으로 — 올리기 전에는 파일, 올린 뒤에는 Storage 주소 */
+async function loadPart(src: string | File): Promise<ImageBitmap | HTMLImageElement | null> {
+  if (src instanceof File) return loadBitmap(src)
+  const res = await fetch(src, { mode: 'cors', cache: 'reload' })
+  if (!res.ok) return null
+  const blob = await res.blob()
+  return loadBitmap(new File([blob], 'page', { type: blob.type }))
 }
 
 /* 파일을 그릴 수 있는 모양으로 — 최신 브라우저는 createImageBitmap 이

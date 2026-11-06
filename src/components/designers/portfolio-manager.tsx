@@ -2,10 +2,18 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { type WorkRow, MAX_WORKS, MAX_DESCRIPTION, thumbSrc } from '@/lib/portfolio-limits'
+import {
+  type WorkRow,
+  MAX_WORKS,
+  MAX_DESCRIPTION,
+  MAX_SOURCE_BYTES,
+  MAX_PDF_PAGES,
+  thumbSrc,
+} from '@/lib/portfolio-limits'
 import {
   addWork,
   prepareWorkUpload,
+  prepareWorkPages,
   updateWork,
   updateWorkCrop,
   setWorkVisible,
@@ -23,8 +31,9 @@ import {
   ratioValue,
   reshapeCrop,
 } from '@/lib/crop'
-import { makeThumb, makeThumbFromUrl } from '@/lib/make-thumb'
-import { DESIGNER_IMAGES_BUCKET, uploadSigned } from '@/lib/direct-upload'
+import { makeStackThumb, makeThumb, makeThumbFromUrl } from '@/lib/make-thumb'
+import { firstPageCrop, stackOfWork } from '@/lib/work-stack'
+import { WorkUploader } from '@/components/work-uploader'
 import { Flash } from '@/components/flash'
 
 export function PortfolioManager({ works }: { works: WorkRow[] }) {
@@ -42,7 +51,7 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
 
   return (
     <div className="space-y-5">
-      <Flash msg={msg} onDone={() => setMsg(null)} duration={msg?.text === UPLOADED ? 6000 : undefined} />
+      <Flash msg={msg} onDone={() => setMsg(null)} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* 좌상단 — 편집 들어가기·나가기 */}
@@ -278,8 +287,9 @@ function EditList({
 
 /* ─────────── 추가 ─────────── */
 
-const UPLOADED = '업로드했어요. "편집" 버튼을 눌러 포트폴리오 정보를 입력하고 "노출" 상태로 바꿔주세요.'
-
+/* 고르면 입력 창부터 뜬다 — 설명·노출·썸네일을 정하고 '저장'해야 올라간다
+   (work-uploader.tsx, 어드민과 같은 창). 25MB 를 넘는 이미지는 줄이고 PDF 는
+   장마다 이미지로 바꿔 올린다. AI 활용은 꺼진 채로 시작한다 — 본인이 답한다. */
 function AddButton({
   disabled,
   onMessage,
@@ -287,89 +297,19 @@ function AddButton({
   disabled: boolean
   onMessage: (m: { ok: boolean; text: string } | null) => void
 }) {
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [pending, start] = useTransition()
-  const router = useRouter()
-
-  /* 올리기 전에 원본 크기를 읽어둔다 — 세로로 긴 이미지는 2칸으로 시작한다 */
-  const measure = (file: File) =>
-    new Promise<{ width: number | null; height: number | null }>((resolve) => {
-      const url = URL.createObjectURL(file)
-      const img = new Image()
-      img.onload = () => {
-        resolve({ width: img.naturalWidth, height: img.naturalHeight })
-        URL.revokeObjectURL(url)
-      }
-      img.onerror = () => {
-        resolve({ width: null, height: null })
-        URL.revokeObjectURL(url)
-      }
-      img.src = url
-    })
-
-  /* 고르면 바로 올린다. 숨긴 채로 들어가고(addWork), AI 사용·SOOM 의뢰 표시는
-     편집에서 켠다 — AI 는 묻지 않은 채(null)로 남는다(readAiUsed) */
-  const upload = (file: File) => {
-    onMessage(null)
-    start(async () => {
-      const prep = await prepareWorkUpload(file.name, file.size)
-      if (!prep.ok) {
-        onMessage({ ok: false, text: prep.error })
-        return
-      }
-
-      /* 원본은 서명 주소로 바로 올린다(direct-upload.ts). 목록에서 쓸 작은 이미지도
-         함께 만든다 — 실패해도 그냥 올린다(make-thumb.ts) */
-      const [sent, { width, height }, thumb] = await Promise.all([
-        uploadSigned(DESIGNER_IMAGES_BUCKET, prep, file),
-        measure(file),
-        makeThumb(file, null),
-      ])
-      if (!sent) {
-        onMessage({ ok: false, text: '이미지를 올리지 못했습니다.' })
-        return
-      }
-
-      const form = new FormData()
-      form.set('imagePath', prep.path)
-      if (thumb) form.set('thumb', thumb.file)
-      if (width) form.set('width', String(width))
-      if (height) form.set('height', String(height))
-
-      const r = await addWork(form)
-      if (!r.ok) {
-        onMessage({ ok: false, text: r.error })
-        return
-      }
-      /* 숨김으로 들어갔다 — 다음에 할 일을 알린다. 길어서 오래 띄운다 */
-      onMessage({ ok: true, text: UPLOADED })
-      router.refresh()
-    })
-  }
-
   return (
     <div className="flex flex-col items-end gap-1">
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) upload(f)
-          e.target.value = ''
-        }}
-      />
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        disabled={disabled || pending}
+      <WorkUploader
+        actions={{ prepareUpload: prepareWorkUpload, preparePages: prepareWorkPages, addWork }}
+        disabled={disabled}
+        aiDefault={false}
         className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
-      >
-        {pending ? '올리는 중…' : '작업 추가'}
-      </button>
-      {/* 버킷 한도(upload.ts 의 MAX_IMAGE_BYTES)와 같다 */}
-      <span className="text-[11px] text-neutral-400">25MB 이하</span>
+        successText={() => '작업을 올렸습니다.'}
+        onMessage={onMessage}
+      />
+      <span className="text-[11px] text-neutral-400">
+        이미지·PDF {MAX_SOURCE_BYTES / 1024 / 1024}MB 이하 · PDF {MAX_PDF_PAGES}쪽까지
+      </span>
     </div>
   )
 }
@@ -414,6 +354,11 @@ function WorkCard({
         </span>
         {w.ai_used && (
           <span className="rounded bg-violet-600/90 px-1.5 py-0.5 text-[11px] text-white">AI</span>
+        )}
+        {w.pages && w.pages.length > 0 && (
+          <span className="rounded bg-red-600/90 px-1.5 py-0.5 text-[11px] text-white">
+            PDF {w.pages.length + 1}쪽
+          </span>
         )}
         {w.soom_work && (
           <span className="rounded bg-neutral-900/90 px-1.5 py-0.5 text-[11px] text-white">
@@ -470,8 +415,48 @@ function WorkEditDialog({
   const [crop, setCrop] = useState<Crop | null>(cropOf(w))
   const [ratio, setRatio] = useState<RatioKey | null>(null)
   const [savingCrop, startCrop] = useTransition()
+  const thumbFileRef = useRef<HTMLInputElement>(null)
+
+  /* 썸네일을 따로 올린 이미지로 바꾼다 — 원본(PDF 표지 포함)에서 자르지 않고
+     통째로 줄여 쓴다. 영역은 지운다: 남겨 두면 다음에 열었을 때 원본 위에
+     엉뚱한 영역이 잡혀 있다. */
+  const uploadThumb = (file: File) => {
+    startCrop(async () => {
+      onMessage(null)
+      const thumb = await makeThumb(file, null)
+      if (!thumb) {
+        onMessage({ ok: false, text: '이미지를 읽지 못했습니다.' })
+        return
+      }
+
+      const form = new FormData()
+      form.set('id', w.id)
+      form.set('thumb', thumb.file)
+      /* PDF 는 첫 장 영역을 남긴다 — 목록·카드가 그 비율로 자리를 잡는다(work-stack.ts) */
+      const keep = stack ? firstPageCrop(stack[0], stack.slice(1)) : null
+      if (keep) {
+        form.set('cropX', String(keep.x))
+        form.set('cropY', String(keep.y))
+        form.set('cropW', String(keep.w))
+        form.set('cropH', String(keep.h))
+      }
+
+      const r = await updateWorkCrop(form)
+      if (!r.ok) {
+        onMessage({ ok: false, text: r.error })
+        return
+      }
+      setCrop(keep)
+      router.refresh()
+      onMessage({ ok: true, text: '썸네일을 바꿨습니다.' })
+    })
+  }
 
   const imgRatio = w.width && w.height ? w.width / w.height : 1
+  const hasPages = (w.pages?.length ?? 0) > 0
+  /* 이어 붙인 전체로 영역을 잡을 수 있는 PDF 작업인지(work-stack.ts).
+     전체 크기가 저장되기 전에 올라간 PDF 는 null — 첫 장에서만 잡는다 */
+  const stack = stackOfWork(w)
 
   /* 아직 답하지 않은 작업(null)은 체크박스를 건드리지 않아도 저장할 수 있어야
      한다 — 끈 채로 저장하는 것이 '쓰지 않았다'는 답이다. */
@@ -519,11 +504,36 @@ function WorkEditDialog({
         className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white md:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 이미지 — 좁은 화면에서는 높이를 줄여 아래 입력칸이 가려지지 않게 한다 */}
-        <div className="flex max-h-[38vh] min-h-0 shrink-0 items-center justify-center overflow-auto bg-neutral-100 p-3 md:max-h-none md:flex-1">
-          {cropMode && crop ? (
+        {/* 이미지 — 좁은 화면에서는 높이를 줄여 아래 입력칸이 가려지지 않게 한다.
+            PDF 작업은 첫 장 아래로 나머지 장을 이어 붙여 내려 보며 확인하고,
+            영역도 그 이어진 그림 어디에서나 잡는다. */}
+        <div
+          className={`flex max-h-[38vh] min-h-0 shrink-0 justify-center overflow-auto bg-neutral-100 p-3 md:max-h-none md:flex-1 ${
+            hasPages && (!cropMode || stack) ? 'items-start' : 'items-center'
+          }`}
+        >
+          {hasPages && !cropMode ? (
+            <div className="w-full max-w-3xl space-y-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={w.image_url} alt={w.title ?? ''} className="block h-auto w-full bg-white" />
+              {w.pages!.map((p) => (
+                /* 크기를 미리 알고 있어 받아지기 전에도 자리를 잡는다 — 내려 보는 동안 밀리지 않는다 */
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  key={p.url}
+                  src={p.url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  style={{ aspectRatio: `${p.width} / ${p.height}` }}
+                  className="block h-auto w-full bg-white"
+                />
+              ))}
+            </div>
+          ) : cropMode && crop ? (
             <CropEditor
               src={w.image_url}
+              pages={stack ? w.pages! : undefined}
               crop={crop}
               onChange={setCrop}
               lockedRatio={ratio == null ? null : ratioValue(ratio)}
@@ -546,10 +556,16 @@ function WorkEditDialog({
           <div className="mb-4 flex items-start justify-between gap-2">
             <div className="min-w-0">
               <h3 className="text-sm font-semibold">작업 편집</h3>
-              {w.width && w.height && (
-                <p className="mt-1 text-xs text-neutral-400">
-                  {w.width} × {w.height}
-                </p>
+              {w.pages && w.pages.length > 0 ? (
+                /* 편집 창은 첫 장만 띄운다 — 나머지 장은 공개 화면에서 이어 보인다 */
+                <p className="mt-1 text-xs text-neutral-400">PDF {w.pages.length + 1}쪽</p>
+              ) : (
+                w.width &&
+                w.height && (
+                  <p className="mt-1 text-xs text-neutral-400">
+                    {w.width} × {w.height}
+                  </p>
+                )
               )}
             </div>
             <button
@@ -626,31 +642,56 @@ function WorkEditDialog({
           <div className="mt-4 border-t border-neutral-200 pt-4">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-neutral-600">썸네일</span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (cropMode) {
-                    /* 편집을 접으면 잡던 영역도 원래대로 — 저장하지 않고
-                       닫았는데 다음에 열었을 때 남아 있으면 헷갈린다 */
-                    setCrop(cropOf(w))
-                    setRatio(null)
-                  } else if (!crop) {
-                    setCrop(centeredCrop(imgRatio, imgRatio))
-                  }
-                  setCropMode((v) => !v)
-                }}
-                disabled={savingCrop || !w.width || !w.height}
-                title={!w.width || !w.height ? '원본 크기를 몰라 영역을 잡을 수 없습니다' : undefined}
-                className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
-              >
-                {cropMode ? '취소' : '썸네일 편집'}
-              </button>
+              <div className="flex gap-1.5">
+                {!cropMode && (
+                  <>
+                    <input
+                      ref={thumbFileRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) uploadThumb(f)
+                        e.target.value = ''
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => thumbFileRef.current?.click()}
+                      disabled={savingCrop}
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
+                    >
+                      {savingCrop ? '올리는 중…' : '이미지 올리기'}
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (cropMode) {
+                      /* 편집을 접으면 잡던 영역도 원래대로 — 저장하지 않고
+                         닫았는데 다음에 열었을 때 남아 있으면 헷갈린다 */
+                      setCrop(cropOf(w))
+                      setRatio(null)
+                    } else if (!crop) {
+                      setCrop(centeredCrop(imgRatio, imgRatio))
+                    }
+                    setCropMode((v) => !v)
+                  }}
+                  disabled={savingCrop || !w.width || !w.height}
+                  title={!w.width || !w.height ? '원본 크기를 몰라 영역을 잡을 수 없습니다' : undefined}
+                  className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
+                >
+                  {cropMode ? '취소' : '썸네일 편집'}
+                </button>
+              </div>
             </div>
 
             {cropMode ? (
               <div className="space-y-2.5">
                 <p className="text-[11px] leading-relaxed text-neutral-500">
-                  위쪽 이미지에서 영역을 끌어 옮기고 핸들로 크기를 맞춥니다.
+                  {hasPages ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.' : '썸네일로 쓸 영역을 지정해 주세요.'}
                 </p>
 
                 <div className="flex flex-wrap gap-1.5">
@@ -687,7 +728,9 @@ function WorkEditDialog({
                     startCrop(async () => {
                       onMessage(null)
                       /* 자르는 일은 여기서 한다 — 서버는 받은 파일을 저장만 한다 */
-                      const thumb = await makeThumbFromUrl(w.image_url, crop)
+                      const thumb = stack
+                        ? await makeStackThumb(stack, crop)
+                        : await makeThumbFromUrl(w.image_url, crop)
 
                       const form = new FormData()
                       form.set('id', w.id)
@@ -727,11 +770,7 @@ function WorkEditDialog({
                   className="size-20 shrink-0 rounded-lg ring-1 ring-neutral-200"
                 />
                 <p className="min-w-0 text-[11px] leading-relaxed text-neutral-500">
-                  {cropOf(w)
-                    ? '영역을 잡아 만든 썸네일입니다.'
-                    : w.thumb_url
-                      ? '원본 전체를 줄인 썸네일입니다.'
-                      : '아직 썸네일이 없어 목록에서 원본을 씁니다.'}
+                  {hasPages ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.' : '썸네일로 쓸 영역을 지정해 주세요.'}
                 </p>
               </div>
             )}

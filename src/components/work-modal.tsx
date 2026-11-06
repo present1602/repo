@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { PublicWork } from '@/lib/designer-shape'
+import type { WorkPage } from '@/lib/portfolio-limits'
 
 /* 좌우로 미끄러지는 시간(ms). 트랙에 거는 CSS 전환과 같은 값이어야
    끝나는 순간에 맞춰 자리를 정리할 수 있다. */
@@ -308,6 +309,7 @@ export function WorkModal<W extends PublicWork>({
                       /* 가운데 칸만 조작을 받는다 — 양옆은 미리 깔아 둔 그림이다.
                        src 가 바뀌면 배율·스크롤은 ZoomImage 안에서 되돌린다. */
                       src={item.image_url}
+                      pages={item.pages}
                       alt={item.title ?? ''}
                       active={off === 0}
                       onSwipe={
@@ -413,6 +415,7 @@ export function WorkModal<W extends PublicWork>({
                   onOverflowChange={setCanExpand}
                 />
               )}
+
             </div>
 
             {/* 숨겨 둔 동안 바닥에 남겨 두는 손잡이 — 그림을 톡 쳐도 되지만,
@@ -527,6 +530,7 @@ const TALL_RATIO = 1.6
    곱한 픽셀 값을 줘야 키웠을 때 칸을 넘쳐 스크롤이 생긴다. */
 function ZoomImage({
   src,
+  pages,
   alt,
   active,
   onSwipe,
@@ -535,6 +539,8 @@ function ZoomImage({
   onTap,
 }: {
   src: string
+  /* PDF 작업의 둘째 장부터 — 첫 장(src) 아래로 이어 붙여 한 장처럼 키우고 내려 본다 */
+  pages?: WorkPage[] | null
   alt: string
   /* 트랙 가운데 칸인지 — 양옆은 미리 깔아 둔 그림이라 조작을 받지 않는다 */
   active?: boolean
@@ -548,8 +554,20 @@ function ZoomImage({
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
+  /* 그림 전체(PDF 면 이어 붙인 모든 장) — 확대할 때 붙잡을 자리를 이 상자로 잰다 */
+  const wrapRef = useRef<HTMLDivElement>(null)
   const [boxSize, setBoxSize] = useState<{ w: number; h: number } | null>(null)
-  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null)
+  const [first, setFirst] = useState<{ w: number; h: number } | null>(null)
+  /* 맞춤·배율 계산은 이어 붙인 전체를 한 장으로 본다 — 둘째 장부터는 첫 장
+     너비에 맞춰 늘이거나 줄인 높이로 더한다 */
+  const natural = useMemo(
+    () =>
+      first && {
+        w: first.w,
+        h: first.h + (pages ?? []).reduce((sum, p) => sum + (p.height * first.w) / p.width, 0),
+      },
+    [first, pages],
+  )
   /* 배율 — 1(칸에 맞춤)부터 ZOOMS 끝까지. 버튼은 ZOOMS 단계로 뛰고,
      집어 키우기는 그 사이 아무 값이나 된다. */
   const [zoom, setZoom] = useState(1)
@@ -610,10 +628,10 @@ function ZoomImage({
   /* 화면 좌표(clientX/Y)의 한 점을 붙잡는다 — 그 점 밑의 그림 자리를 잰다 */
   const anchorAt = (cx: number, cy: number) => {
     const box = boxRef.current
-    const img = imgRef.current
-    if (!box || !img) return
+    const wrap = wrapRef.current
+    if (!box || !wrap) return
     const b = box.getBoundingClientRect()
-    const r = img.getBoundingClientRect()
+    const r = wrap.getBoundingClientRect()
     focus.current = {
       fx: (cx - r.left) / r.width,
       fy: (cy - r.top) / r.height,
@@ -633,7 +651,7 @@ function ZoomImage({
     setSeenSrc(src)
     setZoom(1)
     setFlash(false)
-    /* natural 은 비우지 않는다 — 비우면 fit 이 null 이 되어 그 한 프레임
+    /* first 는 비우지 않는다 — 비우면 fit 이 null 이 되어 그 한 프레임
        동안 <img> 에 크기가 안 붙고 원본 크기(1600px 등)로 그려진다.
        그게 넘긴 직후 화면이 번쩍이는 원인이었다. 새 치수는 아래
        useLayoutEffect 가 즉시(캐시된 그림) 또는 onLoad 가 채운다. */
@@ -655,7 +673,7 @@ function ZoomImage({
     }
     const img = imgRef.current
     if (img?.complete && img.naturalWidth > 0) {
-      setNatural({ w: img.naturalWidth, h: img.naturalHeight })
+      setFirst({ w: img.naturalWidth, h: img.naturalHeight })
     }
   }, [src])
 
@@ -988,24 +1006,48 @@ function ZoomImage({
             tall ? 'items-start' : 'items-center'
           }`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            ref={imgRef}
-            src={src}
-            alt={alt}
-            /* 브라우저 기본 이미지 끌기(유령 이미지)가 끌어 옮기기를 가로챈다 */
-            draggable={false}
-            onLoad={(e) =>
-              setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
-            }
-            /* 크기를 재기 전(이미지·칸이 아직 안 잡혔을 때)에는 CSS 로 칸에 맞춰 둔다 */
-            style={
-              fit
-                ? { width: natural!.w * fit * zoom, height: natural!.h * fit * zoom, maxWidth: 'none' }
-                : undefined
-            }
-            className={fit ? 'block' : 'max-h-full max-w-full object-contain'}
-          />
+          <div ref={wrapRef} className={fit ? '' : 'contents'}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={imgRef}
+              src={src}
+              alt={alt}
+              /* 브라우저 기본 이미지 끌기(유령 이미지)가 끌어 옮기기를 가로챈다 */
+              draggable={false}
+              onLoad={(e) =>
+                setFirst({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
+              }
+              /* 크기를 재기 전(이미지·칸이 아직 안 잡혔을 때)에는 CSS 로 칸에 맞춰 둔다 */
+              style={
+                fit && first
+                  ? { width: first.w * fit * zoom, height: first.h * fit * zoom, maxWidth: 'none' }
+                  : undefined
+              }
+              className={fit ? 'block' : 'max-h-full max-w-full object-contain'}
+            />
+            {/* 둘째 장부터 — 첫 장과 같은 너비로 잇는다. 크기를 미리 알고 있어
+                받아지기 전에도 자리를 잡으므로 내려 보는 동안 화면이 밀리지 않는다.
+                첫 장의 크기를 재기 전에는 그리지 않는다. */}
+            {fit &&
+              first &&
+              pages?.map((p) => (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  key={p.url}
+                  src={p.url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  style={{
+                    width: first.w * fit * zoom,
+                    height: (p.height * first.w * fit * zoom) / p.width,
+                    maxWidth: 'none',
+                  }}
+                  className="block bg-neutral-50"
+                />
+              ))}
+          </div>
         </div>
       </div>
 

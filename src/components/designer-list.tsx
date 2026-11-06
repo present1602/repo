@@ -10,9 +10,12 @@ import { ScopePrompt } from './scope-prompt'
 import { InquiryButton } from './inquiry/inquiry-button'
 import type { CategoryChoice, InquiryScope } from '@/lib/inquiry-choices'
 import { isSearchable, searchHint } from '@/lib/search-term'
+import { CARD_THUMBS } from '@/lib/portfolio-limits'
+import { cropOf } from '@/lib/crop'
 
-/* 기본 카드가 보여주는 작업 수 — 썸네일 줄과 다이얼로그 모두 이만큼만 */
-const SPOTLIGHT_MAX = 4
+/* 기본 카드 썸네일 줄에 늘어놓는 작업 수 — 나머지는 "+N" 으로 접는다.
+   다이얼로그는 이 수와 상관없이 그 사람의 작업을 전부 넘겨 본다. */
+const SPOTLIGHT_MAX = CARD_THUMBS
 import { SCOPES, SCOPE_LABELS, acceptsScope, type Scope } from '@/lib/scopes'
 import type { SpecialtyScopeMode } from '@/lib/specialty-shape'
 
@@ -157,17 +160,17 @@ export function DesignerList({
   /* 썸네일 다이얼로그는 목록 순서대로 디자이너들의 작업을 한 줄로 잇는다 —
      한 사람의 끝에서 넘기면 그 사람의 처음이 아니라 다음 디자이너의 첫 작업이 나온다.
      맨 처음과 맨 끝에서는 더 넘어가지 않는다(loop={false}).
-     카드에 보이는 장만 잇는다 — 기본 카드는 SPOTLIGHT_MAX 장, feature1 은 담겨 온 전부. */
+     카드 썸네일 줄은 몇 장만 보여도, 다이얼로그는 그 사람의 작업을 전부 잇는다 —
+     카드의 i 번째 썸네일은 그 사람의 i 번째 작업과 같은 자리다. */
   const { flat, starts } = useMemo(() => {
     const flat: (PublicWork & { designer: PublicDesignerCard; nth: number; of: number })[] = []
     const starts = new Map<string, number>()
     for (const d of list) {
       starts.set(d.id, flat.length)
-      const works = featureRank.has(d.id) ? d.works : d.works.slice(0, SPOTLIGHT_MAX)
-      works.forEach((w, i) => flat.push({ ...w, designer: d, nth: i + 1, of: works.length }))
+      d.works.forEach((w, i) => flat.push({ ...w, designer: d, nth: i + 1, of: d.works.length }))
     }
     return { flat, starts }
-  }, [list, featureRank])
+  }, [list])
   const [openAt, setOpenAt] = useState<number | null>(null)
 
   /* 분야를 바꾸면 목록이 통째로 바뀐다 — 내려가 있던 자리에 남으면
@@ -394,13 +397,12 @@ export function DesignerCard({
   const href = `/designers/${d.id}`
   const name = displayNameOf(d)
 
-  /* 카드에는 썸네일 몇 장만 담겨 온다(public-designers 의 CARD_THUMBS) —
-     남은 장수를 "+N개" 로 알린다 */
-  const more = d.works_total - d.works.length
+  /* 썸네일 줄에는 CARD_THUMBS 장만 늘어놓고 남은 장수를 "+N개" 로 알린다 */
+  const thumbs = d.works.slice(0, CARD_THUMBS)
+  const more = d.works_total - thumbs.length
 
   /* 썸네일을 누르면 상세 페이지로 가지 않고 그 자리에서 다이얼로그를 띄운다.
-     모달이 넘길 수 있는 범위는 카드에 담겨 온 몇 장뿐이다 — 전체를 보려면
-     "+N개 더보기" 로 상세 페이지로 간다. */
+     다이얼로그는 줄에 보이지 않는 작업까지 전부 넘겨 본다. */
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
@@ -451,13 +453,13 @@ export function DesignerCard({
       </div>
 
       {/* 작업이 없는 디자이너도 있다 — 그때는 썸네일 줄을 아예 비운다 */}
-      {d.works.length > 0 && (
+      {thumbs.length > 0 && (
         /* 태블릿 이상 — 높이를 고정하고 너비는 비율대로. 가로/세로 썸네일이 한 줄에
            자연스럽게 섞인다. 디자이너가 아직 많지 않아 카드 하나를 크게 보여 준다.
            스마트폰 — 폭이 좁아 여러 장을 늘어놓으면 하나하나가 너무 작다.
            첫 작업 한 장만 카드 폭에 꽉 채우고, 나머지는 상세에서 본다. */
         <div className="flex gap-2 overflow-x-auto px-4 pb-4 sm:h-64 md:h-80 md:px-5 md:pb-5">
-          {d.works.map((w, i) => (
+          {thumbs.map((w, i) => (
             <button
               key={w.id}
               onClick={() => (onOpenWork ? onOpenWork(i) : setOpenIndex(i))}
@@ -680,7 +682,10 @@ const CARD_MAX_TALL = 3 / 4
 
 function cardRatio(w: PublicWork): number {
   if (!w.width || !w.height) return CARD_MAX_TALL
-  const r = w.width / w.height
+  /* 영역을 잡았으면 썸네일이 그 비율이다 — PDF 는 width·height 가 장을 이어
+     붙인 전체 크기라 영역 없이 재면 늘 길쭉하게 나온다(work-stack.ts) */
+  const c = cropOf(w)
+  const r = c ? (w.width * c.w) / (w.height * c.h) : w.width / w.height
   if (r > 1) return CARD_LANDSCAPE
   return Math.max(r, CARD_MAX_TALL)
 }

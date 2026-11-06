@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { WorkRow } from '@/lib/portfolio-limits'
 import { MAX_WORKS, MAX_DESCRIPTION, thumbSrc } from '@/lib/portfolio-limits'
+import { WorkUploader } from '@/components/work-uploader'
 import {
   adminAddWork,
   adminPrepareWorkUpload,
+  adminPrepareWorkPages,
   adminUpdateWork,
   adminSetWorkVisible,
   adminDeleteWork,
@@ -24,8 +26,8 @@ import {
   ratioValue,
   reshapeCrop,
 } from '@/lib/crop'
-import { makeThumb, makeThumbFromUrl } from '@/lib/make-thumb'
-import { DESIGNER_IMAGES_BUCKET, uploadSigned } from '@/lib/direct-upload'
+import { makeStackThumb, makeThumbFromUrl } from '@/lib/make-thumb'
+import { stackOfWork } from '@/lib/work-stack'
 import { Flash } from '@/components/flash'
 
 export type Notice = { kind: 'ok' | 'error'; text: string } | null
@@ -259,11 +261,9 @@ export function AdminPortfolio({
 
 /* ─────────── 추가 ─────────── */
 
-/* 어드민이 디자이너를 대신해 작업을 올린다.
-
-   여러 장을 한 번에 고를 수 있다 — 대신 올려주는 상황에서는 보통 묶음이다.
-   고른 뒤에는 한 장씩 차례로 확인한다. 썸네일 영역은 사진마다 다르므로
-   묶음 전체에 한 번만 물을 수 없다. */
+/* 어드민이 디자이너를 대신해 작업을 올린다 — 입력 창과 변환은 스튜디오와
+   같은 것을 쓴다(work-uploader.tsx). 대신 올려주는 상황에서는 보통 묶음이라
+   여러 장을 한 번에 고를 수 있고, AI 활용은 켠 채로 시작한다(요청). */
 function AddWorkButton({
   designerId,
   disabled,
@@ -273,431 +273,27 @@ function AddWorkButton({
   disabled: boolean
   onNotice: (n: Notice) => void
 }) {
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [pending, start] = useTransition()
-  const router = useRouter()
-
-  /* 아직 올리지 않은 파일들 — 맨 앞이 지금 편집 중인 장이다 */
-  const [queue, setQueue] = useState<File[]>([])
-  /* 묶음에서 지금까지 올린 장수 — 진행 상황을 보여준다 */
-  const [done, setDone] = useState(0)
-  const [failed, setFailed] = useState<string[]>([])
-
-  const current = queue[0] ?? null
-  const total = done + queue.length + failed.length
-
-  /* 한 장을 올리고 다음 장으로 넘어간다.
-     묶음이 끝나면(큐가 비면) 결과를 한 줄로 알린다. */
-  const uploadOne = (file: File, opts: UploadOpts) => {
-    onNotice(null)
-    start(async () => {
-      /* 목록에서 쓸 작은 이미지를 먼저 만든다 — 영역을 잡아 뒀으면
-         그 부분만 자른다. 실패해도 그냥 올린다(make-thumb.ts). */
-      /* 원본은 서명 주소로 바로 올린다 — 서버 액션은 본문 1MB 제한에 걸린다(direct-upload.ts) */
-      const prep = await adminPrepareWorkUpload(designerId, file.name, file.size)
-      const [sent, thumb] = prep.ok
-        ? await Promise.all([uploadSigned(DESIGNER_IMAGES_BUCKET, prep, file), makeThumb(file, opts.crop)])
-        : [false, null]
-
-      const form = new FormData()
-      form.set('designerId', designerId)
-      if (prep.ok) form.set('imagePath', prep.path)
-      if (thumb) form.set('thumb', thumb.file)
-      /* 제목은 받지 않는다(숨김) — 설명만 나중에 선택으로 적는다 */
-      if (opts.width) form.set('width', String(opts.width))
-      if (opts.height) form.set('height', String(opts.height))
-      /* 답했다는 사실과 답 자체를 따로 보낸다 — 체크하지 않은 체크박스는
-         브라우저가 전송하지 않아 '아니오'와 '묻지 않음'이 구분되지 않는다. */
-      form.set('aiAnswered', '1')
-      if (opts.aiUsed) form.set('aiUsed', '1')
-      if (opts.soomWork) form.set('soomWork', '1')
-      if (opts.crop) {
-        form.set('cropX', String(opts.crop.x))
-        form.set('cropY', String(opts.crop.y))
-        form.set('cropW', String(opts.crop.w))
-        form.set('cropH', String(opts.crop.h))
-      }
-
-      const r = !prep.ok
-        ? prep
-        : !sent
-          ? { ok: false as const, error: '이미지를 올리지 못했습니다.' }
-          : await adminAddWork(form)
-
-      const rest = queue.slice(1)
-      const nextFailed = r.ok ? failed : [...failed, `${file.name}: ${r.error}`]
-      const nextDone = r.ok ? done + 1 : done
-
-      /* 상한에 걸렸으면 남은 장도 전부 실패한다 — 큐를 비워 멈춘다 */
-      const stop = !r.ok && r.error.includes('최대')
-      const remaining = stop ? [] : rest
-
-      setDone(nextDone)
-      setFailed(nextFailed)
-      setQueue(remaining)
-      router.refresh()
-
-      if (remaining.length > 0) return
-
-      /* 묶음 끝 — 결과를 알리고 상태를 비운다 */
-      if (nextFailed.length === 0) {
-        onNotice({ kind: 'ok', text: `${nextDone}개를 올렸습니다.` })
-      } else if (nextDone === 0) {
-        onNotice({ kind: 'error', text: nextFailed[0] })
-      } else {
-        onNotice({
-          kind: 'error',
-          text: `${nextDone}개 성공 · ${nextFailed.length}개 실패 (${nextFailed[0]})`,
-        })
-      }
-      setDone(0)
-      setFailed([])
-    })
-  }
-
-  /* 지금 장을 건너뛴다 — 고르고 보니 올릴 것이 아니었을 때 */
-  const skip = () => {
-    const rest = queue.slice(1)
-    setQueue(rest)
-    if (rest.length > 0) return
-
-    if (done > 0 || failed.length > 0) {
-      onNotice(
-        failed.length > 0
-          ? { kind: 'error', text: `${done}개 성공 · ${failed.length}개 실패 (${failed[0]})` }
-          : { kind: 'ok', text: `${done}개를 올렸습니다.` },
-      )
-    }
-    setDone(0)
-    setFailed([])
-  }
-
   return (
-    <>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        multiple
-        hidden
-        onChange={(e) => {
-          const files = Array.from(e.target.files ?? [])
-          if (files.length > 0) {
-            setQueue(files)
-            setDone(0)
-            setFailed([])
-          }
-          /* 같은 파일을 다시 고를 수 있게 비운다 */
-          e.target.value = ''
-        }}
-      />
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        disabled={disabled || pending}
-        title={disabled ? `최대 ${MAX_WORKS}개까지 올릴 수 있습니다` : undefined}
-        className="rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
-      >
-        {pending ? '올리는 중…' : '작업 추가'}
-      </button>
-
-      {current && (
-        <UploadDialog
-          /* 파일이 바뀌면 편집 상태를 처음부터 다시 잡는다 —
-             앞 장에서 잡아 둔 영역이 다음 장에 남으면 엉뚱한 곳이 잘린다 */
-          key={`${current.name}-${current.size}-${queue.length}`}
-          file={current}
-          index={done + failed.length}
-          total={total}
-          pending={pending}
-          onCancel={skip}
-          onConfirm={(opts) => uploadOne(current, opts)}
-        />
-      )}
-    </>
+    <WorkUploader
+      actions={{
+        prepareUpload: (name, size) => adminPrepareWorkUpload(designerId, name, size),
+        preparePages: (files) => adminPrepareWorkPages(designerId, files),
+        addWork: (form) => {
+          form.set('designerId', designerId)
+          return adminAddWork(form)
+        },
+      }}
+      disabled={disabled}
+      disabledTitle={`최대 ${MAX_WORKS}개까지 올릴 수 있습니다`}
+      multiple
+      aiDefault
+      className="rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
+      successText={(n) => `${n}개를 올렸습니다.`}
+      onMessage={(m) => onNotice(m && { kind: m.ok ? 'ok' : 'error', text: m.text })}
+    />
   )
 }
 
-/* ─────────── 업로드 다이얼로그 ───────────
-
-   좌측에 원본을 크게 띄우고, 우측에 올리기 버튼과 설정을 둔다.
-   썸네일 영역은 좌측 미리보기 위에서 직접 잡는다. */
-
-type UploadOpts = {
-  width: number | null
-  height: number | null
-  aiUsed: boolean
-  soomWork: boolean
-  crop: Crop | null
-}
-
-function UploadDialog({
-  file,
-  index,
-  total,
-  pending,
-  onCancel,
-  onConfirm,
-}: {
-  file: File
-  index: number
-  total: number
-  pending: boolean
-  onCancel: () => void
-  onConfirm: (o: UploadOpts) => void
-}) {
-  /* 미리보기 URL — 파일 하나에 하나다. 바깥에서 key 로 파일마다 새
-     인스턴스를 만들므로(AddWorkButton) 여기서 다시 만들 일이 없다.
-
-     돌려주는(revoke) 일은 하지 않는다. Strict Mode 는 effect 를 한 번 더
-     돌리는데, 정리에서 돌려주면 재실행 때 이미 죽은 URL 이 남아 미리보기가
-     영영 뜨지 않는다. blob 은 문서가 사라질 때 함께 해제되고, 업로드
-     다이얼로그는 한 번에 하나라 쌓이지도 않는다. */
-  const [url] = useState(() => URL.createObjectURL(file))
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null)
-  /* 크기를 못 읽었는지 — 못 읽어도 미리보기와 업로드는 되어야 한다 */
-  const [measureFailed, setMeasureFailed] = useState(false)
-
-  /* 요청대로 기본 체크 상태로 시작한다 */
-  const [aiUsed, setAiUsed] = useState(true)
-  /* SOOM 의뢰 여부 — 해당할 때만 켜는 표시라 꺼진 채로 시작한다 */
-  const [soomWork, setSoomWork] = useState(false)
-
-  /* 썸네일 영역 — 켜기 전에는 null 이라 원본 전체가 쓰인다 */
-  const [cropOn, setCropOn] = useState(false)
-  const [crop, setCrop] = useState<Crop | null>(null)
-  /* 고른 비율. null 이면 자유 비율이다 — 체크를 끄면 여기로 돌아온다. */
-  const [ratio, setRatio] = useState<RatioKey | null>(null)
-
-  /* 원본 크기를 읽는다 — 브라우저가 이미지를 다 받은 뒤에야 알 수 있어
-     외부 시스템 구독에 해당한다. 영역 계산과 row_span 에 쓰인다.
-
-     실패해도 막지 않는다. 크기는 썸네일 자리를 미리 잡는 용도라
-     없으면 서버가 null 로 받아 기존 규칙대로 처리한다(work-ratio.ts). */
-  useEffect(() => {
-    let alive = true
-    const img = new Image()
-    img.onload = () => {
-      if (!alive) return
-      setSize({ width: img.naturalWidth, height: img.naturalHeight })
-      setMeasureFailed(false)
-    }
-    img.onerror = () => {
-      if (!alive) return
-      setSize(null)
-      setMeasureFailed(true)
-    }
-    img.src = url
-
-    return () => {
-      alive = false
-    }
-  }, [url])
-
-  /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !pending) onCancel()
-    }
-    document.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
-    }
-  }, [onCancel, pending])
-
-  const imgRatio = size ? size.width / size.height : 1
-
-  /* 영역 지정을 켜면 가운데에 기본 영역을 깔아 둔다 —
-     빈 화면에서 직접 끌어 만들게 하면 처음 쓰는 사람이 막힌다. */
-  const toggleCrop = (on: boolean) => {
-    setCropOn(on)
-    if (!on) {
-      setCrop(null)
-      setRatio(null)
-      return
-    }
-    setCrop(crop ?? centeredCrop(imgRatio, imgRatio))
-  }
-
-  /* 비율 체크박스 — 같은 것을 다시 누르면 고정이 풀린다(자유 비율).
-     다른 것을 누르면 기존 선택은 자동으로 해제된다. */
-  const pickRatio = (key: RatioKey) => {
-    const next = ratio === key ? null : key
-    setRatio(next)
-    if (next == null || !crop) return
-    setCrop(reshapeCrop(crop, ratioValue(next), imgRatio))
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white md:flex-row">
-        {/* 좌측 — 미리보기. 영역 지정을 켜면 여기서 직접 잡는다.
-
-            크기를 읽는 중이거나 못 읽었더라도 이미지는 그린다 —
-            측정은 썸네일 자리를 잡는 보조 정보일 뿐인데, 그것 때문에
-            미리보기까지 막으면 무엇을 올리는지 볼 수 없다. */}
-        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-neutral-100 p-4">
-          {cropOn && crop ? (
-            <CropEditor
-              src={url}
-              crop={crop}
-              onChange={setCrop}
-              lockedRatio={ratio == null ? null : ratioValue(ratio)}
-              imgRatio={imgRatio}
-            />
-          ) : (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={url} alt="" className="max-h-[70vh] w-auto object-contain" />
-          )}
-        </div>
-
-        {/* 우측 — 올리기 버튼과 설정 */}
-        <div className="flex w-full shrink-0 flex-col overflow-y-auto border-t border-neutral-200 p-5 md:w-80 md:border-l md:border-t-0">
-          <div>
-            <h3 className="text-sm font-semibold">작업 올리기</h3>
-            <p className="mt-1 truncate text-xs text-neutral-500" title={file.name}>
-              {file.name}
-            </p>
-            <p className="mt-0.5 text-xs text-neutral-400">
-              {total > 1 && `${index + 1} / ${total}장 · `}
-              {size
-                ? `${size.width} × ${size.height}`
-                : measureFailed
-                  ? '크기를 읽지 못했습니다'
-                  : '크기 확인 중…'}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              onConfirm({
-                width: size?.width ?? null,
-                height: size?.height ?? null,
-                aiUsed,
-                soomWork,
-                crop: cropOn ? crop : null,
-              })
-            }
-            /* 크기를 못 읽었어도 올릴 수 있다 — 서버가 null 로 받아
-               기존 규칙대로 자리를 잡는다. 읽는 중일 때만 잠깐 막는다. */
-            disabled={pending || (size == null && !measureFailed)}
-            className="mt-4 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
-          >
-            {pending ? '올리는 중…' : '업로드'}
-          </button>
-
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={pending}
-            className="mt-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-50"
-          >
-            {total > 1 ? '이 장 건너뛰기' : '취소'}
-          </button>
-
-          {/* AI 활용 — 기본 체크 */}
-          <label className="mt-5 flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 p-3">
-            <input
-              type="checkbox"
-              checked={aiUsed}
-              onChange={(e) => setAiUsed(e.target.checked)}
-              disabled={pending}
-              className="mt-0.5 accent-violet-600"
-            />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium">AI 활용</span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
-                켜면 공개 화면에 AI 활용 표기가 붙습니다.
-              </span>
-            </span>
-          </label>
-
-          {/* SOOM 의뢰 — 기본 꺼짐 */}
-          <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 p-3">
-            <input
-              type="checkbox"
-              checked={soomWork}
-              onChange={(e) => setSoomWork(e.target.checked)}
-              disabled={pending}
-              className="mt-0.5 accent-violet-600"
-            />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium">SOOM에서 수행한 의뢰</span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
-                켜면 공개 화면에 SOOM 의뢰 표기가 붙습니다.
-              </span>
-            </span>
-          </label>
-
-          {/* 썸네일 영역 */}
-          <div className="mt-3 rounded-lg border border-neutral-300 p-3">
-            <label className="flex cursor-pointer items-start gap-2.5">
-              <input
-                type="checkbox"
-                checked={cropOn}
-                onChange={(e) => toggleCrop(e.target.checked)}
-                disabled={pending || size == null}
-                className="mt-0.5 accent-violet-600"
-              />
-              <span className="min-w-0">
-                <span className="block text-sm font-medium">썸네일 영역 지정</span>
-                <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
-                  {measureFailed
-                    ? /* 원본 비율을 모르면 영역의 실제 비율을 계산할 수 없다 */
-                      '원본 크기를 읽지 못해 영역을 잡을 수 없습니다. 올린 뒤 다시 시도해 주세요.'
-                    : cropOn
-                      ? '왼쪽에서 영역을 끌어 옮기고 핸들로 크기를 맞춥니다.'
-                      : '끄면 원본 전체가 쓰입니다.'}
-                </span>
-              </span>
-            </label>
-
-            {cropOn && (
-              <div className="mt-3 border-t border-neutral-200 pt-3">
-                <p className="text-xs font-medium text-neutral-600">썸네일 비율</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-neutral-400">
-                  체크하면 그 비율로 고정됩니다. 다시 누르면 자유 비율로 돌아갑니다.
-                </p>
-
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {THUMB_RATIOS.map((r) => (
-                    <label
-                      key={r.key}
-                      className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition ${
-                        ratio === r.key
-                          ? 'border-violet-600 bg-violet-50 font-medium text-violet-700'
-                          : 'border-neutral-300 hover:bg-neutral-50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={ratio === r.key}
-                        onChange={() => pickRatio(r.key)}
-                        disabled={pending}
-                        className="accent-violet-600"
-                      />
-                      {r.key}
-                    </label>
-                  ))}
-                </div>
-
-                {ratio != null && (
-                  <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
-                    비율이 고정돼 있어 대각선 핸들로만 크기를 바꿉니다.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 /* ─────────── 상세 ─────────── */
 
 export function WorkDialog({
@@ -732,6 +328,11 @@ export function WorkDialog({
   const [savingCrop, startCrop] = useTransition()
 
   const imgRatio = w.width && w.height ? w.width / w.height : 1
+  /* PDF 로 올린 작업인지 — 둘째 장부터가 있을 때만 이어 붙여 보여 준다 */
+  const hasPages = (w.pages?.length ?? 0) > 0
+  /* 이어 붙인 전체로 영역을 잡을 수 있는 PDF 작업인지(work-stack.ts).
+     전체 크기가 저장되기 전에 올라간 PDF 는 null — 첫 장에서만 잡는다 */
+  const stack = stackOfWork(w)
 
   /* 아직 답하지 않은 작업(null)은 체크박스를 건드리지 않아도 저장할 수 있어야
      한다 — 끈 채로 저장하는 것이 '쓰지 않았다'는 답이다. null 을 false 와
@@ -780,11 +381,36 @@ export function WorkDialog({
         className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white md:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 이미지 — 원본을 크게 본다. 썸네일을 편집할 때는 이 위에서 영역을 잡는다. */}
-        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-neutral-100 p-3">
-          {cropMode && crop ? (
+        {/* 이미지 — 원본을 크게 본다. 썸네일을 편집할 때는 이 위에서 영역을 잡는다.
+            PDF 작업은 첫 장 아래로 나머지 장을 이어 붙여 내려 보며 확인하고,
+            영역도 그 이어진 그림 어디에서나 잡는다. */}
+        <div
+          className={`flex min-h-0 flex-1 justify-center overflow-auto bg-neutral-100 p-3 ${
+            hasPages && (!cropMode || stack) ? 'items-start' : 'items-center'
+          }`}
+        >
+          {hasPages && !cropMode ? (
+            <div className="w-full max-w-3xl space-y-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={w.image_url} alt={w.title ?? ''} className="block h-auto w-full bg-white" />
+              {w.pages!.map((p) => (
+                /* 크기를 미리 알고 있어 받아지기 전에도 자리를 잡는다 — 내려 보는 동안 밀리지 않는다 */
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  key={p.url}
+                  src={p.url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  style={{ aspectRatio: `${p.width} / ${p.height}` }}
+                  className="block h-auto w-full bg-white"
+                />
+              ))}
+            </div>
+          ) : cropMode && crop ? (
             <CropEditor
               src={w.image_url}
+              pages={stack ? w.pages! : undefined}
               crop={crop}
               onChange={setCrop}
               lockedRatio={ratio == null ? null : ratioValue(ratio)}
@@ -919,7 +545,7 @@ export function WorkDialog({
             {cropMode ? (
               <div className="space-y-2.5">
                 <p className="text-[11px] leading-relaxed text-neutral-500">
-                  왼쪽에서 영역을 끌어 옮기고 핸들로 크기를 맞춥니다.
+                  {hasPages ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.' : '썸네일로 쓸 영역을 지정해 주세요.'}
                 </p>
 
                 <div className="flex flex-wrap gap-1.5">
@@ -959,7 +585,9 @@ export function WorkDialog({
                       onNotice(null)
                       /* 자르는 일은 여기서 한다 — 서버는 받은 파일을 저장만 한다.
                          원본을 다시 받아 잘라야 하므로 잠시 걸린다. */
-                      const thumb = await makeThumbFromUrl(w.image_url, crop)
+                      const thumb = stack
+                        ? await makeStackThumb(stack, crop)
+                        : await makeThumbFromUrl(w.image_url, crop)
 
                       const form = new FormData()
                       form.set('id', w.id)
@@ -998,11 +626,7 @@ export function WorkDialog({
                   className="size-20 shrink-0 rounded-lg ring-1 ring-neutral-200"
                 />
                 <p className="min-w-0 text-[11px] leading-relaxed text-neutral-500">
-                  {cropOf(w)
-                    ? '영역을 잡아 만든 썸네일입니다.'
-                    : w.thumb_url
-                      ? '원본 전체를 줄인 썸네일입니다.'
-                      : '아직 썸네일이 없어 목록에서 원본을 씁니다.'}
+                  {hasPages ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.' : '썸네일로 쓸 영역을 지정해 주세요.'}
                 </p>
               </div>
             )}

@@ -10,6 +10,21 @@ export const MAX_WORKS = 30
 /* 상세 설명 길이 — textarea 와 DB check 제약이 같은 값을 쓴다 */
 export const MAX_DESCRIPTION = 1000
 
+/* 포트폴리오로 고를 수 있는 파일.
+
+   버킷 한도(25MB, 0007_designer_images_25mb.sql)를 넘는 파일도 고를 수 있다 —
+   올리기 전에 브라우저가 줄인다: 이미지는 다시 인코딩하고(shrink-image.ts),
+   PDF 는 장마다 이미지로 바꾼다(pdf-pages.ts). 고르는 파일 자체의 상한은
+   브라우저가 통째로 메모리에 올려 다룰 수 있는 크기로 잡았다. */
+export const MAX_SOURCE_BYTES = 70 * 1024 * 1024
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+export const MAX_PDF_PAGES = 30
+export const WORK_FILE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'pdf']
+
+/* PDF 작업의 한 장 — 크기를 함께 둬야 그림이 받아지기 전에도 자리를 잡는다.
+   없으면 스크롤하는 동안 아래 장이 늦게 뜨며 화면이 밀린다. */
+export type WorkPage = { url: string; width: number; height: number }
+
 /* 프로필을 공개하려면 갖춰야 할 것.
 
    빈 프로필이 탐색에 서면 고객은 "볼 게 없는 플랫폼"으로 읽는다.
@@ -64,11 +79,14 @@ export type WorkRow = {
   created_at: string
   updated_at: string
   designer_id: string
-  /* 원본 — 상세로 크게 띄우는 자리에 쓴다 */
+  /* 원본 — 상세로 크게 띄우는 자리에 쓴다. PDF 작업이면 그 첫 장을 그린 표지다 */
   image_url: string
   /* 목록용 작은 이미지(010_work_thumbnails.sql).
      010 전에 올라간 작업은 비어 있으므로 thumbSrc() 로 읽는다. */
   thumb_url: string | null
+  /* PDF 로 올린 작업의 둘째 장부터(0008_work_pdf_pages.sql). 첫 장은 image_url 이다.
+     이미지 작업은 null, 0008 전 DB 에서는 select('*') 에 없어 undefined 로 온다. */
+  pages?: WorkPage[] | null
   width: number | null
   height: number | null
   title: string | null

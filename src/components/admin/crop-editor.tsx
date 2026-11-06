@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { type Crop, MIN_CROP, clampCrop } from '@/lib/crop'
+import { type Crop, clampCrop, minCrop } from '@/lib/crop'
 
 /* 썸네일 영역을 눈으로 잡는 편집기.
 
@@ -27,6 +27,7 @@ type HandleKey = (typeof HANDLES)[number]['key']
 
 export function CropEditor({
   src,
+  pages,
   crop,
   onChange,
   /* 비율이 고정돼 있으면 변 핸들을 잠그고 대각선만 남긴다 —
@@ -35,6 +36,9 @@ export function CropEditor({
   imgRatio,
 }: {
   src: string
+  /* PDF 작업의 둘째 장부터 — 첫 장(src) 아래로 이어 붙여 한 장처럼 잡는다.
+     좌표는 이어 붙인 전체에 대한 비율이 된다(work-stack.ts) */
+  pages?: { url: string; width: number; height: number }[]
   crop: Crop
   onChange: (c: Crop) => void
   lockedRatio: number | null
@@ -78,11 +82,11 @@ export function CropEditor({
       const dy = (e.clientY - d.startY) / rect.height
 
       if (d.mode === 'move') {
-        onChange(clampCrop({ ...d.origin, x: d.origin.x + dx, y: d.origin.y + dy }))
+        onChange(clampCrop({ ...d.origin, x: d.origin.x + dx, y: d.origin.y + dy }, imgRatio))
         return
       }
 
-      onChange(resize(d.origin, d.mode, dx, dy, r))
+      onChange(resize(d.origin, d.mode, dx, dy, r, imgRatio))
     }
 
     const onUp = () => {
@@ -97,14 +101,34 @@ export function CropEditor({
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
     }
-  }, [onChange, r])
+  }, [onChange, r, imgRatio])
 
   const pct = (n: number) => `${n * 100}%`
 
   return (
-    <div ref={boxRef} className="relative select-none touch-none">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" draggable={false} className="block max-h-[70vh] w-auto" />
+    <div ref={boxRef} className={`relative select-none touch-none ${pages?.length ? 'w-full max-w-3xl' : ''}`}>
+      {pages?.length ? (
+        /* 이어 붙인 장 — 너비를 칸에 맞추고 바깥 칸이 세로로 스크롤된다.
+           장 사이에 틈을 두지 않는다: 틈이 있으면 화면 비율과 좌표가 어긋난다. */
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt="" draggable={false} className="block h-auto w-full" />
+          {pages.map((p) => (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              key={p.url}
+              src={p.url}
+              alt=""
+              draggable={false}
+              style={{ aspectRatio: `${p.width} / ${p.height}` }}
+              className="block h-auto w-full"
+            />
+          ))}
+        </>
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={src} alt="" draggable={false} className="block max-h-[70vh] w-auto" />
+      )}
 
       {/* 바깥 어둡게 — 영역 네 변 바깥을 네 조각으로 덮는다.
           하나의 큰 요소에 구멍을 뚫는 방법(box-shadow)은 영역이 이미지
@@ -178,15 +202,20 @@ function Shade({ style }: { style: React.CSSProperties }) {
    붙잡지 않은 쪽 모서리를 고정점으로 두고 반대쪽만 움직인다 —
    그래야 끄는 방향으로 자연스럽게 늘어난다.
 
-   r 이 있으면(비율 고정) 가로 변화를 기준으로 세로를 따라오게 한다.
-   둘을 각각 포인터에 맞추면 비율이 깨진다. */
+   r 이 있으면(비율 고정) 더 많이 움직인 축을 기준으로 다른 축을 따라오게 한다.
+   둘을 각각 포인터에 맞추면 비율이 깨진다. 가로만 보면 위아래로 끌 때
+   꿈쩍도 하지 않는다 — 긴 PDF 에서는 위아래로 끄는 일이 대부분이다.
+
+   최소 크기는 실제 픽셀로 같은 길이가 되게 축마다 따로 잡는다(minCrop). */
 function resize(
   o: Crop,
   mode: HandleKey,
   dx: number,
   dy: number,
   r: number | null,
+  imgRatio: number,
 ): Crop {
+  const min = minCrop(imgRatio)
   /* 각 변이 움직이는지 — 'n' 은 위쪽 변만, 'se' 는 오른쪽·아래쪽 변이 움직인다 */
   const west = mode.includes('w')
   const east = mode.includes('e')
@@ -197,25 +226,28 @@ function resize(
 
   if (r == null) {
     if (west) {
-      const nx = Math.min(o.x + dx, o.x + o.w - MIN_CROP)
+      const nx = Math.min(o.x + dx, o.x + o.w - min.w)
       w = o.x + o.w - nx
       x = nx
     }
-    if (east) w = Math.max(MIN_CROP, o.w + dx)
+    if (east) w = Math.max(min.w, o.w + dx)
     if (north) {
-      const ny = Math.min(o.y + dy, o.y + o.h - MIN_CROP)
+      const ny = Math.min(o.y + dy, o.y + o.h - min.h)
       h = o.y + o.h - ny
       y = ny
     }
-    if (south) h = Math.max(MIN_CROP, o.h + dy)
+    if (south) h = Math.max(min.h, o.h + dy)
 
-    return clampCrop({ x, y, w, h })
+    return clampCrop({ x, y, w, h }, imgRatio)
   }
 
   /* 비율 고정 — 대각선 핸들만 여기로 온다.
-     가로 변화량으로 너비를 정하고 높이는 비율에서 끌어온다. */
+     화면에서 더 많이 움직인 축으로 크기를 정하고 다른 축은 비율에서 끌어온다.
+     0~1 공간은 축마다 길이가 달라 dy 를 가로 픽셀 단위로 환산해 견준다. */
   const signX = east ? 1 : -1
-  w = Math.max(MIN_CROP, o.w + dx * signX)
+  const signY = south ? 1 : -1
+  w = Math.abs(dx) >= Math.abs(dy) / imgRatio ? o.w + dx * signX : (o.h + dy * signY) * r
+  w = Math.max(min.w, min.h * r, w)
   h = w / r
 
   /* 높이가 이미지를 넘으면 높이를 기준으로 다시 맞춘다 */
@@ -253,5 +285,5 @@ function resize(
     if (west) x = o.x + o.w - w
   }
 
-  return clampCrop({ x, y, w, h })
+  return clampCrop({ x, y, w, h }, imgRatio)
 }

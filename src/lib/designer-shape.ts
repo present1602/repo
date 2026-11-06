@@ -3,6 +3,8 @@
    클라이언트 컴포넌트도 이 타입을 쓰므로 server-only 모듈에 두지 않는다 —
    designers-db.ts 에서 가져오면 supabase-admin(service_role) 이 브라우저 번들로 끌려온다. */
 
+import type { WorkPage } from './portfolio-limits'
+
 export type DesignerRow = {
   id: string
   created_at: string
@@ -73,6 +75,9 @@ export type PublicWork = {
   /* 목록·피드용 작은 이미지(010_work_thumbnails.sql).
      조회 계층이 항상 채워 내보내므로 화면은 분기 없이 그냥 쓴다. */
   thumb_url: string
+  /* PDF 로 올린 작업의 둘째 장부터(0008_work_pdf_pages.sql) — 모달이 첫 장 아래로
+     이어 붙여 스크롤로 보여 준다. 0008 전 DB 에서는 오지 않는다. */
+  pages?: WorkPage[] | null
   width: number | null
   height: number | null
   title: string | null

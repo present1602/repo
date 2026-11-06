@@ -8,6 +8,7 @@ import { isSearchable, searchHint, matches } from '@/lib/search-term'
 import { setWorkFeatured } from '@/app/admin/designers/actions'
 import { Img } from '@/components/img'
 import { Flash } from '@/components/flash'
+import { cropOf } from '@/lib/crop'
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null
 type Tab = 'portfolio' | 'recent'
@@ -205,7 +206,9 @@ function RatioCard({
      높이를 고정하면 너비는 비율이 정한다. 다만 아주 긴 세로 사진은
      60px 남짓까지 좁아져 무엇인지 알아볼 수 없으므로, 바닥을 둬서
      그보다 좁아지지 않게 한다(그 경우만 위아래가 잘린다). */
-  const ratio = w.width && w.height ? w.width / w.height : 4 / 3
+  const crop = cropOf(w)
+  /* 영역을 잡았으면 썸네일이 그 비율이다(PDF 는 늘 잡혀 있다 — work-stack.ts) */
+  const ratio = w.width && w.height ? (w.width * (crop?.w ?? 1)) / (w.height * (crop?.h ?? 1)) : 4 / 3
 
   return (
     <button

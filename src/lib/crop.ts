@@ -27,8 +27,18 @@ export function ratioValue(key: RatioKey): number {
 /* 영역 하나. 모두 0~1 비율이다. */
 export type Crop = { x: number; y: number; w: number; h: number }
 
-/* 영역이 너무 작으면 썸네일이 뭉개진다 — 원본의 5% 아래로는 줄이지 못하게 한다 */
+/* 영역이 너무 작으면 썸네일이 뭉개진다 — 원본 짧은 변의 5% 아래로는 줄이지 못하게 한다 */
 export const MIN_CROP = 0.05
+
+/* 0~1 공간에서의 최소 너비·높이. 실제 픽셀로 같은 길이가 되게 축마다 환산한다.
+
+   두 축에 똑같이 0.05 를 걸면 길쭉한 그림에서 긴 축의 최소가 터무니없이
+   커진다 — PDF 30장을 이어 붙인 그림(work-stack.ts)이면 세로 최소가 한 장
+   반이라, 첫 장만 덮은 영역은 위아래로 움직이지도 줄이지도 못한다. */
+export function minCrop(imgRatio = 1): { w: number; h: number } {
+  const shorter = Math.min(imgRatio, 1)
+  return { w: (MIN_CROP * shorter) / imgRatio, h: MIN_CROP * shorter }
+}
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
 
@@ -36,9 +46,10 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
 
    크기를 먼저 범위 안으로 줄인 뒤 위치를 민다 — 순서를 바꾸면
    큰 영역이 이미지보다 커진 채로 남아 위치를 아무리 밀어도 삐져나온다. */
-export function clampCrop(c: Crop): Crop {
-  const w = Math.min(1, Math.max(MIN_CROP, c.w))
-  const h = Math.min(1, Math.max(MIN_CROP, c.h))
+export function clampCrop(c: Crop, imgRatio = 1): Crop {
+  const min = minCrop(imgRatio)
+  const w = Math.min(1, Math.max(min.w, c.w))
+  const h = Math.min(1, Math.max(min.h, c.h))
   return {
     w,
     h,
@@ -90,7 +101,7 @@ export function reshapeCrop(c: Crop, ratio: number, imgRatio: number): Crop {
     h *= k
   }
 
-  return clampCrop({ x: cx - w / 2, y: cy - h / 2, w, h })
+  return clampCrop({ x: cx - w / 2, y: cy - h / 2, w, h }, imgRatio)
 }
 
 /* DB 행에서 영역을 읽는다 — 넷 중 하나라도 비면 미지정으로 본다.
