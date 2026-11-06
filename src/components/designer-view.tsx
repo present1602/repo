@@ -110,7 +110,7 @@ export async function DesignerView({
             {d.bio && <BioText text={d.bio} />}
 
             <div className="mb-5 flex items-baseline justify-between">
-              <h2 className="text-xl font-bold tracking-tight md:text-2xl">Selected Works</h2>
+              <h2 className="text-xl font-bold tracking-tight md:text-2xl">Works</h2>
               {d.works.length > 0 && (
                 <span className="text-xs text-neutral-500">{d.works.length}개의 작업</span>
               )}
