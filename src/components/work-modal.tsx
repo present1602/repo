@@ -61,11 +61,24 @@ export function WorkModal<W extends PublicWork>({
   const dragTo = (px: number) =>
     setDrag((px > 0 && !hasPrev) || (px < 0 && !hasNext) ? px * 0.3 : px)
 
+  /* 돌지 않는 목록의 끝에서 더 넘기려 하면 넘기지 않고 짧게 알린다 —
+     아무 반응이 없으면 고장 난 줄 안다. 화살표 버튼은 끝에서 감춰지므로
+     키보드 ←→ 와 옆으로 쓸기에서 온다. */
+  const [edge, setEdge] = useState<string | null>(null)
+  const edgeTimer = useRef<number | undefined>(undefined)
+  const showEdge = (text: string) => {
+    setEdge(text)
+    window.clearTimeout(edgeTimer.current)
+    edgeTimer.current = window.setTimeout(() => setEdge(null), 1800)
+  }
+  useEffect(() => () => window.clearTimeout(edgeTimer.current), [])
+
   /* 작업물을 넘기면 펼쳐둔 설명은 접는다. */
   const go = (dir: 'left' | 'right') => {
     if (sliding.current) return
     if (dir === 'left' ? !hasNext : !hasPrev) {
       setDrag(0)
+      if (works.length > 1) showEdge(dir === 'left' ? '마지막 포트폴리오입니다.' : '첫번째 포트폴리오입니다.')
       return
     }
     sliding.current = true
@@ -336,6 +349,15 @@ export function WorkModal<W extends PublicWork>({
             })}
           </div>
         </div>
+
+        {edge && (
+          <p
+            role="status"
+            className="pointer-events-none absolute left-1/2 top-16 z-30 -translate-x-1/2 whitespace-nowrap rounded-full bg-neutral-900/85 px-4 py-2 text-sm font-medium text-white shadow-lg"
+          >
+            {edge}
+          </p>
+        )}
 
         {/* 넘길 곳이 없는 쪽은 화살표를 감춘다(한 장뿐이거나, 돌지 않는 끝).
             화살표는 데스크톱에만 — 모바일은 옆으로 쓸어 넘긴다. */}

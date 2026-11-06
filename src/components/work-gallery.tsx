@@ -35,7 +35,8 @@ export function WorkGallery({ works }: { works: PublicWork[] }) {
       </div>
 
       {index !== null && (
-        <WorkModal works={works} index={index} setIndex={setIndex} onClose={() => setIndex(null)} />
+        /* 끝에서 처음으로 돌지 않는다 — 처음·끝에서 더 넘기면 토스트로 알린다(work-modal.tsx) */
+        <WorkModal works={works} index={index} setIndex={setIndex} onClose={() => setIndex(null)} loop={false} />
       )}
     </>
   )
