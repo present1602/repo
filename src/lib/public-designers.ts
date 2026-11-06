@@ -271,54 +271,6 @@ export async function listPublicDesigners(): Promise<PublicDesignerCard[]> {
   })
 }
 
-/* 어드민 미리보기 — 목록에 어떻게 실릴지 한 명만 카드 모양으로.
-
-   listPublicDesigners 와 달리 공개 여부를 묻지 않는다. 아직 숨겨 둔
-   디자이너의 카드도 미리 봐야 하기 때문이다 — 공개 전에 확인하는 것이
-   이 화면의 쓰임이다. 어드민 전용이므로 호출부에서 권한을 확인한다.
-
-   작업은 디자이너가 숨긴 것(visible=false)만 뺀다. 공개 목록과 같은
-   규칙이라야 "실제로 이렇게 보인다"가 맞는 말이 된다. */
-export async function getDesignerCardPreview(id: string): Promise<PublicDesignerCard | null> {
-  if (!supabaseAdmin) return null
-  const db = supabaseAdmin
-
-  if (!isUuid(id)) return null
-
-  const { data, error } = await selectDesigner<PublicDesignerCard>((cols) =>
-    db.from('designers').select(cols).eq('id', id).maybeSingle().overrideTypes<PublicDesignerCard>(),
-  )
-
-  if (error) {
-    console.error('[admin] 카드 미리보기 조회 실패:', error.message)
-    return null
-  }
-  if (!data) return null
-
-  const { data: workRows, error: workError } = await selectWorks<WorkWithOwner>((cols) =>
-    db
-      .from('designer_works')
-      .select(cols)
-      .eq('designer_id', id)
-      .eq('visible', true)
-      .overrideTypes<WorkWithOwner[]>(),
-  )
-
-  if (workError) {
-    console.error('[admin] 카드 미리보기 작업 조회 실패:', workError.message)
-    return { ...(data as PublicDesignerCard), works: [], works_total: 0 }
-  }
-
-  const works = ((workRows ?? []) as WorkWithOwner[]).sort(byOrder)
-
-  return {
-    ...(data as PublicDesignerCard),
-    /* 공개 목록(listPublicDesigners)과 같게 전부 싣는다 — 자르는 일은 카드가 한다 */
-    works_total: works.length,
-    works: works.map(strip),
-  }
-}
-
 /* 상세 화면 — 프로필 + 공개된 작업 전부.
 
    숨긴 계정이나 비공개 프로필이면 null 을 돌려준다(호출부에서 notFound).
@@ -328,6 +280,17 @@ export async function getDesignerCardPreview(id: string): Promise<PublicDesigner
 export const getPublicDesigner = cache(async function getPublicDesigner(
   id: string,
 ): Promise<PublicDesignerDetail | null> {
+  return loadDesignerDetail(id, false)
+})
+
+/* 어드민 미리보기 — 공개 여부(계정 활성·프로필 공개)를 묻지 않는다. 공개 전에
+   상세 화면이 어떻게 보일지 확인하는 용도다. 작업은 공개 화면과 같게 노출한
+   것만 싣는다. 어드민 전용이므로 부르는 쪽에서 권한을 확인한다. */
+export async function getDesignerForPreview(id: string): Promise<PublicDesignerDetail | null> {
+  return loadDesignerDetail(id, true)
+}
+
+async function loadDesignerDetail(id: string, includeHidden: boolean): Promise<PublicDesignerDetail | null> {
   if (!supabaseAdmin) return null
   const db = supabaseAdmin
 
@@ -343,8 +306,8 @@ export const getPublicDesigner = cache(async function getPublicDesigner(
         .from('designers')
         .select(cols)
         .eq('id', id)
-        .eq('visible', true)
-        .eq('profile_public', true)
+        .in('visible', includeHidden ? [true, false] : [true])
+        .in('profile_public', includeHidden ? [true, false] : [true])
         .maybeSingle()
         .overrideTypes<PublicDesignerDetail>(),
     ),
@@ -373,7 +336,7 @@ export const getPublicDesigner = cache(async function getPublicDesigner(
   const works = ((workRows ?? []) as WorkWithOwner[]).sort(byOrder).map(strip)
 
   return { ...(data as PublicDesignerDetail), works, contract_price: contractPrice }
-})
+}
 
 /* 본 계약 시작가 — 030 마이그레이션 전에도 상세가 뜨게 따로 묻는다.
 

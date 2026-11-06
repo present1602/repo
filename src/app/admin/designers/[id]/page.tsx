@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
 import { getDesignerById, listWorks } from '@/lib/designers-db'
-import { getDesignerCardPreview } from '@/lib/public-designers'
 import { listCategoryMetas, listSpecialtyOptions } from '@/lib/specialties'
 import {
   getDesignerOptionSetup,
@@ -44,11 +43,10 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
   const { tab: rawTab } = await props.searchParams
   const tab = isDesignerTab(rawTab) ? rawTab : 'profile'
 
-  /* 포트폴리오·목록 미리보기·분야 목록은 서로 기다릴 이유가 없다 */
-  const [works, cardPreview, specialties, premiums, copies, planDetails, templates, planOptions, metas, optionSetup] =
+  /* 포트폴리오·분야 목록은 서로 기다릴 이유가 없다 */
+  const [works, specialties, premiums, copies, planDetails, templates, planOptions, metas, optionSetup] =
     await Promise.all([
       listWorks(id),
-      getDesignerCardPreview(id),
       listSpecialtyOptions(),
       getDesignerPremiums(id),
       getPlanCopies(),
@@ -83,7 +81,6 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
         key={tab}
         tab={tab}
         designer={safe}
-        cardPreview={cardPreview}
         specialties={specialties}
         premiums={premiums}
         premiumOn={premiumOn}

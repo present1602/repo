@@ -378,20 +378,17 @@ export function DesignerList({
   )
 }
 
-/* 목록 한 줄.
-
-   어드민 미리보기(designer-detail.tsx)도 이것을 그대로 쓴다 —
-   베껴 두면 한쪽만 고쳐져 "실제로 이렇게 보인다"가 거짓이 된다. */
-export function DesignerCard({
+/* 목록 한 줄 — 어드민이 고른 상단 노출(feature1) 디자이너에 쓴다 */
+function DesignerCard({
   designer: d,
   choices,
   onOpenWork,
 }: {
   designer: PublicDesignerCard
-  /* 의뢰 폼의 분야·범위·금액 — 없으면(어드민 미리보기) 폼이 일반 선택지를 받아 온다 */
+  /* 의뢰 폼의 분야·범위·금액 — 없으면 폼이 일반 선택지를 받아 온다 */
   choices?: CategoryChoice[]
   /* 넘겨 주면 다이얼로그를 목록이 띄운다 — 다음 디자이너까지 이어 넘기려면
-     모달이 카드 하나보다 위에 있어야 한다. 없으면(어드민 미리보기) 카드가 띄운다. */
+     모달이 카드 하나보다 위에 있어야 한다. 없으면 카드가 띄운다. */
   onOpenWork?: (i: number) => void
 }) {
   const href = `/designers/${d.id}`

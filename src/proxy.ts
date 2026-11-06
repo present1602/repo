@@ -32,7 +32,9 @@ export async function proxy(request: NextRequest) {
 }
 
 /* 디자이너 화면(/designers)은 Supabase 세션이 아니라 자체 쿠키를 쓰므로
-   여기서 갱신할 것이 없다 — 각 페이지의 getDesignerUser() 가 막는다. */
+   여기서 갱신할 것이 없다 — 각 페이지의 getDesignerUser() 가 막는다.
+   단 상세 미리보기(/designers/[id]/preview)는 어드민 세션으로 연다 — 여기서
+   갱신하지 않으면 토큰이 만료된 어드민에게 404 가 난다. */
 export const config = {
-  matcher: ['/admin/:path*', '/auth/:path*'],
+  matcher: ['/admin/:path*', '/auth/:path*', '/designers/:id/preview'],
 }
