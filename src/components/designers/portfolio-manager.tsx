@@ -290,7 +290,7 @@ function EditList({
 /* ─────────── 추가 ─────────── */
 
 /* 고르면 입력 창부터 뜬다 — 설명·노출·썸네일을 정하고 '저장'해야 올라간다
-   (work-uploader.tsx, 어드민과 같은 창). 25MB 를 넘는 이미지는 줄이고 PDF 는
+   (work-uploader.tsx, 어드민과 같은 창). 50MB 를 넘는 이미지는 줄이고 PDF 는
    장마다 이미지로 바꿔 올린다. AI 활용은 꺼진 채로 시작한다 — 본인이 답한다. */
 function AddButton({
   disabled,
@@ -492,7 +492,8 @@ function WorkEditDialog({
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      /* 썸네일 영역을 잡는 동안에는 Esc 로 닫지 않는다 — 잡던 영역과 적은 내용이 날아간다 */
+      if (e.key === 'Escape' && !cropMode) onClose()
     }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
@@ -501,7 +502,7 @@ function WorkEditDialog({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [onClose])
+  }, [onClose, cropMode])
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) => {
     onMessage(null)

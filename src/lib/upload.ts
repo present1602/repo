@@ -47,7 +47,7 @@ export async function signImageUpload(
   size: number,
 ): Promise<{ ok: true; path: string; token: string } | { ok: false; error: string }> {
   if (!supabaseAdmin) return { ok: false, error: '서버 설정이 완료되지 않았습니다.' }
-  /* 버킷 한도(0007_designer_images_25mb.sql 의 file_size_limit)와 같다 */
+  /* 버킷 한도(0009_designer_images_50mb.sql 의 file_size_limit)와 같다 */
   if (!size || size > MAX_UPLOAD_BYTES) {
     return { ok: false, error: `파일은 ${MAX_UPLOAD_BYTES / 1024 / 1024}MB를 넘을 수 없습니다.` }
   }

@@ -11,7 +11,7 @@
    작업마다 다르므로 묶음 전체에 한 번만 물을 수 없다.
 
    고르는 즉시 올릴 수 있는 모양으로 바꿔 둔다(work-file.ts) — PDF 는 장마다
-   이미지로, 25MB 를 넘는 이미지는 줄여서. 입력 창에는 바꾼 결과를 띄우므로
+   이미지로, 50MB 를 넘는 이미지는 줄여서. 입력 창에는 바꾼 결과를 띄우므로
    실제로 올라갈 그림을 보고 썸네일 영역을 잡는다.
 
    서버 액션은 화면마다 다르다(본인은 세션, 어드민은 designerId) — 부르는 쪽이
@@ -381,7 +381,8 @@ function UploadDialog({
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !pending) onCancel()
+      /* 썸네일 영역을 잡는 동안에는 Esc 로 닫지 않는다 — 잡던 영역과 적은 내용이 날아간다 */
+      if (e.key === 'Escape' && !pending && !cropOn) onCancel()
     }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
@@ -390,7 +391,7 @@ function UploadDialog({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [onCancel, pending])
+  }, [onCancel, pending, cropOn])
 
   const isPdf = item.pages.length > 0
   /* 영역을 잡는 그림 — PDF 는 장을 이어 붙인 전체(work-stack.ts) */

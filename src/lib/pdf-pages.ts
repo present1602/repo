@@ -13,12 +13,15 @@
 
 import { MAX_PDF_PAGES } from './portfolio-limits'
 
-/* 장 너비. 모달에서 키워 봐도 본문 글자가 읽히는 정도 */
-const PAGE_WIDTH = 2000
-/* 아주 길쭉한 장(세로 배너 등)이 캔버스 면적 한도를 넘지 않게 세로도 묶는다 */
-const PAGE_MAX_HEIGHT = 6000
+/* 장 너비. 썸네일 영역을 잡으며 크게 키워 봐도 본문 글자가 읽히는 정도.
+   2000 은 레티나에서 키우면 글자가 흐리게 번졌다. 더 올리면 A4 한 장이
+   iOS 사파리의 캔버스 면적 한도(약 1,670만 픽셀)를 넘어 그리지 못한다. */
+const PAGE_WIDTH = 3000
+/* 아주 길쭉한 장(세로 배너 등)도 같은 한도 안에 들도록 세로를 묶는다 */
+const PAGE_MAX_HEIGHT = Math.floor(16_000_000 / PAGE_WIDTH)
 
-const QUALITY = 0.85
+/* 글자 가장자리가 뭉개지지 않는 선 — 0.85 에서는 작은 글씨 둘레가 번졌다 */
+const QUALITY = 0.92
 
 export type RenderedPage = { file: File; width: number; height: number }
 

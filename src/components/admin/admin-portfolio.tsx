@@ -369,7 +369,8 @@ export function WorkDialog({
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      /* 썸네일 영역을 잡는 동안에는 Esc 로 닫지 않는다 — 잡던 영역과 적은 내용이 날아간다 */
+      if (e.key === 'Escape' && !cropMode) onClose()
     }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
@@ -378,7 +379,7 @@ export function WorkDialog({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [onClose])
+  }, [onClose, cropMode])
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) => {
     onNotice(null)

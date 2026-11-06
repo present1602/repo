@@ -12,12 +12,12 @@ export const MAX_DESCRIPTION = 1000
 
 /* 포트폴리오로 고를 수 있는 파일.
 
-   버킷 한도(25MB, 0007_designer_images_25mb.sql)를 넘는 파일도 고를 수 있다 —
+   버킷 한도(50MB, 0009_designer_images_50mb.sql)를 넘는 파일도 고를 수 있다 —
    올리기 전에 브라우저가 줄인다: 이미지는 다시 인코딩하고(shrink-image.ts),
    PDF 는 장마다 이미지로 바꾼다(pdf-pages.ts). 고르는 파일 자체의 상한은
    브라우저가 통째로 메모리에 올려 다룰 수 있는 크기로 잡았다. */
 export const MAX_SOURCE_BYTES = 70 * 1024 * 1024
-export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 export const MAX_PDF_PAGES = 30
 export const WORK_FILE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'pdf']
 
