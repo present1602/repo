@@ -22,7 +22,7 @@ import {
 } from '@/app/studio/actions'
 import { Img } from '@/components/img'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
-import { CropActions, StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
+import { StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
 import {
   type Crop,
   type RatioKey,
@@ -37,7 +37,7 @@ import {
 import { makeStackThumb, makeThumb, makeThumbFromUrl } from '@/lib/make-thumb'
 import { firstPageCrop, stackOfWork } from '@/lib/work-stack'
 import { WorkUploader } from '@/components/work-uploader'
-import { Flash, type FlashMsg } from '@/components/flash'
+import { Flash } from '@/components/flash'
 
 export function PortfolioManager({ works }: { works: WorkRow[] }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -407,55 +407,19 @@ function WorkEditDialog({
   const [pending, start] = useTransition()
   const router = useRouter()
 
-  /* ─── 썸네일 영역 ───
-     편집을 켜면 왼쪽 원본 위에서 영역을 잡는다. 켜기 전에는 지금 쓰이는
-     썸네일만 보여준다 — 늘 편집기를 띄우면 원본을 볼 수 없다. */
+  /* ─── 썸네일 ───
+     영역을 잡거나(cropMode) 파일을 따로 고르면(thumbFile) 오른쪽 미리보기만
+     바뀌고, '저장'을 누를 때 다른 칸과 함께 저장한다. 둘은 하나만 쓴다.
+     영역 지정을 켜기 전에는 지금 쓰이는 썸네일만 보여준다 — 늘 편집기를 띄우면
+     원본을 볼 수 없다. */
   const [cropMode, setCropMode] = useState(false)
   const [crop, setCrop] = useState<Crop | null>(cropOf(w))
   const [ratio, setRatio] = useState<RatioKey | null>(null)
-  /* 오른쪽 미리보기에 띄울 영역 — 왼쪽에서 잡은 뒤 바깥을 누를 때 바뀐다 */
-  const [shown, setShown] = useState<Crop | null>(null)
   /* 왼쪽 그림 칸 — 키워 둔 채 영역 지정을 켜면 보이는 부분에 처음 영역을 잡는다 */
   const zoomRef = useRef<ZoomAreaHandle>(null)
-  /* 영역을 정했다는 알림 — '선택한 영역으로 지정하기'로 저장했을 때 */
-  const [cropMsg, setCropMsg] = useState<FlashMsg>(null)
-  const [savingCrop, startCrop] = useTransition()
+  const [thumbFile, setThumbFile] = useState<File | null>(null)
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null)
   const thumbFileRef = useRef<HTMLInputElement>(null)
-
-  /* 썸네일을 따로 올린 이미지로 바꾼다 — 원본(PDF 표지 포함)에서 자르지 않고
-     통째로 줄여 쓴다. 영역은 지운다: 남겨 두면 다음에 열었을 때 원본 위에
-     엉뚱한 영역이 잡혀 있다. */
-  const uploadThumb = (file: File) => {
-    startCrop(async () => {
-      onMessage(null)
-      const thumb = await makeThumb(file, null)
-      if (!thumb) {
-        onMessage({ ok: false, text: '이미지를 읽지 못했습니다.' })
-        return
-      }
-
-      const form = new FormData()
-      form.set('id', w.id)
-      form.set('thumb', thumb.file)
-      /* PDF 는 첫 장 영역을 남긴다 — 목록·카드가 그 비율로 자리를 잡는다(work-stack.ts) */
-      const keep = stack ? firstPageCrop(stack[0], stack.slice(1)) : null
-      if (keep) {
-        form.set('cropX', String(keep.x))
-        form.set('cropY', String(keep.y))
-        form.set('cropW', String(keep.w))
-        form.set('cropH', String(keep.h))
-      }
-
-      const r = await updateWorkCrop(form)
-      if (!r.ok) {
-        onMessage({ ok: false, text: r.error })
-        return
-      }
-      setCrop(keep)
-      router.refresh()
-      onMessage({ ok: true, text: '썸네일을 바꿨습니다.' })
-    })
-  }
 
   const imgRatio = w.width && w.height ? w.width / w.height : 1
   const hasPages = (w.pages?.length ?? 0) > 0
@@ -468,6 +432,8 @@ function WorkEditDialog({
     : w.width && w.height
       ? [{ src: w.image_url, width: w.width, height: w.height }]
       : null
+  /* 저장할 썸네일 변경이 있는지 */
+  const thumbDirty = cropMode || thumbFile != null
 
   /* 아직 답하지 않은 작업(null)은 체크박스를 건드리지 않아도 저장할 수 있어야
      한다 — 끈 채로 저장하는 것이 '쓰지 않았다'는 답이다. */
@@ -481,8 +447,8 @@ function WorkEditDialog({
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      /* 썸네일 영역을 잡는 동안에는 Esc 로 닫지 않는다 — 잡던 영역과 적은 내용이 날아간다 */
-      if (e.key === 'Escape' && !cropMode) onClose()
+      /* 썸네일을 고치는 동안에는 Esc 로 닫지 않는다 — 잡던 영역·고른 파일과 적은 내용이 날아간다 */
+      if (e.key === 'Escape' && !thumbDirty) onClose()
     }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
@@ -491,58 +457,92 @@ function WorkEditDialog({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [onClose, cropMode])
+  }, [onClose, thumbDirty])
 
   /* ─── 썸네일 영역 지정 ───
      시작하면 지금 스크롤로 보고 있는 부분 안에 새 영역을 잡는다 — 기존 영역은
      긴 그림 어딘가에 있어 화면 밖일 수 있다. 이어 붙인 장을 못 쓰는 옛 PDF 는
-     보기와 잡기의 그림이 달라 가운데에 잡는다. */
+     보기와 잡기의 그림이 달라 가운데에 잡는다. 따로 고른 파일은 내려놓는다. */
   const startCropMode = () => {
     const v = stack || !hasPages ? zoomRef.current?.visible() : null
     const start = v ? clampCrop(insetCrop(v), imgRatio) : centeredCrop(imgRatio, imgRatio)
     setCrop(start)
-    setShown(start)
     setRatio(null)
     setCropMode(true)
+    setThumbFile(null)
+    setThumbUrl(null)
   }
 
-  /* 취소 — 잡던 영역을 버리고 저장된 영역으로 되돌린다 */
-  const cancelCrop = () => {
+  /* 파일을 썸네일로 고른다 — 잡던 영역은 버린다 */
+  const pickThumb = (f: File) => {
+    setThumbFile(f)
+    setThumbUrl(URL.createObjectURL(f))
+    setCropMode(false)
     setCrop(cropOf(w))
     setRatio(null)
-    setShown(null)
-    setCropMode(false)
   }
 
-  /* 선택한 영역으로 지정 — 썸네일을 만들어 저장하고 영역 지정을 마친다 */
-  const saveCrop = () => {
-    if (!crop) return
-startCrop(async () => {
-          onMessage(null)
-          /* 자르는 일은 여기서 한다 — 서버는 받은 파일을 저장만 한다 */
-          const thumb = stack
-            ? await makeStackThumb(stack, crop)
-            : await makeThumbFromUrl(w.image_url, crop)
+  /* 영역(없으면 비움)과 썸네일 파일을 updateWorkCrop 에 보낼 꼴로 */
+  const cropForm = (c: Crop | null, thumb: File | null) => {
+    const form = new FormData()
+    form.set('id', w.id)
+    if (c) {
+      form.set('cropX', String(c.x))
+      form.set('cropY', String(c.y))
+      form.set('cropW', String(c.w))
+      form.set('cropH', String(c.h))
+    }
+    if (thumb) form.set('thumb', thumb)
+    return form
+  }
 
-          const form = new FormData()
-          form.set('id', w.id)
-          form.set('cropX', String(crop.x))
-          form.set('cropY', String(crop.y))
-          form.set('cropW', String(crop.w))
-          form.set('cropH', String(crop.h))
-          if (thumb) form.set('thumb', thumb.file)
+  /* 저장 — 썸네일을 바꿨으면 먼저 저장하고, 다른 칸이 바뀌었으면 이어서 저장한다.
+     자르는 일은 여기서 한다 — 서버는 받은 파일을 저장만 한다. */
+  const save = () => {
+    onMessage(null)
+    start(async () => {
+      let thumbNote: { ok: boolean; text: string } | null = null
 
-          const r = await updateWorkCrop(form)
-          if (!r.ok) {
-            onMessage({ ok: false, text: r.error })
-            return
-          }
-          setCropMode(false)
-          setRatio(null)
-          router.refresh()
-          setShown(crop)
-          setCropMsg(thumb ? { ok: true, text: '썸네일 영역이 설정됐습니다' } : { ok: false, text: '영역만 저장했습니다(썸네일 생성 실패).' })
-        })
+      if (cropMode && crop) {
+        const thumb = stack ? await makeStackThumb(stack, crop) : await makeThumbFromUrl(w.image_url, crop)
+        const r = await updateWorkCrop(cropForm(crop, thumb?.file ?? null))
+        if (!r.ok) {
+          onMessage({ ok: false, text: r.error })
+          return
+        }
+        thumbNote = thumb
+          ? { ok: true, text: '썸네일을 바꿨습니다.' }
+          : { ok: false, text: '영역만 저장했습니다(썸네일 생성 실패).' }
+      } else if (thumbFile) {
+        /* 따로 고른 이미지는 원본(PDF 표지 포함)에서 자르지 않고 통째로 줄여 쓴다 */
+        const thumb = await makeThumb(thumbFile, null)
+        if (!thumb) {
+          onMessage({ ok: false, text: '이미지를 읽지 못했습니다.' })
+          return
+        }
+        /* 영역은 지운다 — 남겨 두면 다음에 열었을 때 원본 위에 엉뚱한 영역이 잡혀 있다.
+           PDF 는 첫 장 영역을 남긴다 — 목록·카드가 그 비율로 자리를 잡는다(work-stack.ts) */
+        const keep = stack ? firstPageCrop(stack[0], stack.slice(1)) : null
+        const r = await updateWorkCrop(cropForm(keep, thumb.file))
+        if (!r.ok) {
+          onMessage({ ok: false, text: r.error })
+          return
+        }
+        thumbNote = { ok: true, text: '썸네일을 바꿨습니다.' }
+      }
+
+      if (dirty) {
+        const r = await updateWork({ id: w.id, title, description, client, aiUsed, soomWork })
+        if (!r.ok) {
+          onMessage({ ok: false, text: r.error ?? '처리에 실패했습니다.' })
+          return
+        }
+      }
+
+      router.refresh()
+      onMessage(thumbNote)
+      onClose()
+    })
   }
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) => {
@@ -571,14 +571,12 @@ startCrop(async () => {
         {/* 이미지 — 좁은 화면에서는 높이를 줄여 아래 입력칸이 가려지지 않게 한다.
             PDF 작업은 첫 장 아래로 나머지 장을 이어 붙여 내려 보며 확인하고,
             영역도 그 이어진 그림 어디에서나 잡는다. */}
-        <Flash msg={cropMsg} onDone={() => setCropMsg(null)} duration={2000} />
         <ZoomArea
           handle={zoomRef}
           ratio={w.width && w.height ? w.width / w.height : null}
           naturalWidth={w.width}
           fit={hasPages ? 'width' : 'contain'}
           className="max-h-[38vh] shrink-0 md:max-h-none md:flex-1"
-          overlay={cropMode && <CropActions onConfirm={saveCrop} onCancel={cancelCrop} busy={savingCrop} />}
         >
           {cropMode && crop ? (
             <CropEditor
@@ -586,7 +584,6 @@ startCrop(async () => {
               pages={stack ? w.pages! : undefined}
               crop={crop}
               onChange={setCrop}
-              onCommit={setShown}
               lockedRatio={ratio == null ? null : ratioValue(ratio)}
               imgRatio={imgRatio}
             />
@@ -687,53 +684,78 @@ startCrop(async () => {
           <div className="mt-4 border-t border-neutral-200 pt-4">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-neutral-600">썸네일</span>
-              <div className="flex gap-1.5">
-                {/* 영역 지정 중에는 그림 칸 아래 두 버튼으로만 마친다 */}
-                {!cropMode && (
-                  <>
-                    <input
-                      ref={thumbFileRef}
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) uploadThumb(f)
-                        e.target.value = ''
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => thumbFileRef.current?.click()}
-                      disabled={savingCrop}
-                      className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
-                    >
-                      {savingCrop ? '올리는 중…' : '이미지 올리기'}
-                    </button>
-                    <button
-                      type="button"
-                      data-crop-keep
-                      onClick={startCropMode}
-                      disabled={savingCrop || !w.width || !w.height}
-                      title={!w.width || !w.height ? '원본 크기를 몰라 영역을 잡을 수 없습니다' : undefined}
-                      className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
-                    >
-                      썸네일 편집
-                    </button>
-                  </>
-                )}
+              <div className="flex flex-wrap justify-end gap-1.5">
+                <input
+                  ref={thumbFileRef}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) pickThumb(f)
+                    e.target.value = ''
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => thumbFileRef.current?.click()}
+                  disabled={pending}
+                  className="whitespace-nowrap rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
+                >
+                  파일시스템에서 업로드
+                </button>
+                {/* 영역을 잡는 중에는 켜진 모양으로 둔다 — 다시 눌러도 잡던 영역을 되돌리지 않는다 */}
+                <button
+                  type="button"
+                  data-crop-keep
+                  onClick={cropMode ? undefined : startCropMode}
+                  aria-pressed={cropMode}
+                  disabled={pending || !w.width || !w.height}
+                  title={!w.width || !w.height ? '원본 크기를 몰라 영역을 잡을 수 없습니다' : undefined}
+                  className={`whitespace-nowrap rounded-md border px-2 py-1 text-[11px] font-medium transition disabled:opacity-40 ${
+                    cropMode
+                      ? 'border-violet-600 text-violet-700'
+                      : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+                  }`}
+                >
+                  썸네일 편집
+                </button>
               </div>
             </div>
 
-            {cropMode ? (
+            {cropMode && crop && previewParts ? (
               <div className="space-y-2.5">
-                {/* 영역 바깥을 누르면 그 영역으로 바뀐다 — 이 그림이 썸네일이 된다 */}
-                {shown && previewParts && <CropPreview parts={previewParts} crop={shown} />}
-                <p className="text-[11px] leading-relaxed text-neutral-500">
-                  {hasPages ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.' : '썸네일로 쓸 영역을 지정해 주세요.'}
+                {/* 잡고 있는 영역 — 잡는 대로 바뀌고, 저장하면 이 그림이 썸네일이 된다 */}
+                <CropPreview parts={previewParts} crop={crop} />
+                <p className="text-[11px] leading-relaxed text-neutral-500">저장을 누르면 이 영역이 썸네일이 됩니다.</p>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                {thumbUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={thumbUrl} alt="" className="size-20 shrink-0 rounded-lg object-cover ring-1 ring-neutral-200" />
+                ) : (
+                  <Img src={thumbSrc(w)} alt="" className="size-20 shrink-0 rounded-lg ring-1 ring-neutral-200" />
+                )}
+                <p className="min-w-0 text-[11px] leading-relaxed text-neutral-500">
+                  {thumbFile ? (
+                    <>
+                      <span className="block truncate" title={thumbFile.name}>
+                        {thumbFile.name}
+                      </span>
+                      저장을 누르면 이 이미지가 썸네일이 됩니다.
+                    </>
+                  ) : hasPages ? (
+                    '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.'
+                  ) : (
+                    '썸네일로 쓸 영역을 지정해 주세요.'
+                  )}
                 </p>
+              </div>
+            )}
 
-                <div data-crop-keep className="flex flex-wrap gap-1.5">
+            {cropMode && (
+                <div data-crop-keep className="mt-2.5 flex flex-wrap gap-1.5">
                   {THUMB_RATIOS.map((r) => (
                     <label
                       key={r.key}
@@ -751,11 +773,7 @@ startCrop(async () => {
                              다른 것을 누르면 기존 선택은 자동으로 해제된다. */
                           const next = ratio === r.key ? null : r.key
                           setRatio(next)
-                          if (next && crop) {
-                            const c = reshapeCrop(crop, ratioValue(next), imgRatio)
-                            setCrop(c)
-                            setShown(c)
-                          }
+                          if (next && crop) setCrop(reshapeCrop(crop, ratioValue(next), imgRatio))
                         }}
                         className="accent-violet-600"
                       />
@@ -763,30 +781,13 @@ startCrop(async () => {
                     </label>
                   ))}
                 </div>
-
-              </div>
-            ) : (
-              <div className="flex items-start gap-3">
-                <Img
-                  src={thumbSrc(w)}
-                  alt=""
-                  className="size-20 shrink-0 rounded-lg ring-1 ring-neutral-200"
-                />
-                <p className="min-w-0 text-[11px] leading-relaxed text-neutral-500">
-                  {hasPages ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.' : '썸네일로 쓸 영역을 지정해 주세요.'}
-                </p>
-              </div>
             )}
           </div>
 
+          {/* 썸네일(잡은 영역·고른 파일)과 다른 칸을 함께 저장한다 */}
           <button
-            onClick={() =>
-              act(
-                () => updateWork({ id: w.id, title, description, client, aiUsed, soomWork }),
-                onClose,
-              )
-            }
-            disabled={pending || !dirty}
+            onClick={save}
+            disabled={pending || (!dirty && !thumbDirty)}
             className="mt-4 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? '저장 중…' : '저장'}

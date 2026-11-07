@@ -17,7 +17,7 @@ import {
 } from '@/app/admin/designers/actions'
 import { Img } from '@/components/img'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
-import { CropActions, StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
+import { StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
 import {
   type Crop,
   type RatioKey,
@@ -31,7 +31,7 @@ import {
 } from '@/lib/crop'
 import { makeStackThumb, makeThumbFromUrl } from '@/lib/make-thumb'
 import { stackOfWork } from '@/lib/work-stack'
-import { Flash, type FlashMsg } from '@/components/flash'
+import { Flash } from '@/components/flash'
 
 export type Notice = { kind: 'ok' | 'error'; text: string } | null
 
@@ -323,18 +323,14 @@ export function WorkDialog({
 
   /* ─── 썸네일 영역 ───
 
-     편집을 켜면 왼쪽의 원본 위에서 영역을 잡는다. 켜기 전에는 지금
+     편집을 켜면 왼쪽의 원본 위에서 영역을 잡는다. 잡는 대로 오른쪽 미리보기에
+     비치고, '저장'을 누를 때 다른 칸과 함께 저장한다. 켜기 전에는 지금
      쓰이는 썸네일만 보여준다 — 늘 편집기를 띄우면 원본을 볼 수 없다. */
   const [cropMode, setCropMode] = useState(false)
   const [crop, setCrop] = useState<Crop | null>(cropOf(w))
   const [ratio, setRatio] = useState<RatioKey | null>(null)
-  /* 오른쪽 미리보기에 띄울 영역 — 왼쪽에서 잡은 뒤 바깥을 누를 때 바뀐다 */
-  const [shown, setShown] = useState<Crop | null>(null)
   /* 왼쪽 그림 칸 — 키워 둔 채 영역 지정을 켜면 보이는 부분에 처음 영역을 잡는다 */
   const zoomRef = useRef<ZoomAreaHandle>(null)
-  /* 영역을 정했다는 알림 — '선택한 영역으로 지정하기'로 저장했을 때 */
-  const [cropMsg, setCropMsg] = useState<FlashMsg>(null)
-  const [savingCrop, startCrop] = useTransition()
 
   const imgRatio = w.width && w.height ? w.width / w.height : 1
   /* PDF 로 올린 작업인지 — 둘째 장부터가 있을 때만 이어 붙여 보여 준다 */
@@ -348,7 +344,6 @@ export function WorkDialog({
     : w.width && w.height
       ? [{ src: w.image_url, width: w.width, height: w.height }]
       : null
-
   /* 아직 답하지 않은 작업(null)은 체크박스를 건드리지 않아도 저장할 수 있어야
      한다 — 끈 채로 저장하는 것이 '쓰지 않았다'는 답이다. null 을 false 와
      같다고 보면 저장 버튼이 잠겨 영원히 미응답으로 남는다. */
@@ -382,50 +377,57 @@ export function WorkDialog({
     const v = stack || !hasPages ? zoomRef.current?.visible() : null
     const start = v ? clampCrop(insetCrop(v), imgRatio) : centeredCrop(imgRatio, imgRatio)
     setCrop(start)
-    setShown(start)
     setRatio(null)
     setCropMode(true)
   }
 
-  /* 취소 — 잡던 영역을 버리고 저장된 영역으로 되돌린다 */
-  const cancelCrop = () => {
-    setCrop(cropOf(w))
-    setRatio(null)
-    setShown(null)
-    setCropMode(false)
-  }
+  /* 저장 — 영역을 잡고 있으면 썸네일을 먼저 저장하고, 다른 칸이 바뀌었으면 이어서 저장한다 */
+  const save = () => {
+    onNotice(null)
+    start(async () => {
+      let thumbFailed = false
 
-  /* 선택한 영역으로 지정 — 썸네일을 만들어 저장하고 영역 지정을 마친다 */
-  const saveCrop = () => {
-    if (!crop) return
-startCrop(async () => {
-          onNotice(null)
-          /* 자르는 일은 여기서 한다 — 서버는 받은 파일을 저장만 한다.
-             원본을 다시 받아 잘라야 하므로 잠시 걸린다. */
-          const thumb = stack
-            ? await makeStackThumb(stack, crop)
-            : await makeThumbFromUrl(w.image_url, crop)
+      if (cropMode && crop) {
+        /* 자르는 일은 여기서 한다 — 서버는 받은 파일을 저장만 한다.
+           원본을 다시 받아 잘라야 하므로 잠시 걸린다. */
+        const thumb = stack
+          ? await makeStackThumb(stack, crop)
+          : await makeThumbFromUrl(w.image_url, crop)
 
-          const form = new FormData()
-          form.set('id', w.id)
-          form.set('designerId', designerId)
-          form.set('cropX', String(crop.x))
-          form.set('cropY', String(crop.y))
-          form.set('cropW', String(crop.w))
-          form.set('cropH', String(crop.h))
-          if (thumb) form.set('thumb', thumb.file)
+        const form = new FormData()
+        form.set('id', w.id)
+        form.set('designerId', designerId)
+        form.set('cropX', String(crop.x))
+        form.set('cropY', String(crop.y))
+        form.set('cropW', String(crop.w))
+        form.set('cropH', String(crop.h))
+        if (thumb) form.set('thumb', thumb.file)
 
-          const r = await adminUpdateWorkCrop(form)
-          if (!r.ok) {
-            onNotice({ kind: 'error', text: r.error })
-            return
-          }
-          setCropMode(false)
-          setRatio(null)
-          router.refresh()
-          setShown(crop)
-          setCropMsg(thumb ? { ok: true, text: '썸네일 영역이 설정됐습니다' } : { ok: false, text: '영역만 저장했습니다(썸네일 생성 실패).' })
-        })
+        const r = await adminUpdateWorkCrop(form)
+        if (!r.ok) {
+          onNotice({ kind: 'error', text: r.error })
+          return
+        }
+        thumbFailed = !thumb
+        setCropMode(false)
+        setRatio(null)
+      }
+
+      if (dirty) {
+        const r = await adminUpdateWork({ id: w.id, designerId, title, description, client, aiUsed, soomWork })
+        if (!r.ok) {
+          onNotice({ kind: 'error', text: r.error ?? '처리에 실패했습니다.' })
+          return
+        }
+      }
+
+      router.refresh()
+      onNotice(
+        thumbFailed
+          ? { kind: 'error', text: '저장했습니다. 다만 썸네일을 만들지 못해 영역만 저장했습니다.' }
+          : { kind: 'ok', text: '저장했습니다.' },
+      )
+    })
   }
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) => {
@@ -454,14 +456,12 @@ startCrop(async () => {
         {/* 이미지 — 원본을 크게 본다. 썸네일을 편집할 때는 이 위에서 영역을 잡는다.
             PDF 작업은 첫 장 아래로 나머지 장을 이어 붙여 내려 보며 확인하고,
             영역도 그 이어진 그림 어디에서나 잡는다. */}
-        <Flash msg={cropMsg} onDone={() => setCropMsg(null)} duration={2000} />
         <ZoomArea
           handle={zoomRef}
           ratio={w.width && w.height ? w.width / w.height : null}
           naturalWidth={w.width}
           fit={hasPages ? 'width' : 'contain'}
           className="flex-1"
-          overlay={cropMode && <CropActions onConfirm={saveCrop} onCancel={cancelCrop} busy={savingCrop} />}
         >
           {cropMode && crop ? (
             <CropEditor
@@ -469,7 +469,6 @@ startCrop(async () => {
               pages={stack ? w.pages! : undefined}
               crop={crop}
               onChange={setCrop}
-              onCommit={setShown}
               lockedRatio={ratio == null ? null : ratioValue(ratio)}
               imgRatio={imgRatio}
             />
@@ -567,30 +566,45 @@ startCrop(async () => {
           <div className="mt-4 border-t border-neutral-200 pt-4">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-neutral-600">썸네일</span>
-              {/* 영역 지정 중에는 그림 칸 아래 두 버튼으로만 마친다 */}
-              {!cropMode && (
-                <button
-                  type="button"
-                  data-crop-keep
-                  onClick={startCropMode}
-                  disabled={savingCrop || !w.width || !w.height}
-                  title={!w.width || !w.height ? '원본 크기를 몰라 영역을 잡을 수 없습니다' : undefined}
-                  className="rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
-                >
-                  썸네일 편집
-                </button>
-              )}
+              {/* 영역을 잡는 중에는 켜진 모양으로 둔다 — 다시 눌러도 잡던 영역을 되돌리지 않는다 */}
+              <button
+                type="button"
+                data-crop-keep
+                onClick={cropMode ? undefined : startCropMode}
+                aria-pressed={cropMode}
+                disabled={pending || !w.width || !w.height}
+                title={!w.width || !w.height ? '원본 크기를 몰라 영역을 잡을 수 없습니다' : undefined}
+                className={`rounded-md border px-2 py-1 text-[11px] font-medium transition disabled:opacity-40 ${
+                  cropMode
+                    ? 'border-violet-600 text-violet-700'
+                    : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+                }`}
+              >
+                썸네일 편집
+              </button>
             </div>
 
-            {cropMode ? (
+            {cropMode && crop && previewParts ? (
               <div className="space-y-2.5">
-                {/* 영역 바깥을 누르면 그 영역으로 바뀐다 — 이 그림이 썸네일이 된다 */}
-                {shown && previewParts && <CropPreview parts={previewParts} crop={shown} />}
-                <p className="text-[11px] leading-relaxed text-neutral-500">
+                {/* 잡고 있는 영역 — 잡는 대로 바뀌고, 저장하면 이 그림이 썸네일이 된다 */}
+                <CropPreview parts={previewParts} crop={crop} />
+                <p className="text-[11px] leading-relaxed text-neutral-500">저장을 누르면 이 영역이 썸네일이 됩니다.</p>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                <Img
+                  src={thumbSrc(w)}
+                  alt=""
+                  className="size-20 shrink-0 rounded-lg ring-1 ring-neutral-200"
+                />
+                <p className="min-w-0 text-[11px] leading-relaxed text-neutral-500">
                   {hasPages ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.' : '썸네일로 쓸 영역을 지정해 주세요.'}
                 </p>
+              </div>
+            )}
 
-                <div data-crop-keep className="flex flex-wrap gap-1.5">
+            {cropMode && (
+                <div data-crop-keep className="mt-2.5 flex flex-wrap gap-1.5">
                   {THUMB_RATIOS.map((r) => (
                     <label
                       key={r.key}
@@ -608,11 +622,7 @@ startCrop(async () => {
                              다른 것을 누르면 기존 선택은 자동으로 해제된다. */
                           const next = ratio === r.key ? null : r.key
                           setRatio(next)
-                          if (next && crop) {
-                            const c = reshapeCrop(crop, ratioValue(next), imgRatio)
-                            setCrop(c)
-                            setShown(c)
-                          }
+                          if (next && crop) setCrop(reshapeCrop(crop, ratioValue(next), imgRatio))
                         }}
                         className="accent-violet-600"
                       />
@@ -620,39 +630,13 @@ startCrop(async () => {
                     </label>
                   ))}
                 </div>
-
-              </div>
-            ) : (
-              <div className="flex items-start gap-3">
-                <Img
-                  src={thumbSrc(w)}
-                  alt=""
-                  className="size-20 shrink-0 rounded-lg ring-1 ring-neutral-200"
-                />
-                <p className="min-w-0 text-[11px] leading-relaxed text-neutral-500">
-                  {hasPages ? '썸네일 파일을 업로드 하지 않으면 첫 슬라이드가 썸네일로 저장됩니다.' : '썸네일로 쓸 영역을 지정해 주세요.'}
-                </p>
-              </div>
             )}
           </div>
 
+          {/* 잡은 썸네일 영역과 다른 칸을 함께 저장한다 */}
           <button
-            onClick={() =>
-              act(
-                () =>
-                  adminUpdateWork({
-                    id: w.id,
-                    designerId,
-                    title,
-                    description,
-                    client,
-                    aiUsed,
-                    soomWork,
-                  }),
-                () => onNotice({ kind: 'ok', text: '저장했습니다.' }),
-              )
-            }
-            disabled={pending || !dirty}
+            onClick={save}
+            disabled={pending || (!dirty && !cropMode)}
             className="mt-3 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? '저장 중…' : '저장'}
