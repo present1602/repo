@@ -49,7 +49,15 @@ export async function renderPdfPages(
     return { ok: false, error: 'PDF를 읽을 준비를 하지 못했습니다. 새로고침 후 다시 시도해 주세요.' }
   }
 
-  const task = pdfjs.getDocument({ data: await file.arrayBuffer() })
+  /* wasm 위치를 꼭 넘긴다 — 없으면 JPEG2000 그림을 풀지 못해 오류 없이 그 그림만
+     빠진다(폰 목업 속 화면이 하얗게 비었다). 파일은 scripts/copy-pdfjs-assets.mjs 가
+     npm install 때 public/pdfjs/ 로 복사한다. */
+  const task = pdfjs.getDocument({
+    data: await file.arrayBuffer(),
+    wasmUrl: '/pdfjs/wasm/',
+    standardFontDataUrl: '/pdfjs/standard_fonts/',
+    iccUrl: '/pdfjs/iccs/',
+  })
   try {
     const doc = await task.promise
     if (doc.numPages > MAX_PDF_PAGES) {

@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Claude Code 개인 설정
 .claude/settings.local.json
+
+# pdf.js wasm·폰트 (scripts/copy-pdfjs-assets.mjs 가 npm install 때 복사)
+/public/pdfjs/
