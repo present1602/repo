@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getDesignerUser } from '@/lib/designer-auth'
 import { listWorks } from '@/lib/designers-db'
@@ -113,7 +114,27 @@ export default async function DesignerHomePage() {
      콘솔이 레이아웃을 쥐고 있으므로 그려서 넘긴다. */
   const header = (
     <header className="min-w-0">
-      <h1 className="text-2xl font-bold tracking-tight">{displayName(d)}</h1>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <h1 className="text-2xl font-bold tracking-tight">{displayName(d)}</h1>
+        {/* 공개 페이지로 — 숨겨져 있으면 열어도 404 라 누르지 못하게 두고 이유를 띄운다 */}
+        {d.visible && d.profile_public ? (
+          <Link
+            href={`/designers/${d.id}`}
+            target="_blank"
+            rel="noopener"
+            className="rounded-md border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100"
+          >
+            공개 페이지 보기 ↗
+          </Link>
+        ) : (
+          <span
+            title={!d.visible ? '계정이 비활성이라 공개 페이지가 열리지 않습니다.' : '프로필이 숨김 상태라 공개 페이지가 열리지 않습니다.'}
+            className="cursor-not-allowed rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs font-medium text-neutral-400"
+          >
+            공개 페이지 보기 ↗
+          </span>
+        )}
+      </div>
       <p className="mt-1 text-sm text-neutral-500">{d.email}</p>
     </header>
   )
