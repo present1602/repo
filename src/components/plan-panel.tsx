@@ -71,18 +71,22 @@ export function PlanPanel({
                 <Fragment key={e.key}>
                   {/* web/app 묶음 아래에 한 줄 — 같은 분야의 유형끼리 묶여 보이게 */}
                   {dividerBefore(cats, i) && <hr className="!my-3 border-neutral-200" />}
-                  <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-neutral-300 px-3.5 py-3 transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-300 px-3.5 py-3 transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50">
                     <input
                       type="radio"
                       name="plan-panel"
                       checked={e.key === picked.key}
                       onChange={() => setPickedKey(e.key)}
-                      className="shrink-0 accent-violet-600"
+                      className="mt-0.5 shrink-0 accent-violet-600"
                     />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{e.basic.name}</span>
-                    <span className="shrink-0 text-right text-xs text-neutral-500">
-                      {e.basic.priceLabel}
-                      <span className="block text-[10px] text-neutral-400">VAT 별도</span>
+                    {/* 이름은 자르지 않는다 — '…우선 시안 먼저 의뢰'처럼 길어 가격과 한 줄에
+                        들어가지 않으면 가격이 아랫줄 오른쪽으로 내려간다(flex-wrap + ml-auto) */}
+                    <span className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      <span className="text-sm font-medium">{e.basic.name}</span>
+                      <span className="ml-auto shrink-0 text-right text-xs text-neutral-500">
+                        {e.basic.priceLabel}
+                        <span className="block text-[10px] text-neutral-400">VAT 별도</span>
+                      </span>
                     </span>
                   </label>
                 </Fragment>

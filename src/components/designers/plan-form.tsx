@@ -310,7 +310,7 @@ export function PlanForm({
                       <button
                         type="button"
                         onClick={() =>
-                          window.alert('메인화면 의뢰만 따로 받고 싶지 않은 경우에는 관리자에게 문의해 주세요.')
+                          window.alert('메인화면 먼저 의뢰를 따로 받고 싶지 않은 경우에는 관리자에게 문의해 주세요.')
                         }
                         className="mt-0.5 shrink-0"
                       >

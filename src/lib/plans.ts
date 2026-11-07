@@ -244,8 +244,8 @@ export function livePremium(
 const blank = { duration: '' }
 export const FALLBACK_PLAN_COPIES: PlanCopies = {
   sample: {
-    basic: { name: '메인화면 우선 의뢰', desc: '메인화면 시안만 먼저 의뢰합니다.', ...blank },
-    premium: { name: '메인화면 우선 의뢰 프리미엄', desc: '', enabled: false, ...blank },
+    basic: { name: '메인화면 먼저 의뢰', desc: '메인화면 시안만 먼저 의뢰합니다.', ...blank },
+    premium: { name: '메인화면 먼저 의뢰 프리미엄', desc: '', enabled: false, ...blank },
     visible: true,
   },
   logo: {
