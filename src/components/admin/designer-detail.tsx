@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
@@ -34,7 +34,10 @@ import {
   setDesignerPrices,
   setDesignerPremiums,
   setDesignerScope,
+  setDesignerAvatar,
+  removeDesignerAvatar,
 } from '@/app/admin/designers/actions'
+import { Img } from '@/components/img'
 import { Field, input, ghostButton } from './form-bits'
 import { SpecialtyPicker } from './specialty-picker'
 import type { SpecialtyOption } from '@/lib/specialty-shape'
@@ -93,39 +96,42 @@ export function DesignerDetail({
   return (
     <div className="min-w-0 space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">{displayName(d)}</h1>
-          <p className="mt-1 text-sm text-neutral-500">{d.email}</p>
+        <div className="flex min-w-0 items-start gap-4">
+          <AvatarImage designer={d} size="size-14" />
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight">{displayName(d)}</h1>
+            <p className="mt-1 text-sm text-neutral-500">{d.email}</p>
 
-          {/* 공개 페이지로 — 숨겨져 있으면 열어도 404 라 이유를 대신 보여준다 */}
-          {d.visible && d.profile_public ? (
+            {/* 공개 페이지로 — 숨겨져 있으면 열어도 404 라 이유를 대신 보여준다 */}
+            {d.visible && d.profile_public ? (
+              <Link
+                href={`/designers/${d.id}`}
+                target="_blank"
+                rel="noopener"
+                className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-violet-600 transition hover:text-violet-800"
+              >
+                공개 페이지 보기 ↗
+              </Link>
+            ) : (
+              <p className="mt-2 text-xs text-neutral-400">
+                {!d.visible
+                  ? '계정이 비활성이라 공개 페이지가 열리지 않습니다.'
+                  : '프로필이 숨김 상태라 공개 페이지가 열리지 않습니다.'}
+              </p>
+            )}
+
+            {/* 상세 페이지 미리보기 — 공개 페이지와 같은 화면을 공개 여부와 상관없이
+                연다(/designers/[id]/preview, 어드민만). 공개 전에도 확인할 수 있어야
+                하므로 위 조건 바깥에 둔다. */}
             <Link
-              href={`/designers/${d.id}`}
+              href={`/designers/${d.id}/preview`}
               target="_blank"
               rel="noopener"
-              className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-violet-600 transition hover:text-violet-800"
+              className="mt-1.5 flex w-fit items-center gap-1 text-sm font-medium text-violet-600 transition hover:text-violet-800"
             >
-              공개 페이지 보기 ↗
+              상세 페이지 미리보기 ↗
             </Link>
-          ) : (
-            <p className="mt-2 text-xs text-neutral-400">
-              {!d.visible
-                ? '계정이 비활성이라 공개 페이지가 열리지 않습니다.'
-                : '프로필이 숨김 상태라 공개 페이지가 열리지 않습니다.'}
-            </p>
-          )}
-
-          {/* 상세 페이지 미리보기 — 공개 페이지와 같은 화면을 공개 여부와 상관없이
-              연다(/designers/[id]/preview, 어드민만). 공개 전에도 확인할 수 있어야
-              하므로 위 조건 바깥에 둔다. */}
-          <Link
-            href={`/designers/${d.id}/preview`}
-            target="_blank"
-            rel="noopener"
-            className="mt-1.5 flex w-fit items-center gap-1 text-sm font-medium text-violet-600 transition hover:text-violet-800"
-          >
-            상세 페이지 미리보기 ↗
-          </Link>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {/* 두 상태는 축이 다르다 — 계정은 관리자만, 프로필은 관리자와 디자이너 본인이 정한다 */}
@@ -178,6 +184,7 @@ export function DesignerDetail({
 
       {tab === 'profile' && (
         <div className="max-w-2xl space-y-6">
+          <AvatarSection designer={d} onNotice={setNotice} />
           <ProfileForm designer={d} specialties={specialties} onNotice={setNotice} />
           <AccountSection designer={d} onNotice={setNotice} />
         </div>
@@ -810,6 +817,104 @@ function ProfileForm({
         )}
       </div>
     </form>
+  )
+}
+
+/* ─────────── 프로필 이미지 ─────────── */
+
+/* 없으면 이름 첫 글자 — 공개 목록(designer-list.tsx 의 Avatar)과 같은 모양 */
+function AvatarImage({ designer: d, size }: { designer: AdminDesigner; size: string }) {
+  if (d.avatar_url) {
+    return <Img src={d.avatar_url} alt="" className={`${size} shrink-0 rounded-full`} />
+  }
+  return (
+    <div
+      className={`${size} grid shrink-0 place-items-center rounded-full bg-neutral-200 text-lg font-semibold text-neutral-500`}
+    >
+      {displayName(d).slice(0, 1)}
+    </div>
+  )
+}
+
+/* 고르면 바로 올린다 — 디자이너 본인 화면(profile-form.tsx 의 AvatarPicker)과 같다 */
+function AvatarSection({
+  designer: d,
+  onNotice,
+}: {
+  designer: AdminDesigner
+  onNotice: (n: Notice) => void
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [pending, start] = useTransition()
+  const router = useRouter()
+
+  const pick = (file: File) => {
+    onNotice(null)
+    const form = new FormData()
+    form.set('designerId', d.id)
+    form.set('image', file)
+    start(async () => {
+      const r = await setDesignerAvatar(form)
+      if (!r.ok) return onNotice({ kind: 'error', text: r.error })
+      onNotice({ kind: 'ok', text: d.avatar_url ? '프로필 이미지를 바꿨습니다.' : '프로필 이미지를 등록했습니다.' })
+      router.refresh()
+    })
+  }
+
+  const remove = () => {
+    if (!confirm('프로필 이미지를 삭제할까요?')) return
+    onNotice(null)
+    start(async () => {
+      const r = await removeDesignerAvatar(d.id)
+      if (!r.ok) return onNotice({ kind: 'error', text: r.error })
+      onNotice({ kind: 'ok', text: '프로필 이미지를 삭제했습니다.' })
+      router.refresh()
+    })
+  }
+
+  return (
+    <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
+      <h2 className="text-sm font-semibold">프로필 이미지</h2>
+
+      <div className="mt-4 flex items-center gap-4">
+        <AvatarImage designer={d} size="size-16" />
+        <div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) pick(f)
+              /* 같은 파일을 다시 고를 수 있게 비운다 */
+              e.target.value = ''
+            }}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={pending}
+              className={ghostButton}
+            >
+              {pending ? '처리 중…' : d.avatar_url ? '이미지 변경' : '이미지 등록'}
+            </button>
+            {d.avatar_url && (
+              <button
+                type="button"
+                onClick={remove}
+                disabled={pending}
+                className="rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+              >
+                삭제
+              </button>
+            )}
+          </div>
+          <p className="mt-1.5 text-xs text-neutral-400">정사각형 이미지를 권장합니다</p>
+        </div>
+      </div>
+    </section>
   )
 }
 

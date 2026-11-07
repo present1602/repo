@@ -197,6 +197,44 @@ export async function updateDesigner(input: UpdateInput): Promise<Result> {
   return { ok: true }
 }
 
+/* 프로필 이미지 — 디자이너 본인용(studio/actions.ts 의 updateAvatar)과 같은 경로에 올린다 */
+export async function setDesignerAvatar(form: FormData): Promise<Result<{ url: string }>> {
+  const db = await guard()
+
+  const id = form.get('designerId')
+  if (typeof id !== 'string' || !id) return fail('디자이너를 찾을 수 없습니다.')
+  const file = form.get('image')
+  if (!(file instanceof File) || file.size === 0) return fail('이미지를 선택해 주세요.')
+
+  const up = await putImage(file, `avatar/${id}`)
+  if (!up.ok) return fail(up.error)
+
+  const { error } = await db.from('designers').update({ avatar_url: up.url }).eq('id', id)
+  if (error) {
+    console.error('[designers] 프로필 이미지 저장 실패:', error.message)
+    return fail('저장에 실패했습니다.')
+  }
+
+  refresh(id)
+  revalidatePath('/studio')
+  return { ok: true, url: up.url }
+}
+
+/* 지우면 공개 화면은 이름 첫 글자 동그라미로 돌아간다 */
+export async function removeDesignerAvatar(id: string): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db.from('designers').update({ avatar_url: null }).eq('id', id)
+  if (error) {
+    console.error('[designers] 프로필 이미지 삭제 실패:', error.message)
+    return fail('삭제에 실패했습니다.')
+  }
+
+  refresh(id)
+  revalidatePath('/studio')
+  return { ok: true }
+}
+
 export async function setDesignerVisible(id: string, visible: boolean): Promise<Result> {
   const db = await guard()
 
