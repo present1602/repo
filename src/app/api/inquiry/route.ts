@@ -8,7 +8,7 @@ import { getPlanCopies } from '@/lib/site-settings'
 import { listCategoryMetas } from '@/lib/specialties'
 import { priceOf } from '@/lib/specialty-shape'
 import { withDownloadName } from '@/lib/download-name'
-import { INQUIRY_FILE_EXTS } from '@/lib/inquiry-shape'
+import { claimInquiryFile, fileProblem, safeName } from '@/lib/inquiry-files'
 
 /* 의뢰 문의 접수.
 
@@ -24,9 +24,9 @@ import { INQUIRY_FILE_EXTS } from '@/lib/inquiry-shape'
    함께 쓸 수 없고, 기본값인 Node 런타임이면 충분하다. */
 export const maxDuration = 60
 
-/* 첨부 정책 — 화면 안내 문구(form-bits.tsx)와 같은 값을 쓴다 */
+/* 첨부 정책 — 개수는 화면(form-bits.tsx 의 FileField max)과 같고,
+   형식·크기는 inquiry-files.ts 가 정한다 */
 const MAX_FILES = 1
-const MAX_FILE_BYTES = 20 * 1024 * 1024
 
 
 /* 메일 속 다운로드 링크 유효기간 — 7일.
@@ -45,18 +45,6 @@ function esc(s: string) {
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   )
-}
-
-function ext(name: string) {
-  return name.split('.').pop()?.toLowerCase() ?? ''
-}
-
-/* 한글·공백이 섞인 파일명을 저장 경로로 쓸 수 있게 다듬는다 */
-function safeName(name: string) {
-  const e = ext(name)
-  const base = name.slice(0, name.length - e.length - 1) || 'file'
-  const cleaned = base.replace(/[^\w.-]+/g, '_').slice(0, 60)
-  return e ? `${cleaned}.${e}` : cleaned
 }
 
 function bad(error: string, status = 400) {
@@ -175,25 +163,38 @@ export async function POST(req: Request) {
     }
 
     /* ── 첨부 검사 ── */
+    /* 지금 화면은 파일을 Storage 에 먼저 올리고 경로만 보낸다(attachmentPath, inquiry-files.ts).
+       예전 화면이 파일을 그대로 실어 보내도 받는다 — 작은 파일은 Vercel 한도 안이라 닿는다 */
     const files = form
       .getAll('attachment')
       .filter((f): f is File => f instanceof File && f.size > 0)
+    const sentPath = String(form.get('attachmentPath') ?? '').trim()
+    const sentName = String(form.get('attachmentName') ?? '').trim().slice(0, 200)
 
-    if (files.length > MAX_FILES) {
+    if (files.length + (sentPath ? 1 : 0) > MAX_FILES) {
       return bad(`파일은 ${MAX_FILES}개만 첨부할 수 있습니다.`)
     }
     for (const file of files) {
-      if (file.size > MAX_FILE_BYTES) {
-        return bad(`파일당 20MB를 넘을 수 없습니다: ${file.name}`)
-      }
-      if (!INQUIRY_FILE_EXTS.includes(ext(file.name))) {
-        return bad(`허용되지 않는 형식입니다: ${file.name}`)
-      }
+      const problem = fileProblem(file.name, file.size)
+      if (problem) return bad(problem)
+    }
+    const preUploaded = sentPath ? await claimInquiryFile(sentPath, sentName) : null
+    if (sentPath && (!preUploaded || fileProblem(sentName, preUploaded.size))) {
+      return bad('첨부 파일을 확인하지 못했습니다. 파일을 다시 골라 보내 주세요.')
     }
 
     /* ── Storage 업로드 ── */
     const uploaded: Uploaded[] = []
     const stamp = new Date().toISOString().slice(0, 10)
+    const linkOf = async (path: string, name: string) => {
+      const { data: signed } = await db.storage.from(INQUIRY_FILES_BUCKET).createSignedUrl(path, SIGNED_URL_TTL)
+      /* 원래 이름으로 내려받게 — 지정이 없으면 이미지·PDF 는 브라우저에서 열리기만 한다 */
+      return signed?.signedUrl ? withDownloadName(signed.signedUrl, name) : ''
+    }
+
+    if (sentPath && preUploaded) {
+      uploaded.push({ name: sentName, path: sentPath, url: await linkOf(sentPath, sentName), size: preUploaded.size })
+    }
 
     for (const file of files) {
       const path = `${stamp}/${crypto.randomUUID()}-${safeName(file.name)}`
@@ -210,13 +211,7 @@ export async function POST(req: Request) {
         return bad('파일 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.', 500)
       }
 
-      const { data: signed } = await db.storage
-        .from(INQUIRY_FILES_BUCKET)
-        .createSignedUrl(path, SIGNED_URL_TTL)
-
-      /* 원래 이름으로 내려받게 — 지정이 없으면 이미지·PDF 는 브라우저에서 열리기만 한다 */
-      const url = signed?.signedUrl ? withDownloadName(signed.signedUrl, file.name) : ''
-      uploaded.push({ name: file.name, path, url, size: file.size })
+      uploaded.push({ name: file.name, path, url: await linkOf(path, file.name), size: file.size })
     }
 
     /* ── DB 저장: 여기까지 왔으면 접수는 안전하다 ── */

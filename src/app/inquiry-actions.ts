@@ -3,6 +3,7 @@
 import { generalChoices, type CategoryChoice } from '@/lib/inquiry-choices'
 import { listCategoryMetas } from '@/lib/specialties'
 import { getPlanCopies } from '@/lib/site-settings'
+import { signInquiryUpload } from '@/lib/inquiry-files'
 
 /* 디자이너가 정해지지 않은 의뢰 폼(네비바·홈)의 선택지 — 폼을 열 때 묻는다.
 
@@ -12,4 +13,10 @@ import { getPlanCopies } from '@/lib/site-settings'
 export async function getGeneralInquiryChoices(): Promise<CategoryChoice[]> {
   const [metas, copies] = await Promise.all([listCategoryMetas(), getPlanCopies()])
   return generalChoices(metas, copies)
+}
+
+/* 문의 첨부 업로드 주소 — 폼이 보내기 직전에 묻고, 받은 주소로 Storage 에 바로 올린다.
+   로그인 없이 부른다(의뢰는 누구나 보낸다). 형식·크기는 여기서, 버킷 한도(0014)가 한 번 더 막는다 */
+export async function prepareInquiryUpload(name: string, size: number) {
+  return signInquiryUpload(String(name ?? ''), Number(size) || 0)
 }

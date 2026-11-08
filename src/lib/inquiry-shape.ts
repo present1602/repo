@@ -22,6 +22,11 @@ export const INQUIRY_FILE_EXTS = [
   'ai', 'psd', 'sketch', 'fig',
 ]
 
+/* 문의 첨부 한 개당 상한 — 폼 안내·접수 API·inquiry-files 버킷 한도(0014)가 같은 값을 쓴다.
+   파일은 브라우저가 Storage 에 바로 올린다(inquiry-files.ts) — 접수 API 로 보내면
+   Vercel 함수의 요청 크기 한도(약 4.5MB)에 걸린다 */
+export const INQUIRY_FILE_MAX_MB = 30
+
 export type InquiryFile = {
   name: string
   path: string

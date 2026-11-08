@@ -9,7 +9,8 @@ import {
   type InquiryScope,
   type ScopeOption,
 } from '@/lib/inquiry-choices'
-import { getGeneralInquiryChoices } from '@/app/inquiry-actions'
+import { getGeneralInquiryChoices, prepareInquiryUpload } from '@/app/inquiry-actions'
+import { uploadSigned } from '@/lib/direct-upload'
 import { recalledRef } from '@/lib/invite-link'
 
 /* 범위 이름 옆 짧은 풀이 — 플랜 이름(어드민 설정)만으로는 개발이 들어가는지 알기 어렵다 */
@@ -177,6 +178,25 @@ export function InquiryModal({
       /* 폼에서 그대로 꺼낸다 — 입력칸마다 state 를 두면 값이 두 곳에
          생겨 어긋난다. 파일도 FormData 가 함께 담아 준다. */
       const body = new FormData(e.currentTarget)
+
+      /* 첨부는 Storage 에 먼저 올리고 경로만 보낸다 — 파일을 실어 보내면
+         Vercel 함수의 요청 크기 한도(약 4.5MB)에 걸려 큰 파일이 끊긴다(inquiry-files.ts) */
+      const file = body.get('attachment')
+      body.delete('attachment')
+      if (file instanceof File && file.size > 0) {
+        const prep = await prepareInquiryUpload(file.name, file.size)
+        if (!prep.ok) {
+          setError(prep.error)
+          return
+        }
+        if (!(await uploadSigned(prep.bucket, prep, file))) {
+          setError('첨부 파일을 올리지 못했습니다. 잠시 후 다시 시도해 주세요.')
+          return
+        }
+        body.set('attachmentPath', prep.path)
+        body.set('attachmentName', file.name)
+      }
+
       body.set('submitKey', submitKey)
       if (designerId) body.set('designerId', designerId)
       if (designerName) body.set('designerName', designerName)

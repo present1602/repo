@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { INQUIRY_FILE_EXTS } from '@/lib/inquiry-shape'
+import { INQUIRY_FILE_EXTS, INQUIRY_FILE_MAX_MB } from '@/lib/inquiry-shape'
 
 /* 문의 폼의 공통 부품.
 
@@ -14,8 +14,8 @@ import { INQUIRY_FILE_EXTS } from '@/lib/inquiry-shape'
 export const inputCls =
   'mt-2 w-full border-0 border-b border-neutral-300 bg-transparent px-0 py-2 text-[15px] outline-none transition placeholder:text-neutral-400 focus:border-neutral-900'
 
-/* 첨부파일 한 개당 상한 */
-const MAX_MB = 20
+/* 첨부파일 한 개당 상한 — 접수 API·버킷 한도와 같은 값 */
+const MAX_MB = INQUIRY_FILE_MAX_MB
 
 /* 모바일은 아래에서 올라오는 시트, 데스크톱은 가운데 모달 */
 export function Dialog({
