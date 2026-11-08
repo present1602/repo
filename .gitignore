@@ -49,3 +49,6 @@ next-env.d.ts
 
 # pdf.js wasm·폰트 (scripts/copy-pdfjs-assets.mjs 가 npm install 때 복사)
 /public/pdfjs/
+
+# Playwright MCP 가 테스트하며 남기는 스크린샷·로그
+/.playwright-mcp/

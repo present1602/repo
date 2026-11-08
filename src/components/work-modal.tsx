@@ -296,9 +296,9 @@ export function WorkModal<W extends PublicWork>({
             한 장만 두고 바꿔치면 넘어가는 동안 빈 화면이 보인다.
             양옆은 미리 깔려 있어 미는 만큼 따라 들어온다. */}
         <div className="relative min-h-0 flex-1 overflow-hidden bg-white">
-          {/* AI 뱃지 — 닫기(×) 바로 아래, 그림 칸 오른쪽 위. 그림이 넘어가도 자리를 지키게
-              트랙 밖에 둔다. 오른쪽은 그림 칸의 스크롤 막대를 피해 조금 더 띄운다 */}
-          {w.ai_used && <AiBadge place="absolute right-5 top-3 z-20" />}
+          {/* AI 뱃지 — 머리 줄의 '02 / 02' 바로 아래, 그림 칸 왼쪽 위(머리 줄과 같은 왼쪽 여백).
+              그림이 넘어가도 자리를 지키게 트랙 밖에 둔다 */}
+          {w.ai_used && <AiBadge place="absolute left-5 top-3 z-20" />}
           <div
             className={`flex h-full ${jump ? '' : 'transition-transform duration-[280ms] ease-out'}`}
             style={{
