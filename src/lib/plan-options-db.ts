@@ -102,11 +102,15 @@ export async function replaceSlotOptions(
 }
 
 /* 받은 항목을 검사해 저장할 모양으로 — 잘못된 것이 하나라도 있으면 이유(글자)를 돌려준다.
-   공통 + 이 디자이너 전용만 고를 수 있다 — 다른 디자이너의 전용 항목은 안 된다. */
+   공통 + 이 디자이너 전용만 고를 수 있다 — 다른 디자이너의 전용 항목은 안 된다.
+
+   emptyN — {n} 항목을 숫자 없이 체크한 채로 둘 수 있는지. 기본 단계 목록은 체크하는 순간
+   저장되므로 숫자를 적기 전 상태도 받는다. 숫자가 없으면 공개 화면에 나가지 않는다(plans.ts) */
 async function checkOptions(
   designerId: string,
   options: RegisteredOption[],
   allows: (t: OptionTemplate) => boolean,
+  emptyN = false,
 ): Promise<RegisteredOption[] | string> {
   const templates = new Map<string, OptionTemplate>(
     (await listOptionTemplates({ designerId })).map((t) => [t.id, t]),
@@ -123,7 +127,7 @@ async function checkOptions(
     if (!allows(t)) return `'${t.template}'은 이 플랜에서 고를 수 없습니다.`
 
     let n: number | null = null
-    if (needsN(t.template)) {
+    if (needsN(t.template) && !(emptyN && o.n == null)) {
       if (o.n == null || !Number.isInteger(o.n) || o.n < 0 || o.n > MAX_OPTION_N) {
         return `'${t.template}'의 숫자를 0~${MAX_OPTION_N} 사이로 적어 주세요.`
       }
@@ -149,7 +153,7 @@ export async function replaceBucketOptions(
   if (!isBucket(bucket)) return '알 수 없는 포함 항목 자리입니다.'
   const db = supabaseAdmin!
 
-  const checkedAll = await checkOptions(designerId, options, (t) => templateAllowsBucket(t, bucket))
+  const checkedAll = await checkOptions(designerId, options, (t) => templateAllowsBucket(t, bucket), true)
   if (typeof checkedAll === 'string') return checkedAll
 
   let checked = checkedAll

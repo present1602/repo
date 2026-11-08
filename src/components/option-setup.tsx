@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import {
@@ -58,18 +58,28 @@ export function optionsOf(templates: OptionTemplate[], picks: Picks): Registered
 /* 공통에서 체크한 항목을 개별 목록에서 눌렀을 때 */
 const COMMON_LOCK_ALERT = '공통 항목에서 체크한 항목입니다.\n바꾸려면 공통 항목에서 해제해 주세요.'
 
+/* 체크를 바로 저장할 모양으로 — 숫자가 비었거나 틀리면 n 없이 둔다(공개 화면에서 빠진다).
+   기본 단계 목록은 체크하는 순간 저장하므로 숫자를 적기 전 상태도 그대로 보낸다 */
+export function draftOptionsOf(templates: OptionTemplate[], picks: Picks): RegisteredOption[] {
+  const valid = Object.fromEntries(previewOptions(picks).map((o) => [o.templateId, o.n]))
+  return templates.filter((t) => t.id in picks).map((t) => ({ templateId: t.id, n: needsN(t.template) ? valid[t.id] : null }))
+}
+
 /* 템플릿 체크 목록 — {n} 이 있으면 숫자 칸이 문장 사이에 들어간다.
-   lockedPicks 에 있는 템플릿(공통에서 체크한 것)은 체크된 채 잠가 보여준다 */
+   lockedPicks 에 있는 템플릿(공통에서 체크한 것)은 체크된 채 잠가 보여준다.
+   onCommit — 값이 확정될 때(체크·해제는 바로, 숫자는 Enter·포커스 아웃). 바로 저장하는 화면이 쓴다 */
 export function OptionChecklist({
   usable,
   picks,
   onChange,
+  onCommit,
   disabled,
   lockedPicks,
 }: {
   usable: OptionTemplate[]
   picks: Picks
   onChange: (next: Picks) => void
+  onCommit?: (next: Picks) => void
   disabled?: boolean
   lockedPicks?: Picks
 }) {
@@ -111,6 +121,7 @@ export function OptionChecklist({
                   if (e.target.checked) next[t.id] = ''
                   else delete next[t.id]
                   onChange(next)
+                  onCommit?.(next)
                 }}
                 className="accent-violet-600"
               />
@@ -124,6 +135,10 @@ export function OptionChecklist({
                     value={picks[t.id] ?? ''}
                     disabled={disabled || !on}
                     onChange={(e) => onChange({ ...picks, [t.id]: e.target.value })}
+                    onBlur={() => onCommit?.(picks)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur()
+                    }}
                     min={0}
                     max={MAX_OPTION_N}
                     placeholder="n"
@@ -217,7 +232,8 @@ export function liveOptionSetup(setup: DesignerOptionSetup, drafts: OptionDrafts
                공통에서 체크한 항목은 체크된 채 잠겨 보인다(같은 줄이 두 번 나가지 않게 — 서버도 막는다).
                저장 전이라도 공통에서 체크하는 순간 잠긴다.
                고르지 않은 분야는 칸만 흐리게 보여준다(디자이너 화면).
-   목록마다 템플릿 체크는 저장 버튼으로, 직접 입력은 + 를 누르면 바로 저장된다.
+   저장 버튼은 없다 — 체크·해제는 바로, 숫자와 직접 입력은 Enter·포커스 아웃·+ 로 바로 저장된다.
+   {n} 항목은 숫자 없이 체크해도 저장되지만 공개 화면에는 숫자를 적어야 나간다.
    고친 체크는 OptionDraftsContext 로 설정 탭의 미리보기에 바로 비친다.
    프리미엄 단계는 플랜마다 따로(plan-setup.tsx). */
 export function OptionSetup({
@@ -260,19 +276,18 @@ export function OptionSetup({
   const setDraft = (b: string, p: Picks) => setDrafts((d) => ({ ...d, [b]: p }))
   const commonPicks = draftOf(COMMON_BUCKET)
 
-  /* 서버 결과를 알림으로 — 성공하면 새로 그린다 */
-  const done = (r: { ok: true } | { ok: false; error: string }, okText: string) => {
+  /* 서버 결과 — 실패만 알린다. 고칠 때마다 바로 저장되므로 성공은 목록 옆 '저장됨'으로 충분하다 */
+  const done = (r: { ok: true } | { ok: false; error: string }) => {
     if (!r.ok) {
       setMsg({ ok: false, text: r.error })
       return false
     }
-    setMsg({ ok: true, text: okText })
     router.refresh()
     return true
   }
 
   const actions: BucketActions = {
-    save: async (bucket, title, options) => {
+    save: async (bucket, options) => {
       setMsg(null)
       const r =
         mode === 'admin'
@@ -290,7 +305,7 @@ export function OptionSetup({
           ),
         )
       }
-      return done(r, `${title} 포함 항목을 저장했습니다.`)
+      return done(r)
     },
     add: async (bucket, text) => {
       setMsg(null)
@@ -298,13 +313,13 @@ export function OptionSetup({
         mode === 'admin'
           ? await addDesignerCustomOption(designerId, bucket, text)
           : await addMyCustomOption(bucket, text)
-      return done(r, `'${text.trim()}'을(를) 더했습니다.`)
+      return done(r)
     },
     remove: async (id, text) => {
       if (!window.confirm(`'${text}'을(를) 지울까요?`)) return false
       setMsg(null)
       const r = mode === 'admin' ? await removeDesignerCustomOption(designerId, id) : await removeMyCustomOption(id)
-      return done(r, `'${text}'을(를) 지웠습니다.`)
+      return done(r)
     },
   }
 
@@ -434,7 +449,7 @@ export function DetailPreview({
     <div className="overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-200">
       <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-3 py-2">
         <span className="text-[11px] font-semibold text-neutral-700">상세 페이지 미리보기</span>
-        <span className="text-[10px] text-neutral-400">저장 전 체크도 바로 보여요</span>
+        <span className="text-[10px] text-neutral-400">고치면 바로 저장되고 여기 보여요</span>
       </div>
       <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 p-3">
         {/* 작업 자리 — 이름 줄과 작업 카드를 흐린 상자로 */}
@@ -468,12 +483,15 @@ export function DetailPreview({
 }
 
 type BucketActions = {
-  save: (bucket: string, title: string, options: RegisteredOption[]) => Promise<boolean>
+  save: (bucket: string, options: RegisteredOption[]) => Promise<boolean>
   add: (bucket: string, text: string) => Promise<boolean>
   remove: (id: string, text: string) => Promise<boolean>
 }
 
-/* 목록 하나 — 템플릿 체크(저장 전 고친 값은 이 안에만)와 직접 입력 */
+/* '저장됨' 을 보여 두는 시간 */
+const SAVED_MS = 1500
+
+/* 목록 하나 — 템플릿 체크와 직접 입력. 저장 버튼 없이 고치는 대로 저장한다 */
 function BucketEditor({
   title,
   heading,
@@ -509,37 +527,61 @@ function BucketEditor({
 }) {
   const [error, setError] = useState('')
   const [draft, setDraft] = useState('')
+  const [justSaved, setJustSaved] = useState(false)
   const [pending, start] = useActionTransition()
   const usable = templates.filter((t) => templateAllowsBucket(t, bucket))
   /* 이 목록이 정하는 템플릿 — 공통에서 체크한 것은 공통 몫이라 저장·비교에서 뺀다 */
   const own = usable.filter((t) => !(lockedPicks && t.id in lockedPicks))
-  const ownOnly = (p: Picks) => Object.fromEntries(own.filter((t) => t.id in p).map((t) => [t.id, p[t.id]]))
-  const dirty = JSON.stringify(ownOnly(picks)) !== JSON.stringify(ownOnly(picksOf(saved)))
   const list = custom ?? []
 
-  const submit = () => {
-    const options = optionsOf(own, picks)
-    if (typeof options === 'string') {
-      setError(options)
-      return
-    }
+  /* 마지막으로 보낸 목록 — 숫자 칸에서 그냥 빠져나가거나 같은 값이면 다시 보내지 않는다 */
+  const lastSent = useRef(JSON.stringify(draftOptionsOf(own, picksOf(saved))))
+  /* 직접 입력이 Enter·포커스 아웃·+ 로 겹쳐 두 번 들어가지 않게 */
+  const adding = useRef(false)
+
+  useEffect(() => {
+    if (!justSaved) return
+    const t = setTimeout(() => setJustSaved(false), SAVED_MS)
+    return () => clearTimeout(t)
+  }, [justSaved])
+
+  const commit = (next: Picks) => {
+    const options = draftOptionsOf(own, next)
+    const key = JSON.stringify(options)
+    if (key === lastSent.current) return
+    lastSent.current = key
     setError('')
     start(async () => {
-      await actions.save(bucket, title, options)
-    })
+      try {
+        if (await actions.save(bucket, options)) return setJustSaved(true)
+      } catch (err) {
+        lastSent.current = ''
+        throw err
+      }
+      /* 실패하면 같은 값으로 다시 시도할 수 있게 */
+      lastSent.current = ''
+    }, `${title} 포함 항목 저장`)
   }
 
   const add = () => {
     const text = draft.trim()
-    if (!text) return
+    if (!text || adding.current) return
     if (text.length > MAX_CUSTOM_TEXT) {
       setError(`항목은 ${MAX_CUSTOM_TEXT}자 이내로 입력해 주세요.`)
       return
     }
     setError('')
+    adding.current = true
     start(async () => {
-      if (await actions.add(bucket, text)) setDraft('')
-    })
+      try {
+        if (await actions.add(bucket, text)) {
+          setDraft('')
+          setJustSaved(true)
+        }
+      } finally {
+        adding.current = false
+      }
+    }, `${title} 항목 추가`)
   }
 
   return (
@@ -550,7 +592,14 @@ function BucketEditor({
         </h5>
       )}
 
-      <OptionChecklist usable={usable} picks={picks} onChange={onPicks} disabled={disabled} lockedPicks={lockedPicks} />
+      <OptionChecklist
+        usable={usable}
+        picks={picks}
+        onChange={onPicks}
+        onCommit={commit}
+        disabled={disabled}
+        lockedPicks={lockedPicks}
+      />
 
       {/* 공통에 직접 적은 항목 — 여기서도 잠근 채 보인다 */}
       {lockedCustom && lockedCustom.length > 0 && (
@@ -583,7 +632,7 @@ function BucketEditor({
                 <button
                   type="button"
                   disabled={pending}
-                  onClick={() => start(async () => void (await actions.remove(c.id, c.text)))}
+                  onClick={() => start(async () => void (await actions.remove(c.id, c.text)), `${title} 항목 삭제`)}
                   aria-label={`${c.text} 지우기`}
                   className="grid size-5 shrink-0 place-items-center rounded text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
                 >
@@ -607,6 +656,8 @@ function BucketEditor({
                 add()
               }
             }}
+            /* 적어 두고 다른 곳을 누르면 그대로 더한다 */
+            onBlur={add}
             maxLength={MAX_CUSTOM_TEXT}
             placeholder="직접 입력"
             aria-label={`${title} 항목 직접 입력`}
@@ -615,6 +666,7 @@ function BucketEditor({
           <button
             type="button"
             disabled={pending || !draft.trim()}
+            /* 누르는 순간 입력칸의 포커스 아웃이 먼저 더한다 — 여기서는 겹치지 않게만(adding) */
             onClick={add}
             aria-label="항목 더하기"
             className="grid size-8 shrink-0 place-items-center rounded-md border border-neutral-300 text-base text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40"
@@ -625,18 +677,11 @@ function BucketEditor({
       )}
 
       {error && <p className="mt-2 text-[11px] text-red-600">{error}</p>}
-      {!disabled && (own.length > 0 || dirty) && (
-        <div className="mt-2.5 flex items-center gap-2">
-          <button
-            type="button"
-            disabled={pending || !dirty}
-            onClick={submit}
-            className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
-          >
-            {pending ? '저장 중…' : '체크 저장'}
-          </button>
-          {dirty && !pending && <span className="text-[11px] text-neutral-400">저장하지 않은 변경이 있습니다</span>}
-        </div>
+      {/* 저장 상태 — 자리를 미리 잡아 두어 글자가 생겼다 사라져도 아래가 들썩이지 않는다 */}
+      {!disabled && (
+        <p aria-live="polite" className="mt-1.5 h-4 text-[11px] text-neutral-400">
+          {pending ? '저장 중…' : justSaved ? '저장됨 ✓' : ''}
+        </p>
       )}
     </div>
   )

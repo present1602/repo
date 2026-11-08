@@ -15,8 +15,8 @@ import { recalledRef } from '@/lib/invite-link'
 
 /* 범위 이름 옆 짧은 풀이 — 플랜 이름(어드민 설정)만으로는 개발이 들어가는지 알기 어렵다 */
 const SCOPE_NOTE: Partial<Record<InquiryScope, string>> = {
-  design: '디자인만',
-  design_dev: '디자인 + 개발',
+  design: '디자인만 의뢰',
+  design_dev: '디자인 + 개발 의뢰',
 }
 
 /* 프리미엄이 있는 유형 표시 — 의뢰 폼·상세 패널이 같은 모양을 쓴다 */
