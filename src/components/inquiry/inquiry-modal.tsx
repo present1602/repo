@@ -134,7 +134,7 @@ export function InquiryModal({
   /* 아직 고르지 않았으면 기본 범위(defaultScope) — 디자인만·디자인 + 개발이 둘 다 있으면 프로젝트 의뢰 */
   const option: ScopeOption | null =
     main.find((o) => o.key === (scopeKey ?? defaultScope(main.map((x) => x.key)))) ?? null
-  const withSample = extra === 'sample' && sample != null
+  const withSample = extra === 'sample' && sample != null && option?.sampleOk === true
   const withPremium = extra === 'premium' && option?.premium != null
 
   const pickCat = (name: string) => {
@@ -322,7 +322,7 @@ export function InquiryModal({
                                   </span>
                                 )}
                                 {/* 메인 시안을 받는 분야 — 고르면 아래에서 덧붙일 수 있다고 미리 알린다 */}
-                                {sample && !checked && (
+                                {sample && o.sampleOk && !checked && (
                                   <span className="mt-1.5 block text-xs font-medium text-violet-600">
                                     메인화면 먼저 의뢰 가능
                                   </span>
@@ -332,7 +332,7 @@ export function InquiryModal({
 
                             {/* 고른 유형 안에서만 — 라디오 label 바깥에 두어 누름이 라디오로 번지지 않게.
                                 둘은 함께 고르지 않는다(하나를 켜면 다른 하나는 꺼진다) */}
-                            {checked && sample && (
+                            {checked && sample && o.sampleOk && (
                               <ExtraOption
                                 title="메인화면 먼저 의뢰"
                                 desc={sample.desc}

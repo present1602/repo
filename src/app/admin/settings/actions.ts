@@ -320,7 +320,7 @@ export async function setSpecialtyPrice(
   id: string,
   scope: PriceScope,
   tier: PriceTier,
-  patch: { price?: number | null; enabled?: boolean },
+  patch: { price?: number | null; enabled?: boolean; allowSample?: boolean },
 ): Promise<Result> {
   const db = await guard()
 
@@ -332,11 +332,14 @@ export async function setSpecialtyPrice(
   if (tier === 'basic' && patch.enabled === false) return fail('기본 단계는 끌 수 없습니다.')
 
   const missing = (msg: string) =>
-    /specialty_plan_prices/i.test(msg)
-      ? fail('0011_specialty_scope_prices.sql 을 먼저 실행해 주세요.')
-      : fail('변경에 실패했습니다.')
+    /allow_sample/i.test(msg)
+      ? fail('0013_scope_allow_sample.sql 을 먼저 실행해 주세요.')
+      : /specialty_plan_prices/i.test(msg)
+        ? fail('0011_specialty_scope_prices.sql 을 먼저 실행해 주세요.')
+        : fail('변경에 실패했습니다.')
 
-  /* 한 칸만 바꿔도 줄 전체를 쓰므로 지금 값을 먼저 읽는다 */
+  /* 한 칸만 바꿔도 줄 전체를 쓰므로 지금 값을 먼저 읽는다.
+     allow_sample 은 바꿀 때만 쓴다 — 0013 전 DB 에서도 시작가·프리미엄은 저장되게 */
   const cur = await db
     .from('specialty_plan_prices')
     .select('enabled, price')
@@ -355,6 +358,7 @@ export async function setSpecialtyPrice(
     tier,
     enabled: patch.enabled ?? cur.data?.enabled ?? true,
     price: patch.price !== undefined ? patch.price : (cur.data?.price ?? null),
+    ...(patch.allowSample !== undefined ? { allow_sample: patch.allowSample } : {}),
   })
   if (error) {
     console.error('[specialties] 시작가 변경 실패:', error.message)

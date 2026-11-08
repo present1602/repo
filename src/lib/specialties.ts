@@ -20,13 +20,24 @@ type Row = Omit<Specialty, 'scope_mode' | 'allow_sample' | 'description' | 'pric
   price_from?: number | null
 }
 
-type PriceRow = { specialty_id: string; scope: PriceScope; tier: PriceTier; enabled: boolean; price: number | null }
+type PriceRow = {
+  specialty_id: string
+  scope: PriceScope
+  tier: PriceTier
+  enabled: boolean
+  price: number | null
+  /* 0013 전에는 없다 */
+  allow_sample?: boolean
+}
 
 /* 분야별 범위·단계 시작가(0011). 표가 없으면 null — 예전 price_from 으로 대신한다 */
 async function readPrices(): Promise<Map<string, SpecialtyPrices> | null> {
-  const { data, error } = await supabaseAdmin!
-    .from('specialty_plan_prices')
-    .select('specialty_id, scope, tier, enabled, price')
+  const ask = (cols: string) => supabaseAdmin!.from('specialty_plan_prices').select(cols)
+  let { data, error } = await ask('specialty_id, scope, tier, enabled, price, allow_sample')
+  /* 0013 전이면 allow_sample 칸이 없다 — 빼고 다시 묻는다(모두 켜짐으로 읽힌다) */
+  if (error?.message.includes('allow_sample')) {
+    ;({ data, error } = await ask('specialty_id, scope, tier, enabled, price'))
+  }
   if (error) {
     if (!/specialty_plan_prices/i.test(error.message)) {
       console.error('[specialties] 시작가 조회 실패:', error.message)
@@ -34,9 +45,12 @@ async function readPrices(): Promise<Map<string, SpecialtyPrices> | null> {
     return null
   }
   const map = new Map<string, SpecialtyPrices>()
-  for (const r of (data ?? []) as PriceRow[]) {
+  for (const r of (data ?? []) as unknown as PriceRow[]) {
     const p = map.get(r.specialty_id) ?? {}
-    p[r.scope] = { ...p[r.scope], [r.tier]: { enabled: r.enabled, price: r.price } }
+    p[r.scope] = {
+      ...p[r.scope],
+      [r.tier]: { enabled: r.enabled, price: r.price, allowSample: r.allow_sample ?? true },
+    }
     map.set(r.specialty_id, p)
   }
   return map
@@ -88,7 +102,7 @@ async function readSpecialties(visibleOnly: boolean) {
         prices:
           prices?.get(s.id) ??
           (prices == null && price_from != null && mode !== 'choice'
-            ? { [mode]: { basic: { enabled: true, price: price_from } } }
+            ? { [mode]: { basic: { enabled: true, price: price_from, allowSample: true } } }
             : {}),
       }
     })

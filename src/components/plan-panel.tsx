@@ -20,6 +20,8 @@ export type PanelEntry = {
   /* 의뢰 폼에서 이 분야·범위를 골라 둔 채 열기 위해 */
   category: string
   scope: InquiryScope
+  /* 이 줄에 메인화면 먼저 의뢰 옵션을 붙일 수 있는지(분야의 범위별 스위치, 0013) */
+  sampleOk: boolean
   basic: PanelTier
   /* 유형 전체·디자이너별 프리미엄이 모두 켜졌을 때만 */
   premium?: PanelTier
@@ -47,11 +49,10 @@ export function PlanPanel({
 }) {
   /* 라디오는 본계약 줄만 — 메인화면 먼저 의뢰는 고른 줄 안의 옵션이다(의뢰 폼과 같다, splitSample).
      본계약 줄이 없는 분야(플랜을 숨긴 경우)만 메인 시안 줄을 그대로 둔다 */
+  const hasMain = (category: string) => entries.some((e) => e.category === category && e.scope !== 'sample')
   const sampleOf = (category: string) =>
-    entries.some((e) => e.category === category && e.scope !== 'sample')
-      ? (entries.find((e) => e.category === category && e.scope === 'sample') ?? null)
-      : null
-  const list = entries.filter((e) => e.scope !== 'sample' || !sampleOf(e.category))
+    hasMain(category) ? (entries.find((e) => e.category === category && e.scope === 'sample') ?? null) : null
+  const list = entries.filter((e) => e.scope !== 'sample' || !hasMain(e.category))
 
   /* 처음에는 첫 분야의 기본 범위 — 디자인만·디자인 + 개발이 둘 다 있으면 프로젝트 의뢰(defaultScope) */
   const [pickedKey, setPickedKey] = useState(() => {
@@ -62,7 +63,8 @@ export function PlanPanel({
   const [withSample, setWithSample] = useState(false)
   const [open, setOpen] = useState<{ category?: string; scope?: InquiryScope; sample?: boolean } | null>(null)
   const picked = list.find((e) => e.key === pickedKey) ?? list[0]
-  const sample = picked ? sampleOf(picked.category) : null
+  /* 고른 줄이 메인 시안 옵션을 받을 때만(디자인만 의뢰에서는 뺄 수 있다) */
+  const sample = picked?.sampleOk ? sampleOf(picked.category) : null
   const sampleOn = withSample && sample != null
   const single = list.length === 1
   const cats = list.map((e) => e.category)
@@ -108,7 +110,7 @@ export function PlanPanel({
             <div role="radiogroup" aria-label="의뢰 유형" className="mt-3 space-y-2">
               {list.map((e, i) => {
                 const on = e.key === picked.key
-                const hasSample = sampleOf(e.category) != null
+                const hasSample = e.sampleOk && sampleOf(e.category) != null
                 return (
                   <Fragment key={e.key}>
                     {/* web/app 묶음 아래에 한 줄 — 같은 분야의 유형끼리 묶여 보이게 */}

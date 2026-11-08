@@ -79,6 +79,9 @@ export type ScopeOption = {
   priceLabel: string
   /* 유형 전체·디자이너별 프리미엄이 모두 켜졌을 때만 */
   premium?: { name: string; priceLabel: string }
+  /* 본계약 줄에 메인화면 먼저 의뢰 옵션을 붙일 수 있는지 — 분야의 범위별 스위치(0013).
+     분야에 메인 시안 줄이 있을 때만 뜻이 있다(splitSample) */
+  sampleOk: boolean
 }
 
 export type CategoryChoice = {
@@ -130,12 +133,16 @@ export function categoryPremium(
 }
 
 /* 메인화면 먼저 의뢰는 따로 고르는 줄이 아니라 본계약(디자인만·디자인 + 개발) 줄 안의 옵션이다 —
-   본계약을 고른 뒤에 '메인화면 먼저'를 덧붙인다. 본계약 줄이 하나도 없으면(플랜을 숨긴 경우)
-   메인 시안도 한 줄로 둔다 */
-export function splitSample<T extends { key: InquiryScope }>(options: T[]): { main: T[]; sample: T | null } {
+   본계약을 고른 뒤에 '메인화면 먼저'를 덧붙인다. 붙일 수 있는 줄은 sampleOk 로 고른다(0013).
+   본계약 줄이 하나도 없으면(플랜을 숨긴 경우) 메인 시안도 한 줄로 둔다 */
+export function splitSample<T extends { key: InquiryScope; sampleOk: boolean }>(
+  options: T[],
+): { main: T[]; sample: T | null } {
   const main = options.filter((o) => o.key !== 'sample')
   if (main.length === 0) return { main: options, sample: null }
-  return { main, sample: options.find((o) => o.key === 'sample') ?? null }
+  /* 어느 본계약 줄에도 붙일 수 없으면 메인 시안은 없는 것과 같다 */
+  const sample = main.some((o) => o.sampleOk) ? (options.find((o) => o.key === 'sample') ?? null) : null
+  return { main, sample }
 }
 
 /* 처음 골라 둘 범위 — 디자인만과 디자인 + 개발을 둘 다 받으면 디자인 + 개발(프로젝트 의뢰),
@@ -239,6 +246,7 @@ function build(
           ...(fixedScope ? { title: fixedTitle(meta.name, fixedScope) } : {}),
           priceLabel,
           ...(live ? { premium: { name: live.name, priceLabel: `${formatPrice(live.price)}~` } } : {}),
+          sampleOk: s !== 'sample' && priceOf(meta.prices, s, 'basic').allowSample,
         }
       })
       return { name: meta.name, order: sidebar.indexOf(meta.name), options }

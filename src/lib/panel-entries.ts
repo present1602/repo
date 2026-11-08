@@ -84,6 +84,7 @@ export function panelEntries(src: PanelSource): PanelEntry[] {
         key: `${c.name}:${o.key}`,
         category: c.name,
         scope: o.key,
+        sampleOk: o.sampleOk,
         /* 범위가 정해진 분야는 플랜 설명 대신 비운다 — 로고에 '서비스 전체 디자인' 설명이 붙지 않게 */
         basic: { name, desc: o.title ? '' : copies[plan].basic.desc, priceLabel: o.priceLabel, ...basic },
         ...(live && premium

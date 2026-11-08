@@ -390,7 +390,7 @@ function ScopePriceRow({
   disabled: boolean
   onSave: (
     tier: 'basic' | 'premium',
-    patch: { price?: number | null; enabled?: boolean },
+    patch: { price?: number | null; enabled?: boolean; allowSample?: boolean },
     done: string,
   ) => void
 }) {
@@ -407,6 +407,26 @@ function ScopePriceRow({
         disabled={disabled}
         onSave={(price) => onSave('basic', { price }, `${label} 시작가를 저장했습니다.`)}
       />
+      {/* 메인화면 먼저 의뢰 옵션 — 분야의 '메인시안 우선 허용'이 켜졌을 때만 범위마다 고른다(0013) */}
+      {s.allow_sample && (
+        <label className="flex shrink-0 cursor-pointer items-center gap-1">
+          <input
+            type="checkbox"
+            checked={basic.allowSample}
+            disabled={disabled}
+            onChange={(e) => {
+              const on = e.target.checked
+              onSave(
+                'basic',
+                { allowSample: on },
+                `${label}에 메인화면 먼저 의뢰를 ${on ? '붙였습니다' : '뺐습니다'}.`,
+              )
+            }}
+            className="accent-violet-600"
+          />
+          메인화면 먼저
+        </label>
+      )}
       <label className="flex shrink-0 cursor-pointer items-center gap-1">
         <input
           type="checkbox"

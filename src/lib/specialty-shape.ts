@@ -37,13 +37,14 @@ export const PRICE_TIERS = ['basic', 'premium'] as const
 export type PriceTier = (typeof PRICE_TIERS)[number]
 
 /* enabled — 그 단계를 이 분야·범위에서 내보내는지(기본 단계는 늘 true).
-   price — 시작가(원). null 이면 디자이너 가격 */
-export type ScopePrice = { enabled: boolean; price: number | null }
+   price — 시작가(원). null 이면 디자이너 가격.
+   allowSample — 기본 단계에서만: 이 범위에 메인화면 먼저 의뢰 옵션을 붙일지(0013) */
+export type ScopePrice = { enabled: boolean; price: number | null; allowSample: boolean }
 export type SpecialtyPrices = Partial<Record<PriceScope, Partial<Record<PriceTier, ScopePrice>>>>
 
 /* 줄이 없으면 노출·디자이너 가격 — 0011 을 돌려도 화면이 그대로이게 */
 export function priceOf(prices: SpecialtyPrices, scope: PriceScope, tier: PriceTier): ScopePrice {
-  return prices[scope]?.[tier] ?? { enabled: true, price: null }
+  return prices[scope]?.[tier] ?? { enabled: true, price: null, allowSample: true }
 }
 
 /* 039 의 check 제약과 같은 값 — 함께 고쳐야 한다 */

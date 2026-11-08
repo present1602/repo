@@ -6,6 +6,7 @@ import { INQUIRY_TYPE_SCOPE, isInquiryPlanTier, type InquiryType } from '@/lib/i
 import { SCOPE_INQUIRY_TYPE, isInquiryScope, scopesOf } from '@/lib/inquiry-choices'
 import { getPlanCopies } from '@/lib/site-settings'
 import { listCategoryMetas } from '@/lib/specialties'
+import { priceOf } from '@/lib/specialty-shape'
 
 /* 의뢰 문의 접수.
 
@@ -115,6 +116,10 @@ export async function POST(req: Request) {
       }
       inquiryType = SCOPE_INQUIRY_TYPE[scope]
       if (scope === 'sample' && isInquiryScope(rawMain) && rawMain !== 'sample' && scopesOf(meta).includes(rawMain)) {
+        /* 그 범위에서 메인 시안 옵션을 뺀 분야(0013) — 예전 화면이나 직접 보낸 요청을 막는다 */
+        if (!priceOf(meta.prices, rawMain, 'basic').allowSample) {
+          return bad('이 의뢰에는 메인화면 먼저 의뢰를 붙일 수 없습니다. 새로고침 후 다시 골라 주세요.')
+        }
         mainType = SCOPE_INQUIRY_TYPE[rawMain]
       }
       /* 사이트에서 숨긴 플랜은 받지 않는다 — 화면에서 뺐어도 예전 화면이나 직접 보낸 요청이 올 수 있다 */
