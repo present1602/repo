@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { PublicWork } from '@/lib/designer-shape'
 import { WorkModal } from './work-modal'
-import { WorkThumb } from './work-thumb'
+import { AiBadge, WorkThumb } from './work-thumb'
 
 export function WorkGallery({ works }: { works: PublicWork[] }) {
   const [index, setIndex] = useState<number | null>(null)
@@ -55,12 +55,9 @@ function Card({ work: w, onOpen }: { work: PublicWork; onOpen: () => void }) {
       {/* 제목·클라이언트는 선택 입력이다 —
                 비어 있으면 줄 자체를 그리지 않아 빈 간격이 남지 않게 한다 */}
       {w.title && <h3 className="mt-3 text-base font-medium md:text-lg">{w.title}</h3>}
-      {/* AI 사용 표기는 true 일 때만 붙인다 — null(묻기 전에 올라간
-                작업)과 false 를 구분해 보여주지 않는다. */}
-      {(w.client || w.ai_used || w.soom_work) && (
+      {(w.client || w.soom_work) && (
         <p className="flex flex-wrap items-center gap-x-2 text-xs text-neutral-500">
           {w.client}
-          {w.ai_used && <span className="text-violet-600">AI 활용</span>}
           {w.soom_work && <span className="font-medium text-neutral-900">SOOM 의뢰</span>}
         </p>
       )}
@@ -71,5 +68,9 @@ function Card({ work: w, onOpen }: { work: PublicWork; onOpen: () => void }) {
 /* 썸네일 한 장 — 자리 비율은 썸네일 파일의 실제 비율을 따른다(work-thumb.tsx).
    모달을 열면 원본 전체를 볼 수 있다. */
 function Thumbnail({ work: w }: { work: PublicWork }) {
-  return <WorkThumb work={w} imgClassName="group-hover:opacity-90" />
+  return (
+    <WorkThumb work={w} imgClassName="group-hover:opacity-90">
+      {w.ai_used && <AiBadge />}
+    </WorkThumb>
+  )
 }

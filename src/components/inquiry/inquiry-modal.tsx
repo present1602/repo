@@ -1,44 +1,58 @@
 'use client'
 
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Consent, Dialog, Done, Field, FileField, ReadonlyRow, inputCls } from './form-bits'
-import { dividerBefore, type CategoryChoice, type InquiryScope, type ScopeOption } from '@/lib/inquiry-choices'
+import {
+  defaultScope,
+  splitSample,
+  type CategoryChoice,
+  type InquiryScope,
+  type ScopeOption,
+} from '@/lib/inquiry-choices'
 import { getGeneralInquiryChoices } from '@/app/inquiry-actions'
 import { recalledRef } from '@/lib/invite-link'
 
-/* 유형 카드 안의 기본·프리미엄 전환 한 칸.
-   라디오 label 안에 있으므로 type="button" — 폼을 보내지 않고, 누름이
-   라디오 선택을 흔들지 않는다(이미 이 범위가 골라져 있을 때만 보인다). */
-function TierButton({
-  label,
+/* 범위 이름 옆 짧은 풀이 — 플랜 이름(어드민 설정)만으로는 개발이 들어가는지 알기 어렵다 */
+const SCOPE_NOTE: Partial<Record<InquiryScope, string>> = {
+  design: '디자인만',
+  design_dev: '디자인 + 개발',
+}
+
+/* 프리미엄이 있는 유형 표시 — 의뢰 폼·상세 패널이 같은 모양을 쓴다 */
+export function PremiumBadge() {
+  return (
+    <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">프리미엄</span>
+  )
+}
+
+/* 고른 유형 카드 안에 덧붙이는 옵션 한 줄 — 메인화면 먼저 의뢰·프리미엄 */
+function ExtraOption({
   title,
+  desc,
   priceLabel,
   on,
-  onPick,
+  onChange,
 }: {
-  label: string
-  /* 프리미엄 이름(어드민 설정) — 무엇이 더해지는지 이름으로 알린다 */
-  title?: string
+  title: string
+  desc: string
   priceLabel: string
   on: boolean
-  onPick: () => void
+  onChange: (on: boolean) => void
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      title={title}
-      onClick={(e) => {
-        e.preventDefault()
-        onPick()
-      }}
-      className={`min-h-11 rounded-md px-2.5 py-2 text-left transition ${
-        on ? 'bg-white text-violet-700 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'
-      }`}
-    >
-      <span className="block text-xs font-semibold">{label}</span>
-      <span className="mt-0.5 block text-xs">{priceLabel}</span>
-    </button>
+    <label className="mt-3 ml-6 flex cursor-pointer items-center gap-2.5 rounded-md border border-violet-200 bg-white px-3 py-2.5">
+      <input
+        type="checkbox"
+        checked={on}
+        onChange={(e) => onChange(e.target.checked)}
+        className="size-4 shrink-0 accent-violet-600"
+      />
+      <span className="min-w-0 flex-1 text-sm">
+        <span className="font-medium">{title}</span>
+        {desc && <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">{desc}</span>}
+      </span>
+      <Price label={priceLabel} className="text-sm font-semibold text-violet-700" />
+    </label>
   )
 }
 
@@ -56,9 +70,9 @@ function Price({ label, className }: { label: string; className: string }) {
 
    보낸 내용은 /api/inquiry 로 가서 DB 에 쌓이고 어드민에게 메일이 간다.
 
-   의뢰 유형을 한 목록에서 고른다 — 분야 × 범위를 한 줄씩 펼친 것으로, 상세 페이지의
-   의뢰 패널과 같은 이름·같은 차례다('web/app 디자인 의뢰', '랜딩페이지 의뢰', inquiry-choices.ts).
-   유형이 하나뿐이면 묻지 않고 골라 둔 채 보여준다.
+   의뢰 유형은 두 번에 나눠 고른다 — 먼저 분야(탐색 사이드바와 같은 이름·차례),
+   그 아래에 그 분야가 받는 범위(메인화면 먼저·디자인만·디자인 + 개발, inquiry-choices.ts).
+   분야나 범위가 하나뿐이면 묻지 않고 골라 둔 채 보여준다.
 
    designerName 을 주면 그 디자이너에게 보내는 폼이고, 선택지(choices)도
    그 디자이너 설정으로 걸러 온다. 없으면 일반 의뢰 — 네비바·홈의 '의뢰하기'는
@@ -69,6 +83,7 @@ export function InquiryModal({
   choices: given,
   initialCategory,
   initialScope,
+  initialSample = false,
   onClose,
 }: {
   designerId?: string
@@ -79,6 +94,8 @@ export function InquiryModal({
   initialCategory?: string
   /* 처음부터 골라 둘 범위 — 상세의 의뢰 패널에서 고른 것. 분야를 고르면 그 안에 있을 때 골라진다 */
   initialScope?: InquiryScope
+  /* 패널에서 '메인화면 먼저 의뢰'를 켜고 열었는지 */
+  initialSample?: boolean
   onClose: () => void
 }) {
   const [fetched, setFetched] = useState<CategoryChoice[] | null>(null)
@@ -100,25 +117,38 @@ export function InquiryModal({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
-  /* 의뢰 유형 한 줄 = 분야 × 범위. 상세 패널에서 고른 유형(initialCategory·initialScope)이
-     있으면 그 줄을 골라 둔다 — 범위가 없으면 그 분야의 첫 줄 */
-  const items = (choices ?? []).flatMap((c) => c.options.map((o) => ({ key: `${c.name}:${o.key}`, cat: c.name, o })))
-  const initialKey = initialCategory
-    ? (
-        items.find((it) => it.cat === initialCategory && (!initialScope || it.o.key === initialScope)) ??
-        items.find((it) => it.cat === initialCategory)
-      )?.key
-    : undefined
-  const [pickedKey, setPickedKey] = useState<string | null>(null)
-  const [tier, setTier] = useState<'basic' | 'premium'>('basic')
+  /* 분야는 탐색 사이드바 차례로 — 상세 패널에서 고른 분야(initialCategory)가 있으면 골라 둔다 */
+  const cats = [...(choices ?? [])].sort((a, b) => a.order - b.order)
+  const [pickedCat, setPickedCat] = useState<string | null>(null)
+  const [pickedScope, setPickedScope] = useState<InquiryScope | null>(null)
+  /* 고른 본계약 줄에 덧붙이는 옵션 — 프리미엄과 메인화면 먼저 의뢰는 함께 고르지 않는다
+     (메인 시안은 본계약 전에 먼저 받는 의뢰라 본계약 단계가 아직 정해지지 않는다) */
+  const [extra, setExtra] = useState<'none' | 'premium' | 'sample'>(initialSample ? 'sample' : 'none')
 
-  const current = items.find((it) => it.key === (pickedKey ?? initialKey)) ?? (items.length === 1 ? items[0] : null)
-  const option: ScopeOption | null = current?.o ?? null
-  const cats = items.map((it) => it.cat)
+  const cat =
+    cats.find((c) => c.name === (pickedCat ?? initialCategory)) ?? (cats.length === 1 ? cats[0] : null)
+  /* 범위 — 분야를 바꾸면 처음부터 다시 고른다. 패널에서 고른 범위는 그 분야일 때만 */
+  const scopeKey = pickedCat == null && cat?.name === initialCategory ? (pickedScope ?? initialScope) : pickedScope
+  /* 라디오는 본계약 줄만 — 메인 시안은 고른 줄 안의 옵션(splitSample) */
+  const { main, sample } = cat ? splitSample(cat.options) : { main: [], sample: null }
+  /* 아직 고르지 않았으면 기본 범위(defaultScope) — 디자인만·디자인 + 개발이 둘 다 있으면 프로젝트 의뢰 */
+  const option: ScopeOption | null =
+    main.find((o) => o.key === (scopeKey ?? defaultScope(main.map((x) => x.key)))) ?? null
+  const withSample = extra === 'sample' && sample != null
+  const withPremium = extra === 'premium' && option?.premium != null
 
-  const pick = (key: string) => {
-    setPickedKey(key)
-    setTier('basic')
+  const pickCat = (name: string) => {
+    setPickedCat(name)
+    setPickedScope(null)
+    setExtra('none')
+    setError('')
+  }
+  const pickScope = (key: InquiryScope) => {
+    /* 패널에서 골라 온 분야를 그대로 둔 채 범위만 바꿀 때도 분야를 굳혀 둔다 */
+    if (cat) setPickedCat(cat.name)
+    setPickedScope(key)
+    /* 메인 시안은 같은 분야면 어느 본계약 줄에서도 그대로 둔다 — 프리미엄은 줄마다 다르다 */
+    setExtra((x) => (x === 'premium' ? 'none' : x))
     setError('')
   }
 
@@ -131,8 +161,12 @@ export function InquiryModal({
     if (sending) return
 
     /* 고른 유형은 숨은 칸으로 나간다 — 라디오 required 와 별도로 여기서 한 번 더 짚는다 */
-    if (items.length > 0 && !current) {
-      setError('의뢰 유형을 골라 주세요.')
+    if (cats.length > 0 && !cat) {
+      setError('의뢰 분야를 골라 주세요.')
+      return
+    }
+    if (cat && !option) {
+      setError('의뢰 범위를 골라 주세요.')
       return
     }
 
@@ -200,50 +234,79 @@ export function InquiryModal({
           {choices == null ? (
             <p className="mt-6 text-sm text-neutral-400">의뢰 유형을 불러오는 중…</p>
           ) : (
-            items.length > 0 && (
-              <div className="mt-6 space-y-4">
-                {current && (
-                  <>
-                    <input type="hidden" name="category" value={current.cat} />
-                    <input type="hidden" name="scope" value={current.o.key} />
-                  </>
-                )}
+            cats.length > 0 && (
+              <div className="mt-6 space-y-5">
+                {cat && <input type="hidden" name="category" value={cat.name} />}
+                {/* 메인 시안을 덧붙이면 접수 유형은 메인 시안, 염두에 둔 본계약은 mainScope 로 함께 */}
+                {cat && option && <input type="hidden" name="scope" value={withSample ? 'sample' : option.key} />}
+                {cat && option && withSample && <input type="hidden" name="mainScope" value={option.key} />}
 
-                {/* 하나뿐이면 고를 게 없다 — 골라 둔 모양(보라 테두리)의 한 줄로 */}
-                {items.length === 1 && option ? (
-                  <div className="flex items-start justify-between gap-3 rounded-xl border border-violet-600 bg-violet-50 px-4 py-3.5">
-                    <div className="min-w-0">
-                      <span className="text-sm font-semibold text-violet-700">{option.fullLabel}</span>
-                      {option.desc && <p className="mt-0.5 text-xs leading-relaxed text-neutral-600">{option.desc}</p>}
-                    </div>
-                    <Price label={option.priceLabel} className="text-sm font-bold" />
-                  </div>
-                ) : (
+                {/* 1차 — 분야. 하나뿐이면 고를 게 없으므로 묻지 않는다 */}
+                {cats.length > 1 && (
                   <fieldset>
                     <legend className="mb-2 text-xs font-medium text-neutral-700">
-                      어떤 의뢰인가요? <span className="text-red-600">*</span>
+                      어떤 분야인가요? <span className="text-red-600">*</span>
+                    </legend>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {cats.map((c) => (
+                        <label
+                          key={c.name}
+                          className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm font-medium transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50 has-[:checked]:text-violet-700"
+                        >
+                          <input
+                            required
+                            type="radio"
+                            name="inquiryCategory"
+                            value={c.name}
+                            checked={c.name === cat?.name}
+                            onChange={() => pickCat(c.name)}
+                            className="shrink-0 accent-violet-600"
+                          />
+                          <span className="min-w-0 break-keep">{c.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
+
+                {/* 2차 — 그 분야가 받는 범위. 분야를 골라야 열린다 */}
+                {cat && (
+                  <fieldset>
+                    <legend className="mb-2 text-xs font-medium text-neutral-700">
+                      {cats.length > 1 ? `${cat.name} — ` : ''}어떻게 의뢰할까요?{' '}
+                      <span className="text-red-600">*</span>
                     </legend>
                     <div className="space-y-2">
-                      {items.map((it, i) => {
-                        const o = it.o
-                        const checked = it.key === current?.key
+                      {main.map((o) => {
+                        const checked = o.key === option?.key
+                        /* 테두리는 라디오 상태로 칠한다 — 안의 프리미엄 체크박스가 has-[:checked] 에 걸리지 않게 */
                         return (
-                          <Fragment key={it.key}>
-                            {/* web/app 묶음 아래에 한 줄 — 상세 패널과 같다 */}
-                            {dividerBefore(cats, i) && <hr className="!my-3 border-neutral-200" />}
-                            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-neutral-300 bg-white p-3 transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50">
+                          <div
+                            key={o.key}
+                            className={`rounded-lg border p-3 transition ${
+                              checked ? 'border-violet-600 bg-violet-50' : 'border-neutral-300 bg-white hover:bg-neutral-50'
+                            }`}
+                          >
+                            <label className="flex cursor-pointer items-start gap-2.5">
                               <input
                                 required
                                 type="radio"
-                                name="inquiryPick"
-                                value={it.key}
+                                name="inquiryScope"
+                                value={o.key}
                                 checked={checked}
-                                onChange={() => pick(it.key)}
+                                onChange={() => pickScope(o.key)}
                                 className="mt-0.5 shrink-0 accent-violet-600"
                               />
                               <span className="min-w-0 flex-1">
                                 <span className="flex items-baseline justify-between gap-3">
-                                  <span className="text-sm font-medium">{o.fullLabel}</span>
+                                  <span className="text-sm font-medium">
+                                    {o.label}
+                                    {SCOPE_NOTE[o.key] && !o.label.includes(SCOPE_NOTE[o.key]!) && (
+                                      <span className="ml-1.5 text-xs font-normal text-neutral-500">
+                                        {SCOPE_NOTE[o.key]}
+                                      </span>
+                                    )}
+                                  </span>
                                   <Price label={o.priceLabel} className="text-sm font-semibold text-neutral-800" />
                                 </span>
                                 {o.desc && (
@@ -251,31 +314,43 @@ export function InquiryModal({
                                     {o.desc}
                                   </span>
                                 )}
-                                {o.premium && !checked && (
-                                  <span className="mt-1 block text-[11px] text-violet-700">
-                                    프리미엄 {o.premium.priceLabel} 선택 가능
+                                {/* 프리미엄이 있는 유형 — 고르기 전에도 뱃지와 금액을 보여준다 */}
+                                {o.premium && (
+                                  <span className="mt-2 flex items-center gap-1.5 text-xs text-violet-700">
+                                    <PremiumBadge />
+                                    {o.premium.priceLabel}
                                   </span>
                                 )}
-                                {o.premium && checked && (
-                                  <span className="mt-3 grid grid-cols-2 gap-1 rounded-lg bg-violet-100 p-1">
-                                    <TierButton
-                                      label="기본"
-                                      priceLabel={o.priceLabel}
-                                      on={tier === 'basic'}
-                                      onPick={() => setTier('basic')}
-                                    />
-                                    <TierButton
-                                      label="프리미엄"
-                                      title={o.premium.name}
-                                      priceLabel={o.premium.priceLabel}
-                                      on={tier === 'premium'}
-                                      onPick={() => setTier('premium')}
-                                    />
+                                {/* 메인 시안을 받는 분야 — 고르면 아래에서 덧붙일 수 있다고 미리 알린다 */}
+                                {sample && !checked && (
+                                  <span className="mt-1.5 block text-xs font-medium text-violet-600">
+                                    메인화면 먼저 의뢰 가능
                                   </span>
                                 )}
                               </span>
                             </label>
-                          </Fragment>
+
+                            {/* 고른 유형 안에서만 — 라디오 label 바깥에 두어 누름이 라디오로 번지지 않게.
+                                둘은 함께 고르지 않는다(하나를 켜면 다른 하나는 꺼진다) */}
+                            {checked && sample && (
+                              <ExtraOption
+                                title="메인화면 먼저 의뢰"
+                                desc={sample.desc}
+                                priceLabel={sample.priceLabel}
+                                on={extra === 'sample'}
+                                onChange={(on) => setExtra(on ? 'sample' : 'none')}
+                              />
+                            )}
+                            {checked && o.premium && (
+                              <ExtraOption
+                                title="프리미엄으로 의뢰"
+                                desc={o.premium.name}
+                                priceLabel={o.premium.priceLabel}
+                                on={extra === 'premium'}
+                                onChange={(on) => setExtra(on ? 'premium' : 'none')}
+                              />
+                            )}
+                          </div>
                         )
                       })}
                     </div>
@@ -283,7 +358,9 @@ export function InquiryModal({
                 )}
 
                 {/* 프리미엄을 고를 수 있던 범위일 때만 보낸다 — 아니면 서버가 null 로 둔다 */}
-                {option?.premium && <input type="hidden" name="planTier" value={tier} />}
+                {option?.premium && !withSample && (
+                  <input type="hidden" name="planTier" value={withPremium ? 'premium' : 'basic'} />
+                )}
               </div>
             )
           )}

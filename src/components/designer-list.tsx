@@ -6,6 +6,7 @@ import type { PublicDesignerCard, PublicWork } from '@/lib/designer-shape'
 import { displayNameOf } from '@/lib/display-name'
 import { Img } from './img'
 import { WorkModal } from './work-modal'
+import { AiBadge } from './work-thumb'
 import { ScopePrompt } from './scope-prompt'
 import { InquiryButton } from './inquiry/inquiry-button'
 import type { CategoryChoice, InquiryScope } from '@/lib/inquiry-choices'
@@ -472,6 +473,7 @@ function DesignerCard({
                 style={{ aspectRatio: cardRatio(w) }}
                 focus="center"
               />
+              {w.ai_used && <AiBadge />}
               {w.title && (
                 <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-left text-[11px] text-white opacity-0 transition group-hover:opacity-100">
                   {w.title}
@@ -555,6 +557,7 @@ function DesignerSpotlight({
                   loading="lazy"
                   className="size-full object-cover object-top transition duration-500 group-hover:scale-[1.02]"
                 />
+                {w.ai_used && <AiBadge />}
               </button>
             ) : (
               <p className="grid size-full place-items-center text-sm text-neutral-400">

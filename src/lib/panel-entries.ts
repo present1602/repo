@@ -8,7 +8,6 @@ import {
   bucketOf,
   COMMON_BUCKET,
   formatPrice,
-  livePremium,
   resolveTier,
   slotOf,
   type BucketPlan,
@@ -20,7 +19,7 @@ import {
   type PlanCopies,
   type RegisteredOption,
 } from './plans'
-import { SCOPE_PLAN, type CategoryChoice, type CategoryMeta } from './inquiry-choices'
+import { SCOPE_PLAN, categoryPremium, type CategoryChoice, type CategoryMeta } from './inquiry-choices'
 
 export type PanelSource = {
   /* 의뢰 폼과 같은 선택지(designerChoices) */
@@ -43,7 +42,7 @@ export type PanelSource = {
      공통 목록 다음에 그 분야·범위의 개별 목록(0005). 목록마다 템플릿 항목, 직접 적은 항목 차례.
      고객에게는 출처 구분 없이 같은 한 줄로 보인다. 같은 글이 두 목록에 있으면 한 번만.
      0004 전이면 예전 플랜별 목록의 기본 칸.
-   프리미엄은 유형 전체·디자이너별 스위치가 모두 켜졌을 때만, 항목은 플랜별 목록에서. */
+   프리미엄은 유형 전체·디자이너별·분야의 범위별 스위치가 모두 켜졌을 때만(categoryPremium), 항목은 플랜별 목록에서. */
 export function panelEntries(src: PanelSource): PanelEntry[] {
   const { choices, metas, copies, premiums, planDetails, showDuration, templates, planOptions, optionSetup } = src
 
@@ -67,7 +66,8 @@ export function panelEntries(src: PanelSource): PanelEntry[] {
     c.options.map((o): PanelEntry => {
       const plan = SCOPE_PLAN[o.key] as BucketPlan
       const basic = basicTier(plan, metaOf.get(c.name)?.id)
-      const live = livePremium(copies, premiums, plan)
+      /* 의뢰 폼과 같은 규칙 — 분야의 범위별 프리미엄까지 본다 */
+      const live = categoryPremium(copies, premiums, metaOf.get(c.name), o.key)
       const premium = live
         ? resolveTier(
             copies[plan].premium,

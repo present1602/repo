@@ -4,14 +4,26 @@
    이미 원본을 띄워 두고 있어 자를 재료가 손에 있다. 서버에서 자르면
    원본을 받아 다시 내보내느라 왕복이 한 번 더 생긴다.
 
-   crop 영역이 있으면 그 부분만, 없으면 원본 전체를 줄인다. */
+   crop 영역이 있으면 그 부분만, 없으면 원본의 위쪽(가로의 두 배 높이까지)을 줄인다. */
 
 import type { Crop } from './crop'
 import { type StackPart, stackSize } from './work-stack'
 
-/* 긴 변 기준 최대 길이. 목록 카드는 아무리 커도 한 변 600px 안쪽이고,
-   고해상도 화면을 감안해 두 배로 잡는다. */
+/* 최대 길이. 목록 카드는 아무리 커도 한 변 600px 안쪽이고,
+   고해상도 화면을 감안해 두 배로 잡는다. 세로는 그 두 배까지 —
+   세로로 긴 썸네일도 가로가 이 값을 채우게(fitScale) */
 export const THUMB_MAX = 1200
+
+/* 영역을 잡지 않은 썸네일의 세로 한도 — 가로 1에 세로 2.
+   목록은 1:1.8 까지만 보여주고 아래를 흰색으로 덮는다(work-thumb.tsx 의 MAX_TALL).
+   긴 페이지 전체를 1200px 안에 넣으면 가로가 100~200px 로 쪼그라들어 흐려졌다 —
+   보이는 위쪽만 잘라 가로 해상도를 살린다. 1.8 보다 조금 길게 남겨 덮개가 계속 걸리게 한다 */
+const UNCROPPED_TALL = 2
+
+/* 줄일 배율 — 가로는 THUMB_MAX, 세로는 그 두 배까지. 원본이 작으면 키우지 않는다 */
+function fitScale(sw: number, sh: number) {
+  return Math.min(1, THUMB_MAX / Math.max(sw, sh / 2))
+}
 
 /* WebP 품질 — 0.82 아래로는 평평한 면에 얼룩이 보이기 시작한다 */
 const QUALITY = 0.82
@@ -31,13 +43,15 @@ export async function makeThumb(file: File, crop: Crop | null): Promise<Thumb | 
     const sx = crop ? Math.round(crop.x * bitmap.width) : 0
     const sy = crop ? Math.round(crop.y * bitmap.height) : 0
     const sw = crop ? Math.round(crop.w * bitmap.width) : bitmap.width
-    const sh = crop ? Math.round(crop.h * bitmap.height) : bitmap.height
+    /* 영역이 없으면 위에서 가로의 두 배까지만(UNCROPPED_TALL) */
+    const sh = crop
+      ? Math.round(crop.h * bitmap.height)
+      : Math.min(bitmap.height, Math.round(bitmap.width * UNCROPPED_TALL))
 
     if (sw < 1 || sh < 1) return null
 
-    /* 긴 변을 THUMB_MAX 로 맞춘다. 원본이 이미 작으면 키우지 않는다 —
-       늘려 봐야 화질은 그대로이고 파일만 커진다. */
-    const scale = Math.min(1, THUMB_MAX / Math.max(sw, sh))
+    /* 원본이 이미 작으면 키우지 않는다 — 늘려 봐야 화질은 그대로이고 파일만 커진다 */
+    const scale = fitScale(sw, sh)
     const dw = Math.max(1, Math.round(sw * scale))
     const dh = Math.max(1, Math.round(sh * scale))
 
@@ -109,7 +123,7 @@ export async function makeStackThumb(parts: StackPart[], crop: Crop): Promise<Th
     const sh = crop.h * height
     if (sw < 1 || sh < 1) return null
 
-    const scale = Math.min(1, THUMB_MAX / Math.max(sw, sh))
+    const scale = fitScale(sw, sh)
     const canvas = document.createElement('canvas')
     canvas.width = Math.max(1, Math.round(sw * scale))
     canvas.height = Math.max(1, Math.round(sh * scale))

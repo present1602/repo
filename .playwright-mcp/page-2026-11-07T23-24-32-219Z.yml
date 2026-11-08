@@ -1,0 +1,9 @@
+- generic [active] [ref=f4e1]:
+  - main [ref=f4e4]:
+    - generic [ref=f4e5]:
+      - generic [ref=f4e6]: F
+      - heading "관리자" [level=1] [ref=f4e7]
+      - paragraph [ref=f4e8]: 허용된 계정만 접근할 수 있습니다.
+      - button "Google 계정으로 로그인" [ref=f4e10]
+  - button "Open Next.js Dev Tools" [ref=f4e21] [cursor=pointer]
+  - alert [ref=f4e25]

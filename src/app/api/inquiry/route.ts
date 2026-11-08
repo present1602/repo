@@ -87,6 +87,8 @@ export async function POST(req: Request) {
     const category = String(form.get('category') ?? '').trim()
     const rawScope = String(form.get('scope') ?? '').trim()
     const scope = isInquiryScope(rawScope) ? rawScope : null
+    /* 메인 시안을 본계약 옵션으로 골랐을 때 염두에 둔 본계약(디자인만·디자인 + 개발) — 메일에만 적는다 */
+    const rawMain = String(form.get('mainScope') ?? '').trim()
     /* 기본·프리미엄 — 프리미엄이 있는 유형을 골랐을 때만 온다. 그 밖에는 null */
     const rawTier = String(form.get('planTier') ?? '').trim()
     const planTier = isInquiryPlanTier(rawTier) ? rawTier : null
@@ -104,6 +106,7 @@ export async function POST(req: Request) {
     /* 의뢰 유형은 탐색 메뉴에 나오는 분야뿐이다 — 숨긴 분야는 받지 않는다 */
     const metas = (await listCategoryMetas()).filter((m) => m.visible)
     let inquiryType: InquiryType | null = null
+    let mainType: InquiryType | null = null
     if (metas.length > 0) {
       const meta = metas.find((m) => m.name === category)
       if (!meta) return bad('무엇을 만드는지 골라 주세요. 새로고침 후 다시 시도해 주세요.')
@@ -111,6 +114,9 @@ export async function POST(req: Request) {
         return bad('맡길 범위를 골라 주세요.')
       }
       inquiryType = SCOPE_INQUIRY_TYPE[scope]
+      if (scope === 'sample' && isInquiryScope(rawMain) && rawMain !== 'sample' && scopesOf(meta).includes(rawMain)) {
+        mainType = SCOPE_INQUIRY_TYPE[rawMain]
+      }
       /* 사이트에서 숨긴 플랜은 받지 않는다 — 화면에서 뺐어도 예전 화면이나 직접 보낸 요청이 올 수 있다 */
       if (!(await getPlanCopies())[INQUIRY_TYPE_SCOPE[inquiryType]].visible) {
         return bad('지금은 받지 않는 의뢰 유형입니다. 새로고침 후 다시 골라 주세요.')
@@ -263,7 +269,11 @@ export async function POST(req: Request) {
 
     /* 분야·범위를 한 줄로, 프리미엄을 골랐으면 그 옆에 — 메일 제목만 보고도 견적이 갈린다 */
     const typeLabel =
-      [inquiryType ? category : '', inquiryType ?? '일반 문의', planTier === 'premium' ? '프리미엄' : '']
+      [
+        inquiryType ? category : '',
+        (inquiryType ?? '일반 문의') + (mainType ? ` → ${mainType}` : ''),
+        planTier === 'premium' ? '프리미엄' : '',
+      ]
         .filter(Boolean)
         .join(' · ')
 

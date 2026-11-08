@@ -11,7 +11,7 @@ import {
   type PlanCopies,
 } from '@/lib/plans'
 import { MAX_TAGS } from '@/lib/specialty-shape'
-import { menuCategories, type CategoryMeta } from '@/lib/inquiry-choices'
+import { categoryPrice, menuCategories, type CategoryMeta } from '@/lib/inquiry-choices'
 import { updateRequestSettings } from '@/app/studio/actions'
 import { Flash } from '@/components/flash'
 
@@ -259,10 +259,11 @@ export function PlanForm({
                       <LockedCheck on={on} />
                     </span>
                     <span className="min-w-0 flex-1 space-y-1">
+                      {/* 분야 시작가(0011)가 있으면 그 금액, 없으면 디자이너 가격 */}
                       {(
                         [
-                          ['full_design', fullPrice],
-                          ['with_dev', projectPrice],
+                          ['full_design', categoryPrice(c, 'design') ?? fullPrice],
+                          ['with_dev', categoryPrice(c, 'design_dev') ?? projectPrice],
                         ] as const
                       )
                         .filter(([plan]) => copy[plan].visible)
@@ -289,7 +290,7 @@ export function PlanForm({
                     }
                     title={c.scope_mode === 'design_dev' ? `${c.name} 개발` : c.name}
                     price={`${formatPrice(
-                      c.price_from ?? (c.scope_mode === 'design_dev' ? projectPrice : fullPrice),
+                      categoryPrice(c, c.scope_mode) ?? (c.scope_mode === 'design_dev' ? projectPrice : fullPrice),
                     )}~`}
                     hint={
                       c.scope_mode === 'design_dev'

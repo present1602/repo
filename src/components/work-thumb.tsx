@@ -23,6 +23,20 @@ import { cropOf } from '@/lib/crop'
    크게 어긋난다. */
 const MAX_TALL = 1 / 1.8
 
+/* 'AI' 뱃지 — 상세 갤러리·탐색 카드·작업 모달이 같이 쓴다. 기본은 그림 오른쪽 위(부모가 relative),
+   place 를 비우면 흐름 안에 놓인다(모달 머리 줄).
+   AI 사용 표기는 true 일 때만 부른다 — null(묻기 전에 올라간 작업)과 false 를 구분해 보여주지 않는다.
+   사이트 보라색을 반투명으로 눌러 써 색감은 있되 그림 위에서 튀지 않게 */
+export function AiBadge({ place = 'absolute right-2 top-2' }: { place?: string }) {
+  return (
+    <span
+      className={`pointer-events-none shrink-0 rounded-full bg-violet-500/75 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white backdrop-blur-sm ${place}`}
+    >
+      AI
+    </span>
+  )
+}
+
 export function WorkThumb({
   work: w,
   rounded = 'rounded-lg',

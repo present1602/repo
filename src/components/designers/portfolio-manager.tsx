@@ -21,6 +21,7 @@ import {
   reorderWorks,
 } from '@/app/studio/actions'
 import { Img } from '@/components/img'
+import { WorkThumb } from '@/components/work-thumb'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
 import { StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
 import {
@@ -97,13 +98,24 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
       ) : editMode ? (
         <EditList works={works} onMessage={setMsg} onEdit={setEditing} />
       ) : (
-        /* 3열 masonry — 가로 폭은 그리드가 정하고, 카드마다 세로 칸 수만 다르다.
-           auto-rows 를 작게 쪼개 row_span 으로 높이를 조절한다. */
-        <div className="grid auto-rows-[170px] grid-cols-2 gap-3 md:auto-rows-[250px] md:grid-cols-3">
-          {works.map((w) => (
-            <WorkCard key={w.id} work={w} onEdit={() => setEditing(w.id)} />
+        /* masonry — 카드 높이는 썸네일 비율을 따른다(공개 화면 work-gallery.tsx 와 같은 WorkThumb).
+           왼쪽부터 한 장씩 돌아가며 칸에 넣어 읽는 순서가 공개 화면 순서와 같게 한다.
+           좁은 화면 2열, 넓은 화면 3열 — 열 수마다 따로 나눠 그린다 */
+        <>
+          {[2, 3].map((n) => (
+            <div key={n} className={`gap-3 ${n === 2 ? 'flex md:hidden' : 'hidden md:flex'}`}>
+              {Array.from({ length: n }, (_, c) => (
+                <div key={c} className="min-w-0 flex-1 space-y-3">
+                  {works
+                    .filter((_, i) => i % n === c)
+                    .map((w) => (
+                      <WorkCard key={w.id} work={w} onEdit={() => setEditing(w.id)} />
+                    ))}
+                </div>
+              ))}
+            </div>
           ))}
-        </div>
+        </>
       )}
 
       <p className="text-xs text-neutral-400">
@@ -323,23 +335,17 @@ function WorkCard({
   onEdit: () => void
 }) {
   return (
-    <article
-      className="relative overflow-hidden rounded-lg ring-1 ring-neutral-200"
-      style={{ gridRow: `span ${w.row_span} / span ${w.row_span}` }}
-    >
+    <article className="relative overflow-hidden rounded-lg ring-1 ring-neutral-200">
       {/* 카드 어디를 눌러도 편집 레이어가 열린다. 배지·제목 줄은 위에 겹쳐 있어
           클릭을 막지 않게 pointer-events-none 으로 둔다(편집 버튼만 받는다) */}
       <button
         type="button"
         onClick={onEdit}
         aria-label={`${w.title ?? '작업'} 편집`}
-        className="block h-full w-full cursor-pointer transition hover:opacity-90"
+        className={`block w-full cursor-pointer transition hover:opacity-90 ${w.visible ? '' : 'opacity-40'}`}
       >
-        <Img
-          src={thumbSrc(w)}
-          alt={w.title ?? ''}
-          className={`h-full w-full ${w.visible ? '' : 'opacity-40'}`}
-        />
+        {/* 공개 화면과 같은 칸 — 썸네일 비율대로, 영역 없는 긴 페이지는 1:1.8 에서 끊는다 */}
+        <WorkThumb work={{ ...w, thumb_url: thumbSrc(w) }} rounded="" />
       </button>
 
       <div className="pointer-events-none absolute left-2 top-2 flex flex-wrap gap-1">

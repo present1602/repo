@@ -16,7 +16,14 @@ import {
   type PlanTier,
 } from '@/lib/plans'
 import { SCOPES, type Scope } from '@/lib/scopes'
-import { isSpecialtyScopeMode, type SpecialtyScopeMode } from '@/lib/specialty-shape'
+import {
+  isSpecialtyScopeMode,
+  PRICE_SCOPES,
+  PRICE_TIERS,
+  type PriceScope,
+  type PriceTier,
+  type SpecialtyScopeMode,
+} from '@/lib/specialty-shape'
 
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
    페이지에서 막았더라도 여기서 권한을 다시 확인해야 한다. */
@@ -306,23 +313,52 @@ export async function setSpecialtyDescription(id: string, text: string): Promise
   return { ok: true }
 }
 
-/* 범위가 정해진 분야의 시작가(0003) — null 이면 디자이너의 범위 가격을 쓴다.
+/* 분야의 범위 × 단계 한 칸(0011) — 시작가와 노출을 바꾼다. 주지 않은 값은 그대로 둔다.
+   시작가 null 이면 디자이너 가격을 쓴다. 기본 단계는 끌 수 없다 — 범위를 닫으려면 의뢰 범위를 바꾼다.
    본 계약 시작가와 같은 범위로 막는다(isContractPrice) */
-export async function setSpecialtyPriceFrom(id: string, price: number | null): Promise<Result> {
+export async function setSpecialtyPrice(
+  id: string,
+  scope: PriceScope,
+  tier: PriceTier,
+  patch: { price?: number | null; enabled?: boolean },
+): Promise<Result> {
   const db = await guard()
 
-  if (price != null && !isContractPrice(price)) {
+  if (!(PRICE_SCOPES as readonly string[]).includes(scope)) return fail('알 수 없는 의뢰 범위입니다.')
+  if (!(PRICE_TIERS as readonly string[]).includes(tier)) return fail('알 수 없는 단계입니다.')
+  if (patch.price != null && !isContractPrice(patch.price)) {
     return fail('시작가는 10,000원 이상 1억 원 이하로 입력해 주세요.')
   }
+  if (tier === 'basic' && patch.enabled === false) return fail('기본 단계는 끌 수 없습니다.')
 
-  const { error } = await db.from('specialties').update({ price_from: price }).eq('id', id)
+  const missing = (msg: string) =>
+    /specialty_plan_prices/i.test(msg)
+      ? fail('0011_specialty_scope_prices.sql 을 먼저 실행해 주세요.')
+      : fail('변경에 실패했습니다.')
+
+  /* 한 칸만 바꿔도 줄 전체를 쓰므로 지금 값을 먼저 읽는다 */
+  const cur = await db
+    .from('specialty_plan_prices')
+    .select('enabled, price')
+    .eq('specialty_id', id)
+    .eq('scope', scope)
+    .eq('tier', tier)
+    .maybeSingle()
+  if (cur.error) {
+    console.error('[specialties] 시작가 조회 실패:', cur.error.message)
+    return missing(cur.error.message)
+  }
+
+  const { error } = await db.from('specialty_plan_prices').upsert({
+    specialty_id: id,
+    scope,
+    tier,
+    enabled: patch.enabled ?? cur.data?.enabled ?? true,
+    price: patch.price !== undefined ? patch.price : (cur.data?.price ?? null),
+  })
   if (error) {
     console.error('[specialties] 시작가 변경 실패:', error.message)
-    return fail(
-      error.message.includes('price_from')
-        ? '0003_inquiry_category.sql 을 먼저 실행해 주세요.'
-        : '변경에 실패했습니다.',
-    )
+    return missing(error.message)
   }
 
   refreshSpecialties()

@@ -6,6 +6,8 @@ import {
   SPECIALTY_SCOPE_MODES,
   SPECIALTY_SCOPE_MODE_LABELS,
   isSpecialtyScopeMode,
+  priceOf,
+  type PriceScope,
   type Specialty,
 } from '@/lib/specialty-shape'
 import {
@@ -15,7 +17,7 @@ import {
   setSpecialtyScopeMode,
   setSpecialtyAllowSample,
   setSpecialtyDescription,
-  setSpecialtyPriceFrom,
+  setSpecialtyPrice,
   setExploreDesc,
   reorderSpecialties,
   deleteSpecialty,
@@ -169,7 +171,7 @@ export function SpecialtyManager({
                 e.preventDefault()
                 moveTo(i)
               }}
-              className={`flex items-center gap-2 bg-white pr-3 transition ${
+              className={`flex flex-wrap items-center gap-x-2 bg-white pr-3 transition ${
                 dragId === s.id ? 'opacity-40' : ''
               } ${s.visible ? '' : 'bg-neutral-50'}`}
             >
@@ -228,17 +230,6 @@ export function SpecialtyManager({
                         act(() => setSpecialtyDescription(s.id, text), `'${s.name}' 문구를 저장했습니다.`)
                       }
                     />
-                    {/* 범위가 정해진 분야만 — 고르는 분야는 디자이너의 범위 가격을 쓴다 */}
-                    {s.scope_mode !== 'choice' && (
-                      <PriceField
-                        key={String(s.price_from)}
-                        value={s.price_from}
-                        disabled={pending}
-                        onSave={(price) =>
-                          act(() => setSpecialtyPriceFrom(s.id, price), `'${s.name}' 시작가를 저장했습니다.`)
-                        }
-                      />
-                    )}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1.5">
@@ -302,6 +293,22 @@ export function SpecialtyManager({
                       삭제
                     </button>
                   </div>
+                  {/* 시작가 — 분야 줄 아래 전체 폭으로. 이름 칸과 줄을 맞춘다(손잡이 폭 + 간격) */}
+                  <div className="basis-full space-y-1.5 pb-3 pl-8">
+                  {/* 지금 범위가 받는 칸만 — 고객이 선택 분야는 둘 다. 범위를 바꿔도 적어 둔 값은 남는다 */}
+                  {SCOPE_ROWS.filter((r) => s.scope_mode === 'choice' || s.scope_mode === r.scope).map((r) => (
+                    <ScopePriceRow
+                      key={r.scope}
+                      specialty={s}
+                      scope={r.scope}
+                      label={r.label}
+                      disabled={pending}
+                      onSave={(tier, patch, done) =>
+                        act(() => setSpecialtyPrice(s.id, r.scope, tier, patch), `'${s.name}' ${done}`)
+                      }
+                    />
+                  ))}
+                  </div>
                 </>
               )}
             </li>
@@ -313,6 +320,9 @@ export function SpecialtyManager({
         손잡이를 끌어 탐색 화면에 보이는 차례를 바꿉니다. 숨긴 분야는 탐색 사이드바에서만
         빠지고, 디자이너는 계속 고를 수 있으며 프로필에도 나옵니다. 의뢰 범위가 &lsquo;고객이 선택&rsquo;인
         분야만 탐색 제목 옆에 &lsquo;전체 | 디자인 | 디자인 + 개발&rsquo; 필터가 나옵니다.
+        시작가를 비워 두면 디자이너마다 정한 가격(디자인 전체·프로젝트 최소가, 프리미엄은 디자이너별 프리미엄
+        금액)이 나갑니다. 프리미엄은 설정의 유형별 프리미엄과 디자이너별 프리미엄이 함께 켜져 있어야 나가고,
+        여기서 끄면 그 분야·범위에서만 빠집니다.
         &lsquo;메인시안 우선 허용&rsquo;을 켠 분야를 고른 디자이너만 메인시안 의뢰를 받을 수 있습니다. 쓰는
         디자이너가 있는 분야는 숨긴 뒤에 지울 수 있고, 지우면 그 디자이너들에게서도 빠집니다.
       </p>
@@ -358,14 +368,82 @@ function DescField({
   )
 }
 
-/* 분야 시작가 한 칸 — 의뢰 폼에서 이 분야 금액으로 나간다. 비우면 디자이너 가격.
-   DescField 와 같이 칸을 벗어나거나 Enter 로 저장한다 */
-function PriceField({
-  value,
+/* 범위별 시작가 줄(0011) — 메인화면 먼저 의뢰는 디자이너 가격이라 줄이 없다 */
+const SCOPE_ROWS = [
+  { scope: 'design', label: '디자인만' },
+  { scope: 'design_dev', label: '디자인 + 개발' },
+] as const
+
+/* 범위 한 줄 — 기본 시작가, 그 옆에 프리미엄 켜짐과 시작가.
+   프리미엄을 끄면 이 분야·범위에서만 빠진다(설정·디자이너별 프리미엄은 그대로).
+   꺼도 금액은 남는다 — 다시 켤 때 다시 적지 않게 */
+function ScopePriceRow({
+  specialty: s,
+  scope,
+  label,
   disabled,
   onSave,
 }: {
+  specialty: Specialty
+  scope: PriceScope
+  label: string
+  disabled: boolean
+  onSave: (
+    tier: 'basic' | 'premium',
+    patch: { price?: number | null; enabled?: boolean },
+    done: string,
+  ) => void
+}) {
+  const basic = priceOf(s.prices, scope, 'basic')
+  const premium = priceOf(s.prices, scope, 'premium')
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-neutral-500">
+      <span className="w-20 shrink-0 font-medium text-neutral-600">{label}</span>
+      <PriceField
+        key={`basic:${basic.price}`}
+        label="시작가"
+        value={basic.price}
+        disabled={disabled}
+        onSave={(price) => onSave('basic', { price }, `${label} 시작가를 저장했습니다.`)}
+      />
+      <label className="flex shrink-0 cursor-pointer items-center gap-1">
+        <input
+          type="checkbox"
+          checked={premium.enabled}
+          disabled={disabled}
+          onChange={(e) => {
+            const on = e.target.checked
+            onSave('premium', { enabled: on }, `${label} 프리미엄을 ${on ? '켰습니다' : '껐습니다'}.`)
+          }}
+          className="accent-violet-600"
+        />
+        프리미엄
+      </label>
+      <PriceField
+        key={`premium:${premium.price}`}
+        label="시작가"
+        value={premium.price}
+        disabled={disabled || !premium.enabled}
+        placeholder="디자이너 금액"
+        onSave={(price) => onSave('premium', { price }, `${label} 프리미엄 시작가를 저장했습니다.`)}
+      />
+    </div>
+  )
+}
+
+/* 분야 시작가 한 칸 — 의뢰 폼에서 이 분야 금액으로 나간다. 비우면 디자이너 가격.
+   DescField 와 같이 칸을 벗어나거나 Enter 로 저장한다 */
+function PriceField({
+  label,
+  value,
+  disabled,
+  placeholder = '디자이너 가격',
+  onSave,
+}: {
+  label: string
   value: number | null
+  placeholder?: string
   disabled: boolean
   onSave: (price: number | null) => void
 }) {
@@ -377,8 +455,8 @@ function PriceField({
   }
 
   return (
-    <label className="mt-1.5 flex items-center gap-2 text-[11px] text-neutral-500">
-      <span className="shrink-0">의뢰 시작가</span>
+    <label className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+      <span className="shrink-0">{label}</span>
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -392,8 +470,8 @@ function PriceField({
         }}
         disabled={disabled}
         inputMode="numeric"
-        placeholder="비우면 디자이너 가격"
-        className="h-8 w-40 min-w-0 rounded-md border border-neutral-200 bg-white px-2.5 text-xs text-neutral-700 outline-none ring-violet-500 placeholder:text-neutral-400 focus:ring-2 disabled:opacity-60"
+        placeholder={placeholder}
+        className="h-8 w-28 shrink-0 rounded-md border border-neutral-200 bg-white px-2.5 text-xs text-neutral-700 outline-none ring-violet-500 placeholder:text-neutral-400 focus:ring-2 disabled:opacity-60"
       />
       <span className="shrink-0">원</span>
     </label>

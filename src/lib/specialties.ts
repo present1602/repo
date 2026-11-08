@@ -1,6 +1,6 @@
 import 'server-only'
 import { supabaseAdmin } from './supabase-admin'
-import type { Specialty, SpecialtyOption, SpecialtyScopeMode } from './specialty-shape'
+import type { PriceScope, PriceTier, Specialty, SpecialtyOption, SpecialtyPrices, SpecialtyScopeMode } from './specialty-shape'
 import type { CategoryMeta } from './inquiry-choices'
 
 /* 전문 분야 목록 조회(011_specialties.sql).
@@ -12,11 +12,34 @@ const COLS = 'id, name, sort_order, visible'
 /* 039·0002·0003 전에는 없다 — 실패 메시지에 이름이 나오면 빼고 다시 묻는다(site-settings.ts 와 같은 방식) */
 const OPTIONAL_COLS = ['scope_mode', 'allow_sample', 'description', 'price_from']
 
-type Row = Omit<Specialty, 'scope_mode' | 'allow_sample' | 'description' | 'price_from'> & {
+type Row = Omit<Specialty, 'scope_mode' | 'allow_sample' | 'description' | 'prices'> & {
   scope_mode?: SpecialtyScopeMode
   allow_sample?: boolean
   description?: string
+  /* 0011 전의 한 칸 — 범위가 정해진 분야의 기본 시작가. 0011 뒤에는 specialty_plan_prices 를 읽는다 */
   price_from?: number | null
+}
+
+type PriceRow = { specialty_id: string; scope: PriceScope; tier: PriceTier; enabled: boolean; price: number | null }
+
+/* 분야별 범위·단계 시작가(0011). 표가 없으면 null — 예전 price_from 으로 대신한다 */
+async function readPrices(): Promise<Map<string, SpecialtyPrices> | null> {
+  const { data, error } = await supabaseAdmin!
+    .from('specialty_plan_prices')
+    .select('specialty_id, scope, tier, enabled, price')
+  if (error) {
+    if (!/specialty_plan_prices/i.test(error.message)) {
+      console.error('[specialties] 시작가 조회 실패:', error.message)
+    }
+    return null
+  }
+  const map = new Map<string, SpecialtyPrices>()
+  for (const r of (data ?? []) as PriceRow[]) {
+    const p = map.get(r.specialty_id) ?? {}
+    p[r.scope] = { ...p[r.scope], [r.tier]: { enabled: r.enabled, price: r.price } }
+    map.set(r.specialty_id, p)
+  }
+  return map
 }
 
 /* 화면에 내보낼 순서로 정렬한다 — sort_order 가 같으면 이름순(한글 기준).
@@ -36,6 +59,7 @@ async function readSpecialties(visibleOnly: boolean) {
   }
 
   let cols = OPTIONAL_COLS
+  const pricesP = readPrices()
   let r = await ask(cols)
   for (const c of OPTIONAL_COLS) {
     if (!r.error?.message.includes(c)) continue
@@ -51,14 +75,23 @@ async function readSpecialties(visibleOnly: boolean) {
     return null
   }
 
+  const prices = await pricesP
   return ((r.data ?? []) as unknown as Row[])
-    .map((s) => ({
-      ...s,
-      scope_mode: s.scope_mode ?? 'choice',
-      allow_sample: s.allow_sample ?? false,
-      description: s.description ?? '',
-      price_from: s.price_from ?? null,
-    }))
+    .map(({ price_from, ...s }): Specialty => {
+      const mode = s.scope_mode ?? 'choice'
+      return {
+        ...s,
+        scope_mode: mode,
+        allow_sample: s.allow_sample ?? false,
+        description: s.description ?? '',
+        /* 0011 전이면 예전 한 칸(price_from)을 그 분야 범위의 기본 단계로 읽는다 */
+        prices:
+          prices?.get(s.id) ??
+          (prices == null && price_from != null && mode !== 'choice'
+            ? { [mode]: { basic: { enabled: true, price: price_from } } }
+            : {}),
+      }
+    })
     .sort(byOrder)
 }
 
@@ -123,7 +156,7 @@ export async function listCategoryMetas(): Promise<CategoryMeta[]> {
       visible: s.visible,
       scope_mode: s.scope_mode,
       allow_sample: s.allow_sample,
-      price_from: s.price_from,
+      prices: s.prices,
     })) ?? []
   )
 }

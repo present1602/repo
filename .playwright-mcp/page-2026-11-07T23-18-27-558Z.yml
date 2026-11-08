@@ -1,0 +1,92 @@
+- generic [active] [ref=f2e1]:
+  - banner [ref=f2e2]:
+    - generic [ref=f2e3]:
+      - link "SOOM" [ref=f2e4] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f2e5]:
+        - link "탐색" [ref=f2e6] [cursor=pointer]:
+          - /url: /explore
+        - button "의뢰하기" [ref=f2e7]
+  - generic [ref=f2e10]:
+    - navigation [ref=f2e11]:
+      - link "← 탐색으로" [ref=f2e12] [cursor=pointer]:
+        - /url: /explore
+    - banner [ref=f2e13]:
+      - generic [ref=f2e14]:
+        - generic [ref=f2e15]: 소
+        - generic [ref=f2e16]:
+          - heading "소*혜" [level=1] [ref=f2e17]
+          - paragraph [ref=f2e18]: 브랜드의 첫인상을 설계하는 일을 합니다.
+      - generic [ref=f2e19]: 모바일앱
+    - generic [ref=f2e21]:
+      - generic [ref=f2e22]:
+        - generic [ref=f2e23]:
+          - heading "Works" [level=2] [ref=f2e24]
+          - generic [ref=f2e25]: 2개의 작업
+        - generic [ref=f2e26]:
+          - button [ref=f2e28]:
+            - paragraph [ref=f2e30]: 테이프 뮤직
+          - button "AI 활용" [ref=f2e32]:
+            - paragraph [ref=f2e34]:
+              - generic [ref=f2e35]: AI 활용
+      - complementary [ref=f2e36]:
+        - generic [ref=f2e37]:
+          - generic [ref=f2e38]:
+            - heading "의뢰 유형" [level=2] [ref=f2e39]
+            - generic [ref=f2e40]: 3개 중 선택
+          - radiogroup "의뢰 유형" [ref=f2e41]:
+            - generic [ref=f2e42] [cursor=pointer]:
+              - radio "모바일앱 메인화면 먼저 의뢰 29,000 ~ 99,000원 VAT 별도" [checked] [ref=f2e43]
+              - generic [ref=f2e44]:
+                - generic [ref=f2e45]: 모바일앱 메인화면 먼저 의뢰
+                - generic [ref=f2e46]:
+                  - text: 29,000 ~ 99,000원
+                  - generic [ref=f2e47]: VAT 별도
+            - generic [ref=f2e48] [cursor=pointer]:
+              - radio "모바일앱 디자인 전체 의뢰 179,000원~ VAT 별도" [ref=f2e49]
+              - generic [ref=f2e50]:
+                - generic [ref=f2e51]: 모바일앱 디자인 전체 의뢰
+                - generic [ref=f2e52]:
+                  - text: 179,000원~
+                  - generic [ref=f2e53]: VAT 별도
+            - generic [ref=f2e54] [cursor=pointer]:
+              - radio "모바일앱 프로젝트 의뢰 349,000원~ VAT 별도" [ref=f2e55]
+              - generic [ref=f2e56]:
+                - generic [ref=f2e57]: 모바일앱 프로젝트 의뢰
+                - generic [ref=f2e58]:
+                  - text: 349,000원~
+                  - generic [ref=f2e59]: VAT 별도
+          - generic [ref=f2e60]:
+            - generic [ref=f2e61]: 모바일앱 메인화면 먼저 의뢰
+            - paragraph [ref=f2e63]: 29,000 ~ 99,000원VAT 별도
+          - button "문의하기" [ref=f2e64]
+  - contentinfo [ref=f2e65]:
+    - generic [ref=f2e66]:
+      - generic [ref=f2e67]:
+        - generic [ref=f2e68]:
+          - paragraph [ref=f2e69]: SOOM
+          - generic [ref=f2e70]:
+            - generic [ref=f2e71]:
+              - term [ref=f2e72]: 상호
+              - definition [ref=f2e73]: 밸런스
+            - generic [ref=f2e74]:
+              - term [ref=f2e75]: 사업자등록번호
+              - definition [ref=f2e76]: 464-12-02831
+            - generic [ref=f2e77]:
+              - term [ref=f2e78]: 사업장 소재지
+              - definition [ref=f2e79]: 서울 마포구 서교동 와우산로 162-10 2층
+            - generic [ref=f2e80]:
+              - term [ref=f2e81]: 이메일
+              - definition [ref=f2e82]:
+                - link "manager@soom.it" [ref=f2e83] [cursor=pointer]:
+                  - /url: mailto:manager@soom.it
+        - navigation [ref=f2e84]:
+          - link "디자이너 로그인" [ref=f2e85] [cursor=pointer]:
+            - /url: /studio/login
+          - link "디자이너 제안서" [ref=f2e86] [cursor=pointer]:
+            - /url: /designers/proposal/v1
+          - link "이용약관" [ref=f2e87] [cursor=pointer]:
+            - /url: /terms
+      - paragraph [ref=f2e88]: © 2026 Balance. All rights reserved.
+  - button "Open Next.js Dev Tools" [ref=f2e94] [cursor=pointer]
+  - alert [ref=f2e98]

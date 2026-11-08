@@ -18,8 +18,9 @@ export type Specialty = {
   allow_sample: boolean
   /* 탐색에서 이 분야를 고르면 제목 아래에 나가는 문구(0002). 비면 나가지 않는다 */
   description: string
-  /* 범위가 정해진 분야의 시작가(원, 0003). 비면 디자이너의 범위 가격을 쓴다 */
-  price_from: number | null
+  /* 범위 × 단계마다의 노출·시작가(0011_specialty_scope_prices.sql). 비면 기본값(priceOf).
+     의뢰 범위를 바꿔도 남아 있다 — 지금 범위가 받는 칸만 쓴다 */
+  prices: SpecialtyPrices
   /* 이 분야를 고른 디자이너 수 — 어드민 목록에서만 채워진다.
      끄거나 이름을 바꾸기 전에 영향 범위를 보여주는 값이다. */
   used?: number
@@ -27,6 +28,23 @@ export type Specialty = {
 
 /* 디자이너가 고르는 선택지 한 칸 — visible 이면 탐색 사이드바(메뉴)에 나오는 분야다 */
 export type SpecialtyOption = { name: string; visible: boolean }
+
+/* 분야 시작가를 두는 범위·단계 — 0011 의 check 제약과 같은 값, 함께 고쳐야 한다.
+   메인화면 먼저 의뢰는 디자이너 가격이라 없다. 단계가 늘면 PRICE_TIERS 와 check 를 넓힌다 */
+export const PRICE_SCOPES = ['design', 'design_dev'] as const
+export type PriceScope = (typeof PRICE_SCOPES)[number]
+export const PRICE_TIERS = ['basic', 'premium'] as const
+export type PriceTier = (typeof PRICE_TIERS)[number]
+
+/* enabled — 그 단계를 이 분야·범위에서 내보내는지(기본 단계는 늘 true).
+   price — 시작가(원). null 이면 디자이너 가격 */
+export type ScopePrice = { enabled: boolean; price: number | null }
+export type SpecialtyPrices = Partial<Record<PriceScope, Partial<Record<PriceTier, ScopePrice>>>>
+
+/* 줄이 없으면 노출·디자이너 가격 — 0011 을 돌려도 화면이 그대로이게 */
+export function priceOf(prices: SpecialtyPrices, scope: PriceScope, tier: PriceTier): ScopePrice {
+  return prices[scope]?.[tier] ?? { enabled: true, price: null }
+}
 
 /* 039 의 check 제약과 같은 값 — 함께 고쳐야 한다 */
 export const SPECIALTY_SCOPE_MODES = ['choice', 'design', 'design_dev'] as const

@@ -21,7 +21,7 @@ import {
 } from './plans'
 import type { InquiryType } from './inquiry-types'
 import type { Scope } from './scopes'
-import type { SpecialtyScopeMode } from './specialty-shape'
+import { priceOf, type SpecialtyPrices, type SpecialtyScopeMode } from './specialty-shape'
 
 export const INQUIRY_SCOPES = ['sample', 'design', 'design_dev'] as const
 export type InquiryScope = (typeof INQUIRY_SCOPES)[number]
@@ -83,6 +83,9 @@ export type ScopeOption = {
 
 export type CategoryChoice = {
   name: string
+  /* 탐색 사이드바에서의 차례 — 의뢰 폼의 분야 고르기가 사이드바와 같은 차례로 선다.
+     options 목록(상세 패널)은 menuCategories 차례(web/app 먼저)를 그대로 쓴다 */
+  order: number
   /* 고를 수 있는 범위 — 하나면 묻지 않고 한 줄로 보여준다 */
   options: ScopeOption[]
 }
@@ -95,7 +98,51 @@ export type CategoryMeta = {
   visible: boolean
   scope_mode: SpecialtyScopeMode
   allow_sample: boolean
-  price_from: number | null
+  /* 범위 × 단계별 노출·시작가(0011) — 비면 디자이너 가격 */
+  prices: SpecialtyPrices
+}
+
+/* 분야가 정한 그 범위의 기본 시작가 — 메인 시안은 늘 디자이너 가격이라 null */
+export function categoryPrice(meta: Pick<CategoryMeta, 'prices'>, scope: InquiryScope): number | null {
+  return scope === 'sample' ? null : priceOf(meta.prices, scope, 'basic').price
+}
+
+/* 이 분야·범위에서 나가는 프리미엄.
+     분야에서 프리미엄을 켜고 시작가를 적었으면 그것으로 나간다 — 설정·디자이너 스위치를 따로 켜지 않아도.
+     분야 시작가가 비면 예전처럼 설정의 유형별 프리미엄과 디자이너별 프리미엄이 모두 켜져야 하고 금액도 디자이너 것.
+     분야에서 끄면 어느 쪽이든 나가지 않는다. 메인 시안은 분야 칸이 없어 예전 규칙만 본다.
+   이름·설명은 설정의 프리미엄 문구(plan_copy) */
+export function categoryPremium(
+  copies: PlanCopies,
+  premiums: DesignerPremiums,
+  meta: Pick<CategoryMeta, 'prices'> | undefined,
+  scope: InquiryScope,
+): { name: string; desc: string; price: number } | null {
+  const live = livePremium(copies, premiums, SCOPE_PLAN[scope])
+  if (scope === 'sample' || !meta) return live
+  const own = priceOf(meta.prices, scope, 'premium')
+  if (!own.enabled) return null
+  if (own.price != null) {
+    const copy = copies[SCOPE_PLAN[scope]].premium
+    return { name: copy.name, desc: copy.desc, price: own.price }
+  }
+  return live
+}
+
+/* 메인화면 먼저 의뢰는 따로 고르는 줄이 아니라 본계약(디자인만·디자인 + 개발) 줄 안의 옵션이다 —
+   본계약을 고른 뒤에 '메인화면 먼저'를 덧붙인다. 본계약 줄이 하나도 없으면(플랜을 숨긴 경우)
+   메인 시안도 한 줄로 둔다 */
+export function splitSample<T extends { key: InquiryScope }>(options: T[]): { main: T[]; sample: T | null } {
+  const main = options.filter((o) => o.key !== 'sample')
+  if (main.length === 0) return { main: options, sample: null }
+  return { main, sample: options.find((o) => o.key === 'sample') ?? null }
+}
+
+/* 처음 골라 둘 범위 — 디자인만과 디자인 + 개발을 둘 다 받으면 디자인 + 개발(프로젝트 의뢰),
+   하나뿐이면 그것. 그 밖에는 null(고객이 직접 고른다) */
+export function defaultScope(keys: InquiryScope[]): InquiryScope | null {
+  if (keys.includes('design') && keys.includes('design_dev')) return 'design_dev'
+  return keys.length === 1 ? keys[0] : null
 }
 
 /* 분야가 허용하는 범위 — 메인 시안은 그 분야가 허용할 때 맨 앞 */
@@ -158,11 +205,14 @@ export function dividerBefore(cats: string[], i: number): boolean {
 type Source = { copies: PlanCopies; premiums?: DesignerPremiums }
 
 function build(
+  all: CategoryMeta[],
   metas: CategoryMeta[],
   { copies, premiums }: Source,
   prices: Record<InquiryScope, string>,
   allows: (scope: InquiryScope, meta: CategoryMeta) => boolean,
 ): CategoryChoice[] {
+  /* 사이드바는 노출 분야를 설정 차례대로 보여준다(listExploreSpecialties) */
+  const sidebar = all.filter((m) => m.visible).map((m) => m.name)
   return metas
     .map((meta) => {
       const scopes = scopesOf(meta).filter(
@@ -171,13 +221,12 @@ function build(
       )
       const fixed = meta.scope_mode !== 'choice'
       const options = scopes.map((s): ScopeOption => {
-        const live = premiums ? livePremium(copies, premiums, SCOPE_PLAN[s]) : null
-        /* 범위가 정해진 분야는 어드민이 적은 분야 시작가가 이긴다 — 랜딩·로고가
-           웹·앱 프로젝트 가격으로 보이지 않게. 메인 시안은 늘 디자이너 가격 */
-        const priceLabel =
-          fixed && s !== 'sample' && meta.price_from != null
-            ? `${formatPrice(meta.price_from)}~`
-            : prices[s]
+        /* 디자이너가 정해지지 않은 폼은 분야 프리미엄만 나간다 */
+        const live = categoryPremium(copies, premiums ?? {}, meta, s)
+        /* 어드민이 적은 분야 시작가가 이긴다(0011) — 분야마다 금액이 다르게 나가게.
+           비어 있으면 디자이너 가격. 메인 시안은 늘 디자이너 가격 */
+        const own = categoryPrice(meta, s)
+        const priceLabel = own != null ? `${formatPrice(own)}~` : prices[s]
         const fixedScope = fixed && s !== 'sample' ? s : null
         const label = copies[SCOPE_PLAN[s]].basic.name.trim() || SCOPE_TEXT[s].label
         return {
@@ -192,7 +241,7 @@ function build(
           ...(live ? { premium: { name: live.name, priceLabel: `${formatPrice(live.price)}~` } } : {}),
         }
       })
-      return { name: meta.name, options }
+      return { name: meta.name, order: sidebar.indexOf(meta.name), options }
     })
     .filter((c) => c.options.length > 0)
 }
@@ -200,6 +249,7 @@ function build(
 /* 디자이너가 정해지지 않은 폼(네비바·홈) — 탐색 메뉴에 나오는 분야 전부, 기본 금액 */
 export function generalChoices(metas: CategoryMeta[], copies: PlanCopies): CategoryChoice[] {
   return build(
+    metas,
     menuCategories(metas),
     { copies },
     {
@@ -228,6 +278,7 @@ export function designerChoices(
   const menu = menuCategories(metas)
   const mine = menu.filter((m) => d.tags.includes(m.name))
   return build(
+    metas,
     mine.length > 0 ? mine : menu,
     source,
     {

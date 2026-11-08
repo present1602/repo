@@ -1,0 +1,137 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "SOOM" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e5]:
+        - link "탐색" [ref=e6] [cursor=pointer]:
+          - /url: /explore
+        - button "의뢰하기" [ref=e7]
+  - main [ref=e9]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: LOW RISK
+      - heading "메인 시안 먼저 의뢰 후, 본 계약을 진행할 수 있어요" [level=1] [ref=e14]: 메인 시안 먼저 의뢰 후,본 계약을 진행할 수 있어요
+      - paragraph [ref=e15]: 29,000원~
+      - paragraph [ref=e16]: SOOM의 디자이너들은 AI의 효율적인 활용으로 저렴한 비용으로 만족도 높은 퀄리티와 빠른 제작기간을 보장합니다.
+      - generic [ref=e17]:
+        - link "디자이너 탐색하기" [ref=e18] [cursor=pointer]:
+          - /url: /explore
+        - link "포트폴리오 보기" [ref=e19] [cursor=pointer]:
+          - /url: "#works"
+      - list [ref=e20]:
+        - listitem [ref=e21]:
+          - paragraph [ref=e22]: I
+          - paragraph [ref=e23]: 메인 시안 의뢰
+          - paragraph [ref=e24]: 29,000원부터, 부담 없이 첫 장면을 의뢰합니다.
+        - listitem [ref=e25]:
+          - paragraph [ref=e26]: II
+          - paragraph [ref=e27]: 시안 확인
+          - paragraph [ref=e28]: 결과물을 받아보고 만족하셨다면,
+        - listitem [ref=e29]:
+          - paragraph [ref=e30]: III
+          - paragraph [ref=e31]: 본 계약
+          - paragraph [ref=e32]: 그때 본 계약을 의뢰합니다.
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - heading "SOOM 디자이너들의 작업" [level=2] [ref=e35]
+        - link "전체 디자이너 →" [ref=e36] [cursor=pointer]:
+          - /url: /explore
+      - paragraph [ref=e39]: COMING SOON
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e43]: LOW RISK
+        - heading "저렴하게 시안 먼저 받아보고, 본 계약을 결정하세요" [level=2] [ref=e45]: 저렴하게 시안 먼저 받아보고,본 계약을 결정하세요
+        - link "혹시 개발만 의뢰를 원하시나요? SOOM 숨에이전시 →" [ref=e46] [cursor=pointer]:
+          - /url: https://agency.soom.it
+      - generic [ref=e47]:
+        - paragraph [ref=e48]: 29,000원~
+        - button "의뢰하기" [ref=e49]
+  - contentinfo [ref=e50]:
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - paragraph [ref=e54]: SOOM
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - term [ref=e57]: 상호
+              - definition [ref=e58]: 밸런스
+            - generic [ref=e59]:
+              - term [ref=e60]: 사업자등록번호
+              - definition [ref=e61]: 464-12-02831
+            - generic [ref=e62]:
+              - term [ref=e63]: 사업장 소재지
+              - definition [ref=e64]: 서울 마포구 서교동 와우산로 162-10 2층
+            - generic [ref=e65]:
+              - term [ref=e66]: 이메일
+              - definition [ref=e67]:
+                - link "manager@soom.it" [ref=e68] [cursor=pointer]:
+                  - /url: mailto:manager@soom.it
+        - navigation [ref=e69]:
+          - link "디자이너 로그인" [ref=e70] [cursor=pointer]:
+            - /url: /studio/login
+          - link "디자이너 제안서" [ref=e71] [cursor=pointer]:
+            - /url: /designers/proposal/v1
+          - link "이용약관" [ref=e72] [cursor=pointer]:
+            - /url: /terms
+      - paragraph [ref=e73]: © 2026 Balance. All rights reserved.
+  - button "Open Next.js Dev Tools" [ref=e79] [cursor=pointer]
+  - alert [ref=e83]
+  - dialog [ref=e119]:
+    - generic [ref=e120]:
+      - generic [ref=e121]:
+        - paragraph [ref=e122]: INQUIRY
+        - heading "의뢰 문의하기" [level=2] [ref=e123]
+      - button "닫기" [ref=e124]: ×
+    - generic [ref=e126]:
+      - generic [ref=e127]:
+        - paragraph [ref=e128]: 일정, 비용, 작업 방식 등 궁금한 점을 남겨주세요.
+        - paragraph [ref=e129]: "* 필수"
+      - generic [ref=e130]:
+        - group "어떤 분야인가요? *" [ref=e131]:
+          - generic [ref=e133]:
+            - generic [ref=e134] [cursor=pointer]:
+              - radio "랜딩페이지" [checked] [active] [ref=e135]
+              - generic [ref=e136]: 랜딩페이지
+            - generic [ref=e137] [cursor=pointer]:
+              - radio "web/app" [ref=e138]
+              - generic [ref=e139]: web/app
+            - generic [ref=e140] [cursor=pointer]:
+              - radio "로고/일러스트" [ref=e141]
+              - generic [ref=e142]: 로고/일러스트
+        - group "랜딩페이지 — 어떻게 의뢰할까요? *" [ref=e203]:
+          - generic [ref=e194] [cursor=pointer]:
+            - radio "프로젝트 의뢰디자인 + 개발 349,000원~ VAT 별도" [checked] [ref=e195]
+            - generic [ref=e197]:
+              - generic [ref=e198]: 프로젝트 의뢰디자인 + 개발
+              - generic [ref=e199]:
+                - generic [ref=e200]: 349,000원~
+                - generic [ref=e201]: VAT 별도
+      - generic [ref=e143]:
+        - generic [ref=e144]:
+          - generic [ref=e145]: 성함 (회사명) *
+          - textbox "성함 (회사명) *" [ref=e147]:
+            - /placeholder: ""
+        - generic [ref=e148]:
+          - generic [ref=e149]: 연락처 *
+          - textbox "연락처 *" [ref=e151]:
+            - /placeholder: "'-' 없이 휴대폰, 혹은 유선 연락처를 기재해주세요."
+        - generic [ref=e153]:
+          - generic [ref=e154]: 이메일주소 *
+          - textbox "이메일주소 *" [ref=e156]:
+            - /placeholder: ""
+        - generic [ref=e158]:
+          - generic [ref=e159]: 문의내용 *
+          - textbox "문의내용 *" [ref=e161]:
+            - /placeholder: "어떤 서비스에 대한 의뢰인지 알려주세요.\n소개 자료를 첨부해주시면 좋습니다.\n원하는 스타일의 레퍼런스 서비스 url 혹은 앱 이름을 알려주세요."
+        - generic [ref=e163]:
+          - generic [ref=e164]:
+            - generic [ref=e165]: 첨부파일 (선택)
+            - generic [ref=e166]: 0/1 · 파일당 20MB 이하
+          - generic [ref=e167]:
+            - generic [ref=e168] [cursor=pointer]: 파일 선택
+            - text: 선택된 파일 없음
+      - generic [ref=e169] [cursor=pointer]:
+        - checkbox "* 개인정보 수집 및 이용에 동의합니다. 처리방침 보기" [ref=e170]
+        - generic [ref=e171]: "* 개인정보 수집 및 이용에 동의합니다. 처리방침 보기"
+      - button "문의 보내기" [ref=e172]
+      - paragraph [ref=e173]: 영업일 기준 1~3일 내 답변드립니다.
