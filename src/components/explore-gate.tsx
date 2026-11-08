@@ -3,23 +3,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import { PRE_LAUNCH } from '@/lib/pre-launch'
 
 /* 공개 전(베타) 동안 탐색으로 가는 길을 막는다 — 누르면 탐색 대신 지원 안내를 띄운다.
-
-   운영(soom.it)에서만 막는다 — dev.soom.it·로컬은 샘플 데이터를 그대로 보여 준다.
-   NEXT_PUBLIC_PRE_LAUNCH 를 적으면 그 값('1'·'0')을 따르고, 없으면 사이트 주소로 가린다.
-   정식 공개 때 운영 환경 변수에 NEXT_PUBLIC_PRE_LAUNCH=0 을 넣고 다시 배포하면 원래대로 돌아간다. */
-function preLaunch(): boolean {
-  const flag = process.env.NEXT_PUBLIC_PRE_LAUNCH
-  if (flag === '1' || flag === '0') return flag === '1'
-  try {
-    const host = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? '').hostname
-    return host === 'soom.it' || host === 'www.soom.it'
-  } catch {
-    return false
-  }
-}
-export const PRE_LAUNCH = preLaunch()
+   언제 막는지는 pre-launch.ts */
 
 export function ExploreLink({ className, children }: { className: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
