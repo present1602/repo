@@ -232,7 +232,9 @@ export function SpecialtyManager({
                     />
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-1.5">
+                  {/* 좁은 화면에서는 버튼이 다섯 개라 한 줄에 다 들어가지 않는다 — 이름 칸 아래로
+                      내려 접히게 하고(손잡이 폭만큼 들여), 넓은 화면에서는 오른쪽 한 줄 */}
+                  <div className="flex basis-full flex-wrap items-center gap-1.5 pb-3 pl-8 md:basis-auto md:shrink-0 md:flex-nowrap md:pb-0 md:pl-0">
                     {/* 의뢰 범위 — '고객이 선택'일 때만 탐색 제목 옆에 필터가 나온다 */}
                     <select
                       value={s.scope_mode}
@@ -427,27 +429,30 @@ function ScopePriceRow({
           메인화면 먼저
         </label>
       )}
-      <label className="flex shrink-0 cursor-pointer items-center gap-1">
-        <input
-          type="checkbox"
-          checked={premium.enabled}
-          disabled={disabled}
-          onChange={(e) => {
-            const on = e.target.checked
-            onSave('premium', { enabled: on }, `${label} 프리미엄을 ${on ? '켰습니다' : '껐습니다'}.`)
-          }}
-          className="accent-violet-600"
+      {/* 프리미엄 체크와 그 금액은 함께 줄을 넘긴다 — 금액 칸만 떨어지면 어느 시작가인지 헷갈린다 */}
+      <span className="flex shrink-0 items-center gap-x-3">
+        <label className="flex shrink-0 cursor-pointer items-center gap-1">
+          <input
+            type="checkbox"
+            checked={premium.enabled}
+            disabled={disabled}
+            onChange={(e) => {
+              const on = e.target.checked
+              onSave('premium', { enabled: on }, `${label} 프리미엄을 ${on ? '켰습니다' : '껐습니다'}.`)
+            }}
+            className="accent-violet-600"
+          />
+          프리미엄
+        </label>
+        <PriceField
+          key={`premium:${premium.price}`}
+          label="시작가"
+          value={premium.price}
+          disabled={disabled || !premium.enabled}
+          placeholder="디자이너 금액"
+          onSave={(price) => onSave('premium', { price }, `${label} 프리미엄 시작가를 저장했습니다.`)}
         />
-        프리미엄
-      </label>
-      <PriceField
-        key={`premium:${premium.price}`}
-        label="시작가"
-        value={premium.price}
-        disabled={disabled || !premium.enabled}
-        placeholder="디자이너 금액"
-        onSave={(price) => onSave('premium', { price }, `${label} 프리미엄 시작가를 저장했습니다.`)}
-      />
+      </span>
     </div>
   )
 }

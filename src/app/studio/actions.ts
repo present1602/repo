@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { signIn, destroySession, changePassword, readSession } from '@/lib/designer-auth'
+import { signIn, destroySession, changePassword, getDesignerUser } from '@/lib/designer-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { putImage, signImageUpload, claimImage, signPageUploads, claimPages } from '@/lib/upload'
 import {
@@ -41,11 +41,13 @@ function fail(error: string) {
 /* 서버 액션은 누구나 호출할 수 있는 엔드포인트다.
    페이지에서 막았더라도 여기서 로그인 여부를 다시 확인해야 한다.
    id 는 세션에서만 꺼낸다 — 클라이언트가 보낸 id 를 믿으면 남의 데이터를 고칠 수 있다. */
+/* 쿠키 서명만 보지 않고 DB 의 계정까지 본다(getDesignerUser) — 어드민이 비활성화하거나
+   지운 계정은 쿠키가 남아 있어도(최대 2주) 더 고치지 못하게. 화면(studio/page.tsx)과 같은 기준이다 */
 async function guard() {
-  const session = await readSession()
-  if (!session) throw new Error('로그인이 필요합니다.')
+  const me = await getDesignerUser()
+  if (!me) throw new Error('로그인이 필요합니다.')
   if (!supabaseAdmin) throw new Error('서버 설정이 완료되지 않았습니다.')
-  return { db: supabaseAdmin, id: session.id }
+  return { db: supabaseAdmin, id: me.id }
 }
 
 /* 프로필·작업을 고치면 관리 화면과 공개 화면 양쪽이 바뀐다.
@@ -132,10 +134,10 @@ export async function logout() {
 
 /* 비밀번호 변경 — 세션에서 id를 꺼내므로 다른 계정을 건드릴 수 없다 */
 export async function updatePassword(current: string, next: string): Promise<Result> {
-  const session = await readSession()
-  if (!session) return fail('로그인이 필요합니다.')
+  const me = await getDesignerUser()
+  if (!me) return fail('로그인이 필요합니다.')
 
-  const r = await changePassword(session.id, current, next)
+  const r = await changePassword(me.id, current, next)
   if (!r.ok) return fail(r.error)
 
   refresh()

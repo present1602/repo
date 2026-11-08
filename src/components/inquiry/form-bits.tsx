@@ -204,10 +204,13 @@ export function FileField({ max }: { max: number }) {
           </ul>
         )}
 
+        {/* 한도에 차면 누름만 막는다(pointer-events-none) — input 을 disabled 로 두면
+            브라우저가 폼 전송에서 그 칸을 통째로 빼, 고른 파일이 서버로 가지 않았다 */}
         <label
+          aria-disabled={full}
           className={`inline-block rounded-md border px-4 py-2 text-xs font-medium transition ${
             full
-              ? 'cursor-not-allowed border-neutral-200 text-neutral-300'
+              ? 'pointer-events-none border-neutral-200 text-neutral-300'
               : 'cursor-pointer border-neutral-900 hover:bg-neutral-100'
           }`}
         >
@@ -222,7 +225,6 @@ export function FileField({ max }: { max: number }) {
             multiple={max > 1}
             /* 접수 API 가 받는 형식만 고르게 — 보낸 뒤에야 거절되지 않게 */
             accept={INQUIRY_FILE_EXTS.map((e) => `.${e}`).join(',')}
-            disabled={full}
             className="hidden"
             onChange={(e) => add(e.target.files)}
           />

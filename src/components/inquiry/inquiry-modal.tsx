@@ -41,18 +41,21 @@ function ExtraOption({
   onChange: (on: boolean) => void
 }) {
   return (
-    <label className="mt-3 ml-6 flex cursor-pointer items-center gap-2.5 rounded-md border border-violet-200 bg-white px-3 py-2.5">
+    <label className="mt-3 ml-6 flex cursor-pointer items-start gap-2.5 rounded-md border border-violet-200 bg-white px-3 py-2.5">
       <input
         type="checkbox"
         checked={on}
         onChange={(e) => onChange(e.target.checked)}
-        className="size-4 shrink-0 accent-violet-600"
+        className="mt-0.5 size-4 shrink-0 accent-violet-600"
       />
+      {/* 설명은 금액 아래까지 넓게 — 금액 옆 좁은 칸에 두면 좁은 화면에서 여러 줄로 길어진다 */}
       <span className="min-w-0 flex-1 text-sm">
-        <span className="font-medium">{title}</span>
-        {desc && <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">{desc}</span>}
+        <span className="flex items-baseline justify-between gap-3">
+          <span className="font-medium">{title}</span>
+          <Price label={priceLabel} className="text-sm font-semibold text-violet-700" />
+        </span>
+        {desc && <span className="mt-1 block text-xs leading-relaxed text-neutral-500">{desc}</span>}
       </span>
-      <Price label={priceLabel} className="text-sm font-semibold text-violet-700" />
     </label>
   )
 }

@@ -540,8 +540,12 @@ function PlanSummary({
                       onChange={(e) => togglePremium(s, e.target.checked)}
                       className="shrink-0 accent-violet-600"
                     />
-                    <span className="truncate">{SCOPE_LABELS[s]}</span>
-                    {!allowed && <span className="shrink-0 text-[11px]">· 설정에서 꺼짐</span>}
+                    {/* 자르지 않는다 — 좁은 화면에서 '메인 시…'처럼 잘리면 어느 유형인지 알 수 없다.
+                        꺼짐 표시는 이름 아래로 내려간다 */}
+                    <span className="min-w-0">
+                      {SCOPE_LABELS[s]}
+                      {!allowed && <span className="block text-[11px]">설정에서 꺼짐</span>}
+                    </span>
                   </label>
                   <input
                     type="number"
