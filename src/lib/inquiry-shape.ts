@@ -13,6 +13,15 @@ export function isInquiryStatus(v: string): v is InquiryStatus {
   return (INQUIRY_STATUSES as readonly string[]).includes(v)
 }
 
+/* 문의 첨부로 받는 확장자 — 접수 API 가 거르고, 폼의 파일 선택 창도 같은 목록만 보여준다.
+   실행 파일은 받지 않는다 — 받아서 열 일이 없고, 메일에 링크로 실려 나가므로 위험만 키운다. */
+export const INQUIRY_FILE_EXTS = [
+  'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
+  'hwp', 'hwpx', 'txt', 'md', 'zip',
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'svg',
+  'ai', 'psd', 'sketch', 'fig',
+]
+
 export type InquiryFile = {
   name: string
   path: string

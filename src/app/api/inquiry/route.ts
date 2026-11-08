@@ -7,6 +7,8 @@ import { SCOPE_INQUIRY_TYPE, isInquiryScope, scopesOf } from '@/lib/inquiry-choi
 import { getPlanCopies } from '@/lib/site-settings'
 import { listCategoryMetas } from '@/lib/specialties'
 import { priceOf } from '@/lib/specialty-shape'
+import { withDownloadName } from '@/lib/download-name'
+import { INQUIRY_FILE_EXTS } from '@/lib/inquiry-shape'
 
 /* 의뢰 문의 접수.
 
@@ -26,14 +28,6 @@ export const maxDuration = 60
 const MAX_FILES = 1
 const MAX_FILE_BYTES = 20 * 1024 * 1024
 
-/* 열어 둘 확장자. 실행 파일은 받지 않는다 — 받아서 열 일이 없고,
-   메일에 링크로 실려 나가므로 위험만 키운다. */
-const ALLOWED_EXT = [
-  'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
-  'hwp', 'hwpx', 'txt', 'md', 'zip',
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'svg',
-  'ai', 'psd', 'sketch', 'fig',
-]
 
 /* 메일 속 다운로드 링크 유효기간 — 7일.
    첨부는 사업 자료일 수 있어 길게 열어두지 않는다. 만료 후에도 파일은
@@ -192,7 +186,7 @@ export async function POST(req: Request) {
       if (file.size > MAX_FILE_BYTES) {
         return bad(`파일당 20MB를 넘을 수 없습니다: ${file.name}`)
       }
-      if (!ALLOWED_EXT.includes(ext(file.name))) {
+      if (!INQUIRY_FILE_EXTS.includes(ext(file.name))) {
         return bad(`허용되지 않는 형식입니다: ${file.name}`)
       }
     }
@@ -220,7 +214,9 @@ export async function POST(req: Request) {
         .from(INQUIRY_FILES_BUCKET)
         .createSignedUrl(path, SIGNED_URL_TTL)
 
-      uploaded.push({ name: file.name, path, url: signed?.signedUrl ?? '', size: file.size })
+      /* 원래 이름으로 내려받게 — 지정이 없으면 이미지·PDF 는 브라우저에서 열리기만 한다 */
+      const url = signed?.signedUrl ? withDownloadName(signed.signedUrl, file.name) : ''
+      uploaded.push({ name: file.name, path, url, size: file.size })
     }
 
     /* ── DB 저장: 여기까지 왔으면 접수는 안전하다 ── */

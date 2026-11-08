@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { INQUIRY_FILE_EXTS } from '@/lib/inquiry-shape'
 
 /* 문의 폼의 공통 부품.
 
@@ -219,6 +220,8 @@ export function FileField({ max }: { max: number }) {
             type="file"
             name="attachment"
             multiple={max > 1}
+            /* 접수 API 가 받는 형식만 고르게 — 보낸 뒤에야 거절되지 않게 */
+            accept={INQUIRY_FILE_EXTS.map((e) => `.${e}`).join(',')}
             disabled={full}
             className="hidden"
             onChange={(e) => add(e.target.files)}

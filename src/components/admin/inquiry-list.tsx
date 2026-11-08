@@ -265,12 +265,11 @@ function Detail({
         <div className="mt-4">
           <p className="text-xs font-medium text-neutral-600">첨부 파일</p>
           <ul className="mt-1.5 space-y-1">
-            {q.files.map((f) => (
+            {q.files.map((f, i) => (
               <li key={f.path} className="text-sm">
+                {/* 누를 때마다 새 링크를 만들어 원래 이름으로 내려받는다(admin/inquiries/file) */}
                 <a
-                  href={f.url}
-                  target="_blank"
-                  rel="noopener"
+                  href={`/admin/inquiries/file?id=${q.id}&i=${i}`}
                   className="text-violet-600 hover:underline"
                 >
                   {f.name}
@@ -281,10 +280,6 @@ function Detail({
               </li>
             ))}
           </ul>
-          {/* 서명 링크는 7일짜리다 — 만료된 줄 모르고 "안 열린다"고 하지 않게 */}
-          <p className="mt-1.5 text-[11px] text-neutral-400">
-            링크는 접수 후 7일간 열립니다. 만료되면 Supabase 대시보드에서 받을 수 있습니다.
-          </p>
         </div>
       )}
 
