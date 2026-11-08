@@ -254,8 +254,8 @@ export const FALLBACK_PLAN_COPIES: PlanCopies = {
     visible: true,
   },
   full_design: {
-    basic: { name: '디자인 전체 의뢰', desc: '서비스 전체 디자인을 맡깁니다.', ...blank },
-    premium: { name: '디자인 전체 의뢰 프리미엄', desc: '', enabled: false, ...blank },
+    basic: { name: '디자인 의뢰', desc: '서비스 전체 디자인을 맡깁니다.', ...blank },
+    premium: { name: '디자인 의뢰 프리미엄', desc: '', enabled: false, ...blank },
     visible: true,
   },
   with_dev: {
