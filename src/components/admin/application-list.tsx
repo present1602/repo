@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import {
   APPLICATION_FILE_KINDS,
@@ -27,7 +28,7 @@ function mb(bytes: number) {
 export function ApplicationList({ applications: all }: { applications: ApplicationWithLinks[] }) {
   const [tab, setTab] = useState<Tab>('unread')
   const [error, setError] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const mark = (id: string, status: 'read' | 'unread') => {

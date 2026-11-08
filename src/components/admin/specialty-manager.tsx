@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import {
   SPECIALTY_SCOPE_MODES,
@@ -42,12 +43,12 @@ export function SpecialtyManager({
   const [notice, setNotice] = useState<Notice>(null)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   /* 끄는 동안에만 쓰는 순서 — 평소에는 서버가 준 목록을 그대로 그린다 */
   const [dragging, setDragging] = useState<{ id: string; ids: string[] } | null>(null)
-  const [savingOrder, startOrder] = useTransition()
+  const [savingOrder, startOrder] = useActionTransition()
 
   const dragId = dragging?.id ?? null
 

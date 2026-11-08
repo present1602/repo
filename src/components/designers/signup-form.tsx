@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import {
   requestSignupCode,
@@ -33,12 +34,12 @@ export function DesignerSignupForm({ locked: lockedAtLoad = false }: { locked?: 
 
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
 
   const run = (fn: () => Promise<void>) => {
     setError(null)
     setInfo(null)
-    start(fn)
+    start(fn, '회원가입 진행')
   }
 
   /* 실패를 보여 주고, 잠겼으면 화면도 잠근다 */

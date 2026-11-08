@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import { updatePassword } from '@/app/studio/actions'
 import { Flash } from '@/components/flash'
@@ -10,7 +11,7 @@ export function ChangePasswordForm({ onChanged }: { onChanged?: () => void }) {
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const submit = (e: React.FormEvent) => {
@@ -36,7 +37,7 @@ export function ChangePasswordForm({ onChanged }: { onChanged?: () => void }) {
       /* 띄운 쪽이 알림을 맡으면(다이얼로그를 닫고 토스트) 여기서는 띄우지 않는다 */
       if (onChanged) onChanged()
       else setMsg({ ok: true, text: '비밀번호를 변경했습니다.' })
-    })
+    }, '비밀번호 변경')
   }
 
   return (

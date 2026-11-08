@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import {
   MAX_OPTION_TEMPLATE,
@@ -38,7 +39,7 @@ export function OptionTemplateManager({
 }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [adding, setAdding] = useState<Draft>({ template: '', targets: null })
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const run = (job: () => Promise<{ ok: true } | { ok: false; error: string }>, done: string, after?: () => void) => {

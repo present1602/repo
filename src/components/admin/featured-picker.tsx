@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import { type FeaturedCandidate, thumbSrc } from '@/lib/portfolio-limits'
 import { displayName } from '@/lib/display-name'
@@ -311,7 +312,7 @@ function RecentCard({
 /* 고른 상태를 뒤집는다. 뺄 때만 한 번 묻는다 —
    더하는 건 되돌리기 쉽지만, 빼는 건 어떤 구성이었는지 잊기 쉽다. */
 function useToggle(w: FeaturedCandidate, onNotice: (n: Notice) => void) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const toggle = () => {

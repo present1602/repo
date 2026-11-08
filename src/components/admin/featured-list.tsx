@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { type FeaturedCandidate, thumbSrc } from '@/lib/portfolio-limits'
@@ -63,7 +64,7 @@ export function FeaturedList({ works }: { works: FeaturedCandidate[] }) {
 /* ─────────── 작업 한 장 ─────────── */
 
 function WorkCard({ work: w, onNotice }: { work: FeaturedCandidate; onNotice: (n: Notice) => void }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const remove = () => {

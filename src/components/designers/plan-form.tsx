@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import {
@@ -56,7 +57,7 @@ export function PlanForm({
   const [extra, setExtra] = useState<string[]>(initialExtra)
   const [designPrice, setDesignPrice] = useState(d.design_price)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const startOptions = designPriceOptions(d.price_max)

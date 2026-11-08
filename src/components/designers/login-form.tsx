@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import { login } from '@/app/studio/actions'
 
@@ -8,7 +9,7 @@ export function DesignerLoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const submit = (e: React.FormEvent) => {
@@ -23,7 +24,7 @@ export function DesignerLoginForm() {
       /* 쿠키가 막 심어졌으므로 서버 쪽을 다시 읽게 한다 */
       router.refresh()
       router.replace('/studio')
-    })
+    }, '로그인')
   }
 
   return (

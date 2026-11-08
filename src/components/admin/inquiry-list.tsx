@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -115,7 +116,7 @@ function InquiryItem({
   onToggle: () => void
   onNotice: (n: Notice) => void
 }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
   const unread = q.status === 'unread'
 
@@ -312,7 +313,7 @@ function ReviewRequest({
 }) {
   const [pick, setPick] = useState(q.designer_id ?? '')
   const [url, setUrl] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
 
   /* 의뢰에 담당이 이미 있으면 고르는 칸을 숨긴다 — 바꿀 일이 드물고,
      바꾸고 싶으면 문의 수정이 아니라 거기서 할 일이다. */

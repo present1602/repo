@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import Link from 'next/link'
 import { MIN_REVIEW_BODY, MAX_REVIEW_BODY } from '@/lib/review-shape'
 import { saveReview } from '@/app/review/[token]/actions'
@@ -14,7 +15,7 @@ export function ReviewForm({ token }: { token: string }) {
   const [body, setBody] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
 
   const len = body.trim().length
   const tooShort = len > 0 && len < MIN_REVIEW_BODY
@@ -49,7 +50,7 @@ export function ReviewForm({ token }: { token: string }) {
           const r = await saveReview(token, body)
           if (r.ok) setDone(true)
           else setError(r.error)
-        })
+        }, '후기 저장')
       }}
     >
       <label className="block">

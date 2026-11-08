@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { displayName } from '@/lib/display-name'
@@ -39,7 +40,7 @@ export function ExposureManager({
 }) {
   const [notice, setNotice] = useState<Notice>(null)
   const [picking, setPicking] = useState(false)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const byId = useMemo(() => new Map(designers.map((d) => [d.id, d])), [designers])
@@ -48,7 +49,7 @@ export function ExposureManager({
 
   /* 끄는 동안에만 쓰는 순서 — 평소에는 서버가 준 목록을 그대로 그린다 */
   const [dragging, setDragging] = useState<{ id: string; ids: string[] } | null>(null)
-  const [savingOrder, startOrder] = useTransition()
+  const [savingOrder, startOrder] = useActionTransition()
   const dragId = dragging?.id ?? null
 
   const order = dragging

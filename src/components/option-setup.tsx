@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useTransition } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import {
   COMMON_BUCKET,
@@ -508,7 +509,7 @@ function BucketEditor({
 }) {
   const [error, setError] = useState('')
   const [draft, setDraft] = useState('')
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const usable = templates.filter((t) => templateAllowsBucket(t, bucket))
   /* 이 목록이 정하는 템플릿 — 공통에서 체크한 것은 공통 몫이라 저장·비교에서 뺀다 */
   const own = usable.filter((t) => !(lockedPicks && t.id in lockedPicks))

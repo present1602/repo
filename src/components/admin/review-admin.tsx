@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import Link from 'next/link'
 import type { ReviewRow, ReviewTokenRow } from '@/lib/review-shape'
 import { createReviewLink, setReviewStatus } from '@/app/admin/reviews/actions'
@@ -109,7 +110,7 @@ function NewLink({
   const [pick, setPick] = useState('')
   const [memo, setMemo] = useState('')
   const [url, setUrl] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
 
   const submit = () => {
     onNotice(null)
@@ -266,7 +267,7 @@ function ReviewItem({
   review: ReviewRow
   onNotice: (n: Notice) => void
 }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const [memo, setMemo] = useState('')
   const [asking, setAsking] = useState(false)
 

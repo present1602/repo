@@ -17,7 +17,8 @@
    서버 액션은 화면마다 다르다(본인은 세션, 어드민은 designerId) — 부르는 쪽이
    넘겨준다. */
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { MAX_DESCRIPTION, WORK_FILE_EXTS } from '@/lib/portfolio-limits'
@@ -74,7 +75,7 @@ export function WorkUploader({
   onMessage: (m: { ok: boolean; text: string } | null) => void
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   /* 아직 올리지 않은 파일들 — 맨 앞이 지금 입력 중인 장이다 */
@@ -188,7 +189,7 @@ export function WorkUploader({
       router.refresh()
 
       if (remaining.length === 0) finish(nextDone, nextFailed)
-    })
+    }, '포트폴리오 업로드')
   }
 
   /* 지금 장을 건너뛴다 — 고르고 보니 올릴 것이 아니었을 때 */

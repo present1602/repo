@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import { setScopePrompt, setShowDuration, type Result } from '@/app/admin/settings/actions'
 
@@ -59,7 +60,7 @@ function SettingSwitch({
   const [on, setOn] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   /* 잠깐 보여주고 스스로 사라진다 — 디자이너 설정(settings-panel.tsx)과 같은 모양 */

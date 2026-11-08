@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import type { WorkRow } from '@/lib/portfolio-limits'
 import { MAX_WORKS, MAX_DESCRIPTION, thumbSrc } from '@/lib/portfolio-limits'
@@ -60,7 +61,7 @@ export function AdminPortfolio({
      보여준다 — 서버 목록을 state 로 베껴 두면 추가·삭제 때마다
      둘을 맞추는 코드가 따라붙는다. */
   const [dragging, setDragging] = useState<{ id: string; ids: string[] } | null>(null)
-  const [savingOrder, startSaving] = useTransition()
+  const [savingOrder, startSaving] = useActionTransition()
   const router = useRouter()
 
   const dragId = dragging?.id ?? null
@@ -318,7 +319,7 @@ export function WorkDialog({
   const [aiUsed, setAiUsed] = useState(w.ai_used === true)
   /* 020 전 DB 에서는 undefined 로 온다 — 꺼짐으로 본다 */
   const [soomWork, setSoomWork] = useState(w.soom_work === true)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   /* ─── 썸네일 영역 ───

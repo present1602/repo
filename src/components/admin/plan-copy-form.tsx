@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import {
   MAX_PLAN_DESC,
@@ -33,7 +34,7 @@ const TIER_LABELS: Record<PlanTier, string> = { basic: '기본', premium: '프�
 export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
   const [draft, setDraft] = useState(copies)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(copies)

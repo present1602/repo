@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -77,7 +78,7 @@ export function PopupList({ popups }: { popups: PopupRow[] }) {
 }
 
 function PopupItem({ popup: p, onNotice }: { popup: PopupRow; onNotice: (n: Notice) => void }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const firstImage = p.body.find((b) => b.type === 'image')

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import Link from 'next/link'
 import type { AdminDesignerListRow, DesignerActivity } from '@/lib/designer-shape'
 import { displayName } from '@/lib/display-name'
@@ -156,7 +157,7 @@ function VisibleToggle({
   designer: AdminDesignerListRow
   onError: (s: string | null) => void
 }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
 
   return (
     <button

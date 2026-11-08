@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import {
@@ -31,7 +32,7 @@ export function ProfileForm({
   const [oneLiner, setOneLiner] = useState(d.one_liner ?? '')
   const [bio, setBio] = useState(d.bio ?? '')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   /* 관리자가 이름을 정해줬으면 잠겨 있다 — 변경은 관리자에게 요청한다 */
@@ -55,7 +56,7 @@ export function ProfileForm({
       }
       setMsg({ ok: true, text: '저장했습니다.' })
       router.refresh()
-    })
+    }, '프로필 저장')
   }
 
   return (
@@ -183,7 +184,7 @@ function PublicToggle({
   works: Pick<WorkRow, 'visible' | 'ai_used'>[]
   onMessage: (m: { ok: boolean; text: string } | null) => void
 }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const on = d.profile_public
@@ -210,7 +211,7 @@ function PublicToggle({
         return
       }
       router.refresh()
-    })
+    }, '공개 설정 변경')
   }
 
   return (
@@ -282,7 +283,7 @@ function AvatarPicker({
   onMessage: (m: { ok: boolean; text: string } | null) => void
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
   const [toast, setToast] = useState(false)
 
@@ -311,7 +312,7 @@ function AvatarPicker({
       }
       setToast(true)
       router.refresh()
-    })
+    }, '프로필 이미지 저장')
   }
 
   return (

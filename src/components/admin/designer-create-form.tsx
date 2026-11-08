@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import { createDesigner } from '@/app/admin/designers/actions'
 import { Field, input } from './form-bits'
@@ -17,7 +18,7 @@ export function DesignerCreateForm({ specialties }: { specialties: SpecialtyOpti
   const [error, setError] = useState<string | null>(null)
   /* 메일이 실패하면 임시 비밀번호를 직접 전달해야 하므로 화면에 남겨둔다 */
   const [mailWarning, setMailWarning] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const submit = (e: React.FormEvent) => {

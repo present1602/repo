@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
@@ -281,7 +282,7 @@ function PlanSummary({
   }))
   const setPremiumOf = (s: Scope, patch: Partial<{ on: boolean; price: string }>) =>
     setPremium((p) => ({ ...p, [s]: { ...p[s], ...patch } }))
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   /* 한 칸 저장 — 실패하면 화면 값을 저장된 값으로 되돌린다 */
@@ -595,7 +596,7 @@ function ScopeSection({
   designer: AdminDesigner
   onNotice: (n: Notice) => void
 }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   /* 로고는 분야가 맡고, 디자인·프로젝트는 고객이 고르는 옵션이라 늘 받는다 — 메인 시안만 켜고 끈다 */
@@ -739,7 +740,7 @@ function ProfileForm({
   const [oneLiner, setOneLiner] = useState(d.one_liner ?? '')
   const [bio, setBio] = useState(d.bio ?? '')
   const [tags, setTags] = useState(d.tags)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   /* 저장 버튼을 누를 수 있는지 — 바뀐 것이 없으면 누를 이유가 없다 */
@@ -769,7 +770,7 @@ function ProfileForm({
       if (!r.ok) return onNotice({ kind: 'error', text: r.error })
       onNotice({ kind: 'ok', text: '저장했습니다.' })
       router.refresh()
-    })
+    }, '디자이너 정보 저장')
   }
 
   return (
@@ -851,7 +852,7 @@ function AvatarSection({
   onNotice: (n: Notice) => void
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const pick = (picked: File) => {
@@ -867,7 +868,7 @@ function AvatarSection({
       if (!r.ok) return onNotice({ kind: 'error', text: r.error })
       onNotice({ kind: 'ok', text: d.avatar_url ? '프로필 이미지를 바꿨습니다.' : '프로필 이미지를 등록했습니다.' })
       router.refresh()
-    })
+    }, '프로필 이미지 저장')
   }
 
   const remove = () => {
@@ -878,7 +879,7 @@ function AvatarSection({
       if (!r.ok) return onNotice({ kind: 'error', text: r.error })
       onNotice({ kind: 'ok', text: '프로필 이미지를 삭제했습니다.' })
       router.refresh()
-    })
+    }, '프로필 이미지 삭제')
   }
 
   return (
@@ -936,7 +937,7 @@ function AccountSection({
   designer: AdminDesigner
   onNotice: (n: Notice) => void
 }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   /* 재발급 직후 값 — router.refresh() 가 끝나기 전에도 바로 보여 복사할 수 있게 한다 */
   const [issued, setIssued] = useState<string | null>(null)
   const router = useRouter()
@@ -999,7 +1000,7 @@ function AccountSection({
                     },
               )
               router.refresh()
-            })
+            }, '비밀번호 초기화')
           }}
           disabled={pending}
           className={ghostButton}
@@ -1017,7 +1018,7 @@ function AccountSection({
               const r = await deleteDesigner(d.id)
               if (!r.ok) return onNotice({ kind: 'error', text: r.error })
               router.push('/admin/designers')
-            })
+            }, '디자이너 삭제')
           }}
           disabled={pending}
           className="rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
@@ -1065,7 +1066,7 @@ function ProfilePublicButton({
   designer: AdminDesigner
   onNotice: (n: Notice) => void
 }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   return (
@@ -1095,7 +1096,7 @@ function VisibleButton({
   designer: AdminDesigner
   onNotice: (n: Notice) => void
 }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   return (

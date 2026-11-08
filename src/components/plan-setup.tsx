@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import {
   MAX_PLAN_DURATION,
@@ -58,7 +59,7 @@ export function PlanSetup({
     Object.fromEntries(slots.map((s) => [slotOf(s.scope, s.tier), savedOf(s)])),
   )
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const nameOf = (s: SetupSlot) =>

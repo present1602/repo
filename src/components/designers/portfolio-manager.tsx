@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import {
   type WorkRow,
@@ -153,7 +154,7 @@ function EditList({
   onEdit: (id: string) => void
 }) {
   const [dragging, setDragging] = useState<{ id: string; ids: string[] } | null>(null)
-  const [saving, startSaving] = useTransition()
+  const [saving, startSaving] = useActionTransition()
   const router = useRouter()
 
   const dragId = dragging?.id ?? null
@@ -410,7 +411,7 @@ function WorkEditDialog({
   const [aiUsed, setAiUsed] = useState(w.ai_used === true)
   /* 020 전 DB 에서는 undefined 로 온다 — 꺼짐으로 본다 */
   const [soomWork, setSoomWork] = useState(w.soom_work === true)
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   /* ─── 썸네일 ───

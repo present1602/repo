@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
+import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -97,7 +98,7 @@ function IssueForm({ onNotice }: { onNotice: (n: Notice) => void }) {
   const [expiresOn, setExpiresOn] = useState(kstDateAfter(DEFAULT_INVITE_DAYS))
   const [memo, setMemo] = useState('')
   const [code, setCode] = useState('')
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const router = useRouter()
 
   const submit = (e: React.FormEvent) => {
@@ -168,7 +169,7 @@ function IssueForm({ onNotice }: { onNotice: (n: Notice) => void }) {
 /* ─────────── 한 줄 ─────────── */
 
 function InviteItem({ invite: i, onNotice }: { invite: InviteWithUser; onNotice: (n: Notice) => void }) {
-  const [pending, start] = useTransition()
+  const [pending, start] = useActionTransition()
   const [copied, setCopied] = useState(false)
   const router = useRouter()
 

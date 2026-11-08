@@ -4,6 +4,7 @@ import "./globals.css";
 import { Suspense } from "react";
 import { SiteNavbarData } from "@/components/site-navbar-data";
 import { SiteFooter } from "@/components/site-footer";
+import { ErrorToaster } from "@/components/error-toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -59,6 +60,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Suspense fallback={null}>
           <SiteFooter />
         </Suspense>
+
+        {/* 저장 같은 동작이 예외로 실패했을 때 화면을 그대로 두고 위에 알린다(error-toast.tsx) */}
+        <ErrorToaster />
       </body>
     </html>
   );
