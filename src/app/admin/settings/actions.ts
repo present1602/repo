@@ -75,7 +75,8 @@ export async function updatePlanCopies(input: PlanCopies): Promise<Result> {
         return fail(`작업 기간은 ${MAX_PLAN_DURATION}자 이내로 입력해 주세요.`)
       }
       /* 기본 줄은 늘 쓴다 — 스위치는 프리미엄 줄에만 뜻이 있다 */
-      const enabled = tier === 'premium' ? input[plan].premium.enabled === true : true
+      /* 유형별 프리미엄 스위치는 뺐다 — 늘 켜짐으로 남긴다(읽을 때도 켜짐으로 본다, site-settings.ts) */
+      const enabled = true
       /* 노출은 기본 줄에만 둔다 — 플랜을 숨기면 프리미엄도 함께 빠진다 */
       const visible = tier === 'basic' ? input[plan].visible !== false : true
       rows.push({ plan, tier, name, description, enabled, duration, visible })

@@ -46,8 +46,8 @@ export async function slotOpenFor(
   }
 
   if (tier === 'premium') {
-    const [{ data: copy }, { data: mine }] = await Promise.all([
-      db.from('plan_copy').select('enabled').eq('plan', scope).eq('tier', 'premium').maybeSingle(),
+    /* 유형별 프리미엄 스위치는 뺐다(늘 켜짐) — 디자이너별 프리미엄만 본다 */
+    const [{ data: mine }] = await Promise.all([
       requireAccepted
         ? db
             .from('designer_premium_prices')
@@ -57,7 +57,6 @@ export async function slotOpenFor(
             .maybeSingle()
         : Promise.resolve({ data: { enabled: true } }),
     ])
-    if (!copy?.enabled) return '이 플랜에는 프리미엄이 없습니다.'
     if (!mine?.enabled) return '이 디자이너의 프리미엄이 꺼져 있습니다.'
   }
   return null

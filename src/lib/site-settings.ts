@@ -71,7 +71,9 @@ export async function getPlanCopies(): Promise<PlanCopies> {
       /* 칸이 없으면(038 전) 보여준다 — 지금까지 다 보였다 */
       copies[row.plan].visible = row.visible ?? true
     } else if (row.tier === 'premium') {
-      copies[row.plan].premium = { ...base, enabled: row.enabled ?? false }
+      /* 유형별 프리미엄 스위치는 뺐다 — 늘 켜진 것으로 본다. 켜고 끄기와 금액은
+         전문 분야의 범위별 칸(0011)과 디자이너별 프리미엄이 맡는다. 칸(enabled)은 남겨 두고 읽지 않는다 */
+      copies[row.plan].premium = { ...base, enabled: true }
     }
   }
 

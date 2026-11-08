@@ -381,23 +381,12 @@ export async function setDesignerPremiums(
 ): Promise<Result> {
   const db = await guard()
 
-  const { data: copyRows } = await db
-    .from('plan_copy')
-    .select('plan, enabled')
-    .eq('tier', 'premium')
-  const planOn = new Set(
-    ((copyRows ?? []) as { plan: string; enabled: boolean }[]).filter((r) => r.enabled).map((r) => r.plan),
-  )
-
   const upserts: { designer_id: string; plan: Scope; price: number; enabled: boolean }[] = []
   const removes: Scope[] = []
   for (const s of SCOPES) {
     const v = next[s]
     if (!v) continue
 
-    if (v.enabled && !planOn.has(s)) {
-      return fail(`${SCOPE_LABELS[s]}의 프리미엄이 설정에서 꺼져 있습니다. 먼저 켜 주세요.`)
-    }
     if (v.enabled && v.price == null) {
       return fail(`${SCOPE_LABELS[s]}의 프리미엄 금액을 적어 주세요.`)
     }

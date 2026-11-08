@@ -89,8 +89,9 @@ export function formatPrice(won: number): string {
 /* 플랜 문구 — 의뢰 유형(scopes.ts) 넷 × 단계(기본·프리미엄)마다 이름·설명.
    모든 디자이너에게 같은 문구가 나가고 어드민 설정에서 고친다(036_plan_copy_premium.sql).
 
-   프리미엄 스위치는 두 겹이다 — 유형 전체(premium.enabled)가 켜져야
-   디자이너별(DesignerPremiums)로 켤 수 있고, 둘 다 켜지고 금액이 있어야 나간다. */
+   유형 전체 스위치(premium.enabled)는 뺐다 — 늘 켜짐으로 읽는다(site-settings.ts).
+   켜고 끄기와 금액은 전문 분야의 범위별 칸과 디자이너별(DesignerPremiums)이 맡는다
+   (inquiry-choices.ts 의 categoryPremium). */
 export const PLAN_TIERS = ['basic', 'premium'] as const
 export type PlanTier = (typeof PLAN_TIERS)[number]
 
@@ -245,17 +246,17 @@ const blank = { duration: '' }
 export const FALLBACK_PLAN_COPIES: PlanCopies = {
   sample: {
     basic: { name: '메인화면 먼저 의뢰', desc: '메인화면 시안만 먼저 의뢰합니다.', ...blank },
-    premium: { name: '메인화면 먼저 의뢰 프리미엄', desc: '', enabled: false, ...blank },
+    premium: { name: '메인화면 먼저 의뢰 프리미엄', desc: '', enabled: true, ...blank },
     visible: true,
   },
   logo: {
     basic: { name: '로고 디자인', desc: '로고 디자인을 의뢰합니다.', ...blank },
-    premium: { name: '로고 디자인 프리미엄', desc: '', enabled: false, ...blank },
+    premium: { name: '로고 디자인 프리미엄', desc: '', enabled: true, ...blank },
     visible: true,
   },
   full_design: {
     basic: { name: '디자인 의뢰', desc: '서비스 전체 디자인을 맡깁니다.', ...blank },
-    premium: { name: '디자인 의뢰 프리미엄', desc: '', enabled: false, ...blank },
+    premium: { name: '디자인 의뢰 프리미엄', desc: '', enabled: true, ...blank },
     visible: true,
   },
   with_dev: {
@@ -264,7 +265,7 @@ export const FALLBACK_PLAN_COPIES: PlanCopies = {
       desc: '기획, 개발까지 포함한 프로젝트 전체 의뢰를 맡깁니다.',
       ...blank,
     },
-    premium: { name: '프로젝트 의뢰 프리미엄', desc: '', enabled: false, ...blank },
+    premium: { name: '프로젝트 의뢰 프리미엄', desc: '', enabled: true, ...blank },
     visible: true,
   },
 }

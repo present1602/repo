@@ -28,8 +28,8 @@ const TIER_LABELS: Record<PlanTier, string> = { basic: '기본', premium: '프�
 /* 플랜 이름·설명은 모든 디자이너가 함께 쓴다 — 여기서 한 번 고치면 전체에 반영된다.
    의뢰 유형 넷이 같은 모양이다.
 
-   프리미엄은 유형마다 켜고 끈다. 켜야 디자이너 화면에서 디자이너별로 켜고
-   금액을 넣을 수 있고, 둘 다 켜져야 공개 화면에 나간다. */
+   프리미엄은 여기서 켜고 끄지 않는다 — 이름·설명만 정한다. 켜고 끄기와 금액은
+   전문 분야의 범위별 칸(기본 설정)과 디자이너별 프리미엄이 맡는다. */
 export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
   const [draft, setDraft] = useState(copies)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -46,9 +46,6 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
           ? { ...d[plan], basic: { ...d[plan].basic, ...patch } }
           : { ...d[plan], premium: { ...d[plan].premium, ...patch } },
     }))
-
-  const setPremiumOn = (plan: Scope, enabled: boolean) =>
-    setDraft((d) => ({ ...d, [plan]: { ...d[plan], premium: { ...d[plan].premium, enabled } } }))
 
   const setVisible = (plan: Scope, visible: boolean) =>
     setDraft((d) => ({ ...d, [plan]: { ...d[plan], visible } }))
@@ -74,7 +71,7 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
         의뢰 유형마다 기본과 프리미엄의 이름·설명·작업 기간을 정합니다. 디자이너 상세의 의뢰
         패널에 나갑니다. 작업 기간은 디자이너마다 따로 바꿀 수 있습니다.
         <br />
-        프리미엄을 켠 유형만 디자이너별로 프리미엄을 켜고 금액을 넣을 수 있습니다.
+        프리미엄을 켜고 끄는 것과 금액은 기본 설정의 전문 분야(분야·범위별)에서 정합니다.
         <br />
         숨긴 플랜은 공개 화면(상세·의뢰 폼·탐색)과 디자이너 스튜디오에서 빠집니다. 디자이너별
         설정은 남아 있어 다시 노출하면 돌아옵니다.
@@ -110,19 +107,6 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
                   {draft[plan].visible ? '노출' : '숨김'}
                 </span>
               </label>
-              <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-neutral-600">
-                프리미엄
-                <input
-                  type="checkbox"
-                  role="switch"
-                  checked={draft[plan].premium.enabled}
-                  onChange={(e) => setPremiumOn(plan, e.target.checked)}
-                  className="size-4 accent-violet-600"
-                />
-                <span className={draft[plan].premium.enabled ? 'text-violet-700' : 'text-neutral-400'}>
-                  {draft[plan].premium.enabled ? '켜짐' : '꺼짐'}
-                </span>
-              </label>
               </div>
             </div>
 
@@ -131,8 +115,6 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
                 <TierFields
                   key={tier}
                   label={TIER_LABELS[tier]}
-                  /* 꺼 둔 프리미엄도 문구는 미리 넣어 둘 수 있다 — 흐리게만 보인다 */
-                  muted={tier === 'premium' && !draft[plan].premium.enabled}
                   value={draft[plan][tier]}
                   onChange={(patch) => edit(plan, tier, patch)}
                 />
@@ -160,26 +142,16 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
 
 function TierFields({
   label,
-  muted,
   value,
   onChange,
 }: {
   label: string
-  /* 꺼 둔 프리미엄 — 공개 화면에 나가지 않는다는 표시 */
-  muted?: boolean
   value: PlanTierCopy
   onChange: (patch: Partial<PlanTierCopy>) => void
 }) {
   return (
-    <div className={muted ? 'opacity-50' : ''}>
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-500">
-        {label}
-        {muted && (
-          <span className="rounded bg-neutral-100 px-1.5 py-0.5 font-normal text-neutral-500">
-            꺼짐
-          </span>
-        )}
-      </p>
+    <div>
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-500">{label}</p>
 
       <label className="mt-2 block">
         <span className="mb-1.5 block text-xs font-medium text-neutral-600">이름</span>

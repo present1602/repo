@@ -519,7 +519,8 @@ function PlanSummary({
         <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-3">
           <p className="text-xs font-semibold text-violet-800">프리미엄</p>
           <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
-            설정에서 프리미엄을 켠 유형만 켤 수 있습니다. 꺼도 금액은 남아 있습니다.
+            분야별 프리미엄 시작가가 비어 있을 때 이 금액이 나갑니다. 분야에서 프리미엄을 끄면
+            나가지 않습니다. 꺼도 금액은 남아 있습니다.
           </p>
           <div className="mt-3 space-y-2.5">
             {SCOPES.filter((s) => s !== 'logo').map((s) => {
