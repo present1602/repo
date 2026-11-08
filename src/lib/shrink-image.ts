@@ -57,6 +57,15 @@ export async function shrinkImage(file: File, limit = MAX_UPLOAD_BYTES): Promise
   }
 }
 
+/* 프로필 이미지는 서버 액션 본문(1MB 한도)에 실어 보낸다 — 넘으면 요청이 버려지고
+   화면이 "This page couldn't load" 로 무너진다. FormData 의 경계·머리글 몫을 남겨 둔다.
+   스튜디오(본인)와 어드민(대신 올리기)이 같이 쓴다 */
+export const AVATAR_MAX_BYTES = 900 * 1024
+
+export function shrinkAvatar(file: File): Promise<File | null> {
+  return shrinkImage(file, AVATAR_MAX_BYTES)
+}
+
 /* WebP 로 뽑고, 못 만드는 브라우저는 JPEG 로 */
 function encode(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
   return new Promise((resolve) => {

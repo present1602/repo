@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import { MAX_BIO } from '@/lib/portfolio-limits'
+import { shrinkAvatar } from '@/lib/shrink-image'
 import {
   formatPrice,
   formatPriceRange,
@@ -853,12 +854,15 @@ function AvatarSection({
   const [pending, start] = useTransition()
   const router = useRouter()
 
-  const pick = (file: File) => {
+  const pick = (picked: File) => {
     onNotice(null)
-    const form = new FormData()
-    form.set('designerId', d.id)
-    form.set('image', file)
     start(async () => {
+      /* 1MB 를 넘으면 서버 액션이 받지 못한다 — 브라우저에서 먼저 줄인다 */
+      const file = await shrinkAvatar(picked)
+      if (!file) return onNotice({ kind: 'error', text: '이미지를 줄이지 못했습니다. 다른 이미지를 골라 주세요.' })
+      const form = new FormData()
+      form.set('designerId', d.id)
+      form.set('image', file)
       const r = await setDesignerAvatar(form)
       if (!r.ok) return onNotice({ kind: 'error', text: r.error })
       onNotice({ kind: 'ok', text: d.avatar_url ? '프로필 이미지를 바꿨습니다.' : '프로필 이미지를 등록했습니다.' })

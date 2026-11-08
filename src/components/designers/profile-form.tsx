@@ -11,6 +11,7 @@ import {
 } from '@/lib/portfolio-limits'
 import { NAME_MAX, nameError } from '@/lib/display-name'
 import { updateProfile, updateAvatar, setProfilePublic } from '@/app/studio/actions'
+import { shrinkAvatar } from '@/lib/shrink-image'
 import { Img } from '@/components/img'
 import { Flash } from '@/components/flash'
 import { InviteLinkRow } from './invite-link-row'
@@ -292,11 +293,17 @@ function AvatarPicker({
     return () => clearTimeout(t)
   }, [toast])
 
-  const pick = (file: File) => {
+  const pick = (picked: File) => {
     onMessage(null)
-    const form = new FormData()
-    form.set('image', file)
     start(async () => {
+      /* 1MB 를 넘으면 서버 액션이 받지 못한다 — 브라우저에서 먼저 줄인다 */
+      const file = await shrinkAvatar(picked)
+      if (!file) {
+        onMessage({ ok: false, text: '이미지를 줄이지 못했습니다. 다른 이미지를 골라 주세요.' })
+        return
+      }
+      const form = new FormData()
+      form.set('image', file)
       const r = await updateAvatar(form)
       if (!r.ok) {
         onMessage({ ok: false, text: r.error })
