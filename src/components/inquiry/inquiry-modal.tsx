@@ -454,6 +454,10 @@ export function InquiryModal({
             {designerName && (
               <div className="md:col-span-2">
                 <ReadonlyRow label="디자이너" value={designerName} />
+                {/* 개발까지 그 디자이너가 하는 줄로 읽히지 않게 — 디자이너 줄 바로 아래 작게 */}
+                <p className="mt-1.5 text-[11px] leading-relaxed text-neutral-500">
+                  디자이너는 디자인만 담당하며, 개발은 SOOM의 개발자가 진행합니다.
+                </p>
               </div>
             )}
           </div>
