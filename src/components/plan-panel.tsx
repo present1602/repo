@@ -40,7 +40,12 @@ export type PanelEntry = {
 /* 바깥에서 고를 줄 — 스튜디오 포함 항목에서 고치는 칸의 유형을 미리보기에 띄운다.
    seq 가 바뀔 때마다 다시 고른다(같은 칸을 다시 건드려도 옮겨 가게).
    tier — PREMIUM 열을 고치면 미리보기도 PREMIUM 탭으로 */
-export type PanelFocus = { category: string; scope: InquiryScope; tier?: PlanTier; seq: number }
+export type PanelFocus = {
+  category: string
+  scope: InquiryScope
+  tier?: PlanTier
+  seq: number
+}
 
 export function PlanPanel({
   designerId,
@@ -149,92 +154,83 @@ export function PlanPanel({
     >
       {list.length > 0 && picked && (
         <>
-          {/* 유형이 하나뿐이면 고를 게 없다 — 라디오 목록 없이 아래 상자 하나로 보여준다(single) */}
-          {!single && (
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="text-sm font-semibold">의뢰 유형</h2>
-              <span className="text-xs text-neutral-500">{list.length}개 중 선택</span>
-            </div>
-          )}
+          {/* 유형이 하나뿐이어도 라디오 줄을 골라 둔 채 보여준다 — 무엇을 의뢰하는지 이름이 늘 위에 있고,
+              아래 STANDARD·PREMIUM 탭이 패널 맨 위에 붙지 않는다. 라디오는 다른 줄이 없어 풀 수 없다 */}
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold">의뢰 유형</h2>
+            {!single && <span className="text-xs text-neutral-500">{list.length}개 중 선택</span>}
+          </div>
 
-          {!single && (
-            <div role="radiogroup" aria-label="의뢰 유형" className={`mt-3 ${preview ? 'space-y-1.5' : 'space-y-2'}`}>
-              {list.map((e, i) => {
-                const on = e.key === picked.key
-                const hasSample = e.sampleOk && sampleOf(e.category) != null
-                return (
-                  <Fragment key={e.key}>
-                    {/* web/app 묶음 아래에 한 줄 — 같은 분야의 유형끼리 묶여 보이게 */}
-                    {dividerBefore(cats, i) && <hr className="!my-3 border-neutral-200" />}
-                    {/* 테두리는 라디오 상태로 칠한다 — 안의 옵션 체크박스가 has-[:checked] 에 걸리지 않게 */}
-                    <div
-                      className={`rounded-lg border transition ${preview ? 'px-3 py-2' : 'px-3.5 py-3'} ${
-                        on ? 'border-violet-600 bg-violet-50' : 'border-neutral-300 hover:bg-neutral-50'
-                      }`}
-                    >
-                      <label className="flex cursor-pointer items-start gap-3">
-                        <input
-                          type="radio"
-                          name="plan-panel"
-                          checked={on}
-                          onChange={() => pick(e)}
-                          className="mt-0.5 shrink-0 accent-violet-600"
-                        />
-                        {/* 이름은 자르지 않는다 — 길어 가격과 한 줄에 들어가지 않으면
+          <div role="radiogroup" aria-label="의뢰 유형" className={`mt-3 ${preview ? 'space-y-1.5' : 'space-y-2'}`}>
+            {list.map((e, i) => {
+              const on = e.key === picked.key
+              const hasSample = e.sampleOk && sampleOf(e.category) != null
+              return (
+                <Fragment key={e.key}>
+                  {/* web/app 묶음 아래에 한 줄 — 같은 분야의 유형끼리 묶여 보이게 */}
+                  {dividerBefore(cats, i) && <hr className="!my-3 border-neutral-200" />}
+                  {/* 테두리는 라디오 상태로 칠한다 — 안의 옵션 체크박스가 has-[:checked] 에 걸리지 않게 */}
+                  <div
+                    className={`rounded-lg border transition ${preview ? 'px-3 py-2' : 'px-3.5 py-3'} ${
+                      on ? 'border-violet-600 bg-violet-50' : 'border-neutral-300 hover:bg-neutral-50'
+                    }`}
+                  >
+                    <label className="flex cursor-pointer items-start gap-3">
+                      <input
+                        type="radio"
+                        name="plan-panel"
+                        checked={on}
+                        onChange={() => pick(e)}
+                        className="mt-0.5 shrink-0 accent-violet-600"
+                      />
+                      {/* 이름은 자르지 않는다 — 길어 가격과 한 줄에 들어가지 않으면
                             가격이 아랫줄 오른쪽으로 내려간다(flex-wrap + ml-auto) */}
-                        <span
-                          className={`flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 ${
-                            preview ? 'gap-y-0.5' : 'gap-y-1'
-                          }`}
-                        >
-                          {/* 스튜디오 미리보기는 칸이 좁아 이름을 한 단계 작게 */}
-                          <span className={`font-medium ${preview ? 'text-xs' : 'text-sm'}`}>{e.basic.name}</span>
-                          <span className="ml-auto shrink-0 text-right text-xs text-neutral-500">
-                            {e.basic.priceLabel}
-                            {/* 미리보기는 카드를 낮게 — VAT 줄을 뺀다(아래 금액 상자에 있다) */}
-                            {!preview && <span className="block text-[10px] text-neutral-400">VAT 별도</span>}
-                          </span>
-                          {/* 프리미엄이 있는 유형 — 의뢰 폼과 같은 뱃지·금액 */}
-                          {e.premium && (
-                            <span
-                              className={`flex basis-full items-center gap-1.5 text-violet-700 ${preview ? 'text-[11px]' : 'text-xs'}`}
-                            >
-                              <PremiumBadge />
-                              {e.premium.priceLabel}
-                            </span>
-                          )}
-                          {/* 메인 시안을 받는 분야 — 고르면 아래에서 덧붙일 수 있다 */}
-                          {hasSample && !on && (
-                            <span
-                              className={`basis-full font-medium text-violet-600 ${preview ? 'text-[11px]' : 'text-xs'}`}
-                            >
-                              메인화면 먼저 의뢰 가능
-                            </span>
-                          )}
+                      <span
+                        className={`flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 ${
+                          preview ? 'gap-y-0.5' : 'gap-y-1'
+                        }`}
+                      >
+                        {/* 스튜디오 미리보기는 칸이 좁아 이름을 한 단계 작게 */}
+                        <span className={`font-medium ${preview ? 'text-xs' : 'text-sm'}`}>{e.basic.name}</span>
+                        <span className="ml-auto shrink-0 text-right text-xs text-neutral-500">
+                          {e.basic.priceLabel}
+                          {/* 미리보기는 카드를 낮게 — VAT 줄을 뺀다(아래 금액 상자에 있다) */}
+                          {!preview && <span className="block text-[10px] text-neutral-400">VAT 별도</span>}
                         </span>
-                      </label>
-                      {on && <div className="pl-7">{sampleToggle}</div>}
-                    </div>
-                  </Fragment>
-                )
-              })}
-            </div>
-          )}
-
-          {single && sampleToggle && <div className="mb-3">{sampleToggle}</div>}
+                        {/* 프리미엄이 있는 유형 — 의뢰 폼과 같은 뱃지·금액 */}
+                        {e.premium && (
+                          <span
+                            className={`flex basis-full items-center gap-1.5 text-violet-700 ${preview ? 'text-[11px]' : 'text-xs'}`}
+                          >
+                            <PremiumBadge />
+                            {e.premium.priceLabel}
+                          </span>
+                        )}
+                        {/* 메인 시안을 받는 분야 — 고르면 아래에서 덧붙일 수 있다 */}
+                        {hasSample && !on && (
+                          <span
+                            className={`basis-full font-medium text-violet-600 ${preview ? 'text-[11px]' : 'text-xs'}`}
+                          >
+                            메인화면 먼저 의뢰 가능
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                    {on && <div className="pl-7">{sampleToggle}</div>}
+                  </div>
+                </Fragment>
+              )
+            })}
+          </div>
 
           {/* 메인 시안을 덧붙였으면 그 의뢰의 금액·내용을, 아니면 고른 본계약을.
               key — 다른 유형으로 옮기면 새로 그린다(옮긴 것만으로 포함 항목이 깜빡이지 않게) */}
           {sampleOn ? (
-            <TierBox key={`${sample.key}:basic`} tier={sample.basic} single={single} flash={preview} />
+            <TierBox key={`${sample.key}:basic`} tier={sample.basic} flash={preview} />
           ) : tabs && picked.premium ? (
             /* STANDARD·PREMIUM 탭 — 패널 양옆 끝까지 줄을 긋고, 아래에 고른 단계 하나 */
-            <div className={single ? '' : 'mt-4'}>
-              <div
-                role="tablist"
-                aria-label="패키지"
-                className="-mx-5 grid grid-cols-2 border-y border-neutral-200"
-              >
+            <div className="mt-4">
+              <div role="tablist" aria-label="패키지" className="-mx-5 grid grid-cols-2 border-y border-neutral-200">
                 {(['basic', 'premium'] as const).map((t) => {
                   const on = (t === 'premium') === onPremium
                   return (
@@ -263,7 +259,7 @@ export function PlanPanel({
               />
             </div>
           ) : (
-            <TierBox key={`${picked.key}:basic`} tier={picked.basic} single={single} flash={preview} />
+            <TierBox key={`${picked.key}:basic`} tier={picked.basic} flash={preview} />
           )}
         </>
       )}
@@ -275,7 +271,12 @@ export function PlanPanel({
           !preview &&
           setOpen(
             picked
-              ? { category: picked.category, scope: picked.scope, sample: sampleOn, premium: onPremium }
+              ? {
+                  category: picked.category,
+                  scope: picked.scope,
+                  sample: sampleOn,
+                  premium: onPremium,
+                }
               : {},
           )
         }
@@ -313,27 +314,18 @@ export function PlanPanel({
 }
 
 /* 고른 유형의 상세 — 프리미엄이 없으면 회색 바탕 상자 하나 */
-/* single — 유형이 하나뿐일 때. 라디오의 골라 둔 모양(보라 테두리·연보라 바탕)을 이 상자가 이어받고,
-   이름은 칩 대신 보라 글씨 제목으로 */
 /* plain — STANDARD·PREMIUM 탭 아래. 탭이 단계를 알리므로 상자 없이 이름을 굵은 제목으로,
    포함 항목 아래에 다른 단계에만 있는 항목을 흐리게 '—' 로 둔다 */
 /* flash — 스튜디오 미리보기. 포함 항목이 새로 생기거나 바뀌면(시안 2종 → 3종) 그 줄을 두 번 깜빡여
    어디가 바뀌었는지 눈에 띄게 한다 */
-function TierBox({
-  tier,
-  single,
-  plain,
-  flash,
-}: {
-  tier: PanelTier
-  single?: boolean
-  plain?: boolean
-  flash?: boolean
-}) {
+function TierBox({ tier, plain, flash }: { tier: PanelTier; plain?: boolean; flash?: boolean }) {
   /* 직전에 그린 항목과 비교해 새 줄을 고른다 — 그리는 중에 바로(effect 로 미루면 한 번 늦게 깜빡인다).
      seq 를 key 에 붙여 같은 글자가 다시 들어와도 애니메이션이 처음부터 돈다 */
   const [known, setKnown] = useState(tier.items)
-  const [fresh, setFresh] = useState<{ items: string[]; seq: number }>({ items: [], seq: 0 })
+  const [fresh, setFresh] = useState<{ items: string[]; seq: number }>({
+    items: [],
+    seq: 0,
+  })
   if (flash && tier.items.join('\n') !== known.join('\n')) {
     setKnown(tier.items)
     const added = tier.items.filter((it) => !known.includes(it))
@@ -341,18 +333,10 @@ function TierBox({
   }
 
   return (
-    <div
-      className={
-        plain
-          ? 'pt-4'
-          : `rounded-xl p-4 ${single ? 'border border-violet-600 bg-violet-50' : 'mt-4 bg-neutral-50'}`
-      }
-    >
+    <div className={plain ? 'pt-4' : 'mt-4 rounded-xl bg-neutral-50 p-4'}>
       <div className="flex items-center justify-between gap-2">
         {plain ? (
           <span className="min-w-0 truncate text-[15px] font-bold">{tier.name}</span>
-        ) : single ? (
-          <span className="min-w-0 truncate text-base font-semibold text-violet-700">{tier.name}</span>
         ) : (
           <span className="min-w-0 truncate rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
             {tier.name}
