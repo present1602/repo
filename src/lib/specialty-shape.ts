@@ -47,13 +47,32 @@ export function priceOf(prices: SpecialtyPrices, scope: PriceScope, tier: PriceT
   return prices[scope]?.[tier] ?? { enabled: true, price: null, allowSample: true }
 }
 
+/* 디자이너 한 명에게만 적용되는 분야별 시작가(0016_designer_specialty_prices.sql).
+
+   분야 id → 범위 → 단계 → 금액. 줄이 있으면 분야 전체 금액(SpecialtyPrices)을 덮는다.
+   덮지 않을 때는 줄 자체가 없다 — null 을 담지 않는다. */
+export type DesignerSpecialtyPrices = Record<
+  string,
+  Partial<Record<PriceScope, Partial<Record<PriceTier, number>>>>
+>
+
+/* 이 디자이너가 이 분야·범위·단계에 따로 적어 둔 금액 — 없으면 null */
+export function ownPriceOf(
+  own: DesignerSpecialtyPrices | undefined,
+  specialtyId: string,
+  scope: PriceScope,
+  tier: PriceTier,
+): number | null {
+  return own?.[specialtyId]?.[scope]?.[tier] ?? null
+}
+
 /* 039 의 check 제약과 같은 값 — 함께 고쳐야 한다 */
 export const SPECIALTY_SCOPE_MODES = ['choice', 'design', 'design_dev'] as const
 export type SpecialtyScopeMode = (typeof SPECIALTY_SCOPE_MODES)[number]
 
 export const SPECIALTY_SCOPE_MODE_LABELS: Record<SpecialtyScopeMode, string> = {
   choice: '고객이 선택',
-  design: '디자인만',
+  design: '디자인만 의뢰',
   design_dev: '디자인 + 개발',
 }
 

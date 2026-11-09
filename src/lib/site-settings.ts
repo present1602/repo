@@ -12,6 +12,7 @@ import {
   type DesignerPremiums,
   type PlanCopies,
   type PlanTier,
+  type RegisteredOption,
 } from './plans'
 import { isScope, type Scope } from './scopes'
 
@@ -275,20 +276,26 @@ export async function getDesignerPlanOptions(designerId: string): Promise<Design
   return options
 }
 
-/* 한 디자이너의 기본 단계 포함 항목 — 공통·개별 목록마다 고른 템플릿과 직접 적은 항목(0004·0005).
+/* 한 디자이너의 포함 항목 — 공통·개별 목록마다 단계별로 고른 템플릿과 직접 적은 항목(0004·0005·0017).
 
    0004 전이면 null — 호출부는 예전 플랜별 목록(getDesignerPlanOptions)의 기본 칸을 쓴다.
-   0005 전이면 직접 적은 항목만 비운다. */
+   0005 전이면 직접 적은 항목만 비운다.
+   0017 전이면 premium 이 null 이고 직접 적은 항목은 모두 기본 단계에만 있다. */
 export async function getDesignerOptionSetup(designerId: string): Promise<DesignerOptionSetup | null> {
   if (!supabaseAdmin) return null
+  const db = supabaseAdmin
 
-  const [rows, custom] = await Promise.all([
-    supabaseAdmin.from('designer_category_options').select('bucket, template_id, n').eq('designer_id', designerId),
-    supabaseAdmin
+  const readCustom = (withTiers: boolean) =>
+    db
       .from('designer_custom_options')
-      .select('id, bucket, text')
+      .select(withTiers ? 'id, bucket, text, in_basic, in_premium' : 'id, bucket, text')
       .eq('designer_id', designerId)
-      .order('created_at'),
+      .order('created_at')
+
+  const [rows, premium, firstCustom] = await Promise.all([
+    db.from('designer_category_options').select('bucket, template_id, n').eq('designer_id', designerId),
+    db.from('designer_premium_options').select('bucket, template_id, n').eq('designer_id', designerId),
+    readCustom(true),
   ])
 
   if (rows.error) {
@@ -297,18 +304,42 @@ export async function getDesignerOptionSetup(designerId: string): Promise<Design
     }
     return null
   }
+  if (premium.error && !premium.error.message.includes('designer_premium_options')) {
+    console.error('[settings] 프리미엄 포함 항목 조회 실패:', premium.error.message)
+  }
+
+  /* 단계 칸(0017)이 없으면 예전 칸만 다시 읽는다 — 화면이 비지 않게 */
+  const custom = firstCustom.error && /in_basic|in_premium/.test(firstCustom.error.message)
+    ? await readCustom(false)
+    : firstCustom
   if (custom.error && !custom.error.message.includes('designer_custom_options')) {
     console.error('[settings] 직접 입력 포함 항목 조회 실패:', custom.error.message)
   }
 
-  const setup: DesignerOptionSetup = { buckets: {}, custom: {} }
-  for (const row of (rows.data ?? []) as { bucket: string; template_id: string; n: number | null }[]) {
-    if (!isBucket(row.bucket)) continue
-    ;(setup.buckets[row.bucket] ??= []).push({ templateId: row.template_id, n: row.n })
+  type Row = { bucket: string; template_id: string; n: number | null }
+  const group = (list: Row[]) => {
+    const out: Record<string, RegisteredOption[]> = {}
+    for (const row of list) {
+      if (!isBucket(row.bucket)) continue
+      ;(out[row.bucket] ??= []).push({ templateId: row.template_id, n: row.n })
+    }
+    return out
   }
-  for (const row of (custom.data ?? []) as { id: string; bucket: string; text: string }[]) {
+
+  const setup: DesignerOptionSetup = {
+    buckets: group((rows.data ?? []) as Row[]),
+    premium: premium.error ? null : group((premium.data ?? []) as Row[]),
+    custom: {},
+  }
+  type CustomRow = { id: string; bucket: string; text: string; in_basic?: boolean; in_premium?: boolean }
+  for (const row of (custom.data ?? []) as unknown as CustomRow[]) {
     if (!isBucket(row.bucket)) continue
-    ;(setup.custom[row.bucket] ??= []).push({ id: row.id, text: row.text })
+    ;(setup.custom[row.bucket] ??= []).push({
+      id: row.id,
+      text: row.text,
+      basic: row.in_basic ?? true,
+      premium: row.in_premium ?? false,
+    })
   }
   return setup
 }

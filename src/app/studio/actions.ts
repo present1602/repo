@@ -26,8 +26,10 @@ import {
   removeCustomOption,
   replaceBucketOptions,
   replaceSlotOptions,
+  setCustomOptionTiers,
   slotOpenFor,
 } from '@/lib/plan-options-db'
+import { BAD_VIDEO, readVideoId, youtubeId } from '@/lib/youtube'
 import { SCOPES, type Scope } from '@/lib/scopes'
 import { listCategoryMetas } from '@/lib/specialties'
 import { MAX_TAGS } from '@/lib/specialty-shape'
@@ -83,22 +85,44 @@ export async function setMyPlanOptions(
   return { ok: true }
 }
 
-/* 기본 단계 포함 항목 한 목록 — 공통 또는 분야·범위 하나(0004_plan_options_by_category.sql) */
-export async function setMyBucketOptions(bucket: string, options: RegisteredOption[]): Promise<Result> {
+/* 포함 항목 한 목록의 한 단계 — 공통 또는 분야·범위 하나(0004·0017) */
+export async function setMyBucketOptions(
+  bucket: string,
+  options: RegisteredOption[],
+  tier: PlanTier = 'basic',
+): Promise<Result> {
   const { id } = await guard()
 
-  const err = await replaceBucketOptions(id, bucket, options)
+  const err = await replaceBucketOptions(id, bucket, options, tier)
   if (err) return fail(err)
 
   refresh(id)
   return { ok: true }
 }
 
-/* 직접 적은 포함 항목 — 더하면 바로 저장된다(0005) */
-export async function addMyCustomOption(bucket: string, text: string): Promise<Result> {
+/* 직접 적은 포함 항목 — 더하면 바로 저장된다(0005). tiers — 처음 넣을 단계(0017) */
+export async function addMyCustomOption(
+  bucket: string,
+  text: string,
+  tiers?: { basic: boolean; premium: boolean },
+): Promise<Result> {
   const { id } = await guard()
 
-  const err = await addCustomOption(id, bucket, text)
+  const err = await addCustomOption(id, bucket, text, tiers)
+  if (err) return fail(err)
+
+  refresh(id)
+  return { ok: true }
+}
+
+/* 직접 적은 항목의 STANDARD·PREMIUM 체크(0017) */
+export async function setMyCustomOptionTiers(
+  optionId: string,
+  tiers: { basic: boolean; premium: boolean },
+): Promise<Result> {
+  const { id } = await guard()
+
+  const err = await setCustomOptionTiers(id, optionId, tiers)
   if (err) return fail(err)
 
   refresh(id)
@@ -420,6 +444,9 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   const aiUsed = readAiUsed(form)
   /* 해당할 때만 켜는 표시라 '묻지 않음'이 없다 — 키가 있으면 켠 것 */
   const soomWork = form.get('soomWork') != null
+  /* 작업 끝에 붙일 유튜브 영상 — 주소를 받아 id 만 저장한다(youtube.ts) */
+  const video = readVideoId(form)
+  if (video === false) return fail(BAD_VIDEO)
 
   if (!imageUrl) return fail('이미지를 선택해 주세요.')
   if (description.length > MAX_DESCRIPTION) {
@@ -485,6 +512,8 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
       ...(soomWork ? { soom_work: true } : {}),
       /* 0008 전 DB 에서는 컬럼이 없다 — PDF 일 때만 싣는다 */
       ...(pages && pages.length > 0 ? { pages } : {}),
+      /* 0019 전 DB 에서도 같다 — 영상을 붙였을 때만 싣는다 */
+      ...(video ? { video_id: video } : {}),
       row_span: rowSpan,
       sort_order: sortOrder,
       /* 올리기 창에서 정보를 다 적고 노출 여부도 고른다(work-uploader.tsx).
@@ -499,6 +528,9 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
     console.error('[works] 등록 실패:', error?.message)
     if (error?.message.includes('pages')) {
       return fail('PDF 저장 칸이 없습니다. 0008_work_pdf_pages.sql 마이그레이션을 실행해 주세요.')
+    }
+    if (error?.message.includes('video_id')) {
+      return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
     }
     /* 트리거가 막은 경우 메시지를 그대로 보여준다 */
     return fail(error?.message.includes('최대') ? error.message : '등록에 실패했습니다.')
@@ -522,6 +554,10 @@ export type WorkInput = {
   aiUsed: boolean
   /* SOOM 에서 수행한 의뢰인지(020_work_soom_project.sql) */
   soomWork: boolean
+  /* 작업 끝에 붙일 유튜브 주소(0019_work_video.sql). 빈 문자열이면 떼고,
+     넘어오지 않으면(undefined) 지금 붙어 있는 것을 그대로 둔다 — 영상 칸이
+     없는 화면에서 저장해도 사라지지 않게. */
+  videoUrl?: string
 }
 
 export async function updateWork(input: WorkInput): Promise<Result> {
@@ -546,6 +582,17 @@ export async function updateWork(input: WorkInput): Promise<Result> {
     patch.row_span = Math.min(MAX_ROW_SPAN, Math.max(MIN_ROW_SPAN, Math.round(input.rowSpan)))
   }
 
+  /* 영상도 같다 — 넘어왔을 때만 손댄다. 빈 문자열은 "떼기"다. */
+  if (input.videoUrl != null) {
+    const trimmed = input.videoUrl.trim()
+    if (!trimmed) patch.video_id = null
+    else {
+      const vid = youtubeId(trimmed)
+      if (!vid) return fail(BAD_VIDEO)
+      patch.video_id = vid
+    }
+  }
+
   /* designer_id 조건을 함께 걸어 남의 작업을 고치지 못하게 한다 */
   const { error } = await db
     .from('designer_works')
@@ -555,6 +602,9 @@ export async function updateWork(input: WorkInput): Promise<Result> {
 
   if (error) {
     console.error('[works] 수정 실패:', error.message)
+    if (error.message.includes('video_id')) {
+      return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
+    }
     return fail('수정에 실패했습니다.')
   }
 

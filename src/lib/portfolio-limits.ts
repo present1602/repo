@@ -82,6 +82,9 @@ export type WorkRow = {
   /* PDF 로 올린 작업의 둘째 장부터(0008_work_pdf_pages.sql). 첫 장은 image_url 이다.
      이미지 작업은 null, 0008 전 DB 에서는 select('*') 에 없어 undefined 로 온다. */
   pages?: WorkPage[] | null
+  /* 작업 끝에 붙인 유튜브 영상 id(0019_work_video.sql). 그림 작업·PDF 작업
+     모두 붙일 수 있다. 0019 전 DB 에서는 select('*') 에 없어 undefined 로 온다. */
+  video_id?: string | null
   width: number | null
   height: number | null
   title: string | null

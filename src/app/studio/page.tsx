@@ -17,6 +17,7 @@ import { DEFAULT_FULL_DESIGN_PRICE, DEFAULT_PROJECT_PRICE } from '@/lib/plans'
 import { PlanSetup, type SetupSlot } from '@/components/plan-setup'
 import { OptionSetup, type OptionPreview } from '@/components/option-setup'
 import { listCategoryMetas } from '@/lib/specialties'
+import { getOwnPrices } from '@/lib/designer-specialty-prices'
 import { optionCategories } from '@/lib/inquiry-choices'
 import { displayName } from '@/lib/display-name'
 import { LogoutButton } from '@/components/designers/logout-button'
@@ -33,18 +34,30 @@ export default async function DesignerHomePage() {
   const d = await getDesignerUser()
   if (!d) redirect('/studio/login')
 
-  const [works, planCopy, metas, templates, planOptions, premiums, optionSetup, planDetails, showDuration] =
-    await Promise.all([
-      listWorks(d.id),
-      getPlanCopies(),
-      listCategoryMetas(),
-      listOptionTemplates({ designerId: d.id }),
-      getDesignerPlanOptions(d.id),
-      getDesignerPremiums(d.id),
-      getDesignerOptionSetup(d.id),
-      getDesignerPlanDetails(d.id),
-      getShowDuration(),
-    ])
+  const [
+    works,
+    planCopy,
+    metas,
+    templates,
+    planOptions,
+    premiums,
+    optionSetup,
+    planDetails,
+    showDuration,
+    ownPrices,
+  ] = await Promise.all([
+    listWorks(d.id),
+    getPlanCopies(),
+    listCategoryMetas(),
+    listOptionTemplates({ designerId: d.id }),
+    getDesignerPlanOptions(d.id),
+    getDesignerPremiums(d.id),
+    getDesignerOptionSetup(d.id),
+    getDesignerPlanDetails(d.id),
+    getShowDuration(),
+    /* 어드민이 이 디자이너에게만 적어 둔 분야 시작가(0016) — 미리보기도 공개 화면과 같은 금액이어야 한다 */
+    getOwnPrices(d.id),
+  ])
   /* 0004 전 계정은 범위 가격이 비어 있다 — 공개 화면(public-designers.ts)처럼 기본값으로 */
   const tagged = {
     ...d,
@@ -59,7 +72,7 @@ export default async function DesignerHomePage() {
       mode="designer"
       designerId={d.id}
       setup={optionSetup}
-      categories={optionCategories(tagged, metas, planCopy)}
+      categories={optionCategories(tagged, metas, planCopy, { premiums, ownPrices })}
       templates={templates}
     />
   )
@@ -79,6 +92,7 @@ export default async function DesignerHomePage() {
       scope_sample: tagged.scope_sample,
       scope_full_design: tagged.scope_full_design,
       scope_with_dev: tagged.scope_with_dev,
+      own_prices: ownPrices,
     },
     metas,
     copies: planCopy,
@@ -91,10 +105,14 @@ export default async function DesignerHomePage() {
   }
 
   /* 프리미엄 포함 항목 — 사이트에 보이고 받는 유형 중 유형 전체와 이 디자이너의
-     프리미엄이 모두 켜졌을 때만(어드민이 켠다) */
-  const slots = SCOPES.filter(
-    (s) => planCopy[s].visible && acceptsScope(d, s) && planCopy[s].premium.enabled && premiums[s]?.enabled,
-  ).map((s): SetupSlot => ({ scope: s, tier: 'premium' }))
+     프리미엄이 모두 켜졌을 때만(어드민이 켠다).
+     0017 부터는 위 포함 항목 표의 PREMIUM 열이 맡는다 — 그 전(premium 이 null)에만 플랜별로 */
+  const slots =
+    optionSetup?.premium != null
+      ? []
+      : SCOPES.filter(
+          (s) => planCopy[s].visible && acceptsScope(d, s) && planCopy[s].premium.enabled && premiums[s]?.enabled,
+        ).map((s): SetupSlot => ({ scope: s, tier: 'premium' }))
   const planSetup = (
     <PlanSetup
       mode="designer"

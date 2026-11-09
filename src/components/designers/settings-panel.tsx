@@ -1,13 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import type { PlanCopies } from '@/lib/plans'
 import type { CategoryMeta } from '@/lib/inquiry-choices'
 import { PlanForm } from './plan-form'
 import { ChangePasswordDialog } from './change-password-dialog'
 import { LogoutButton } from './logout-button'
-import { DetailPreview, OptionDraftsContext, type OptionDrafts, type OptionPreview } from '../option-setup'
+import {
+  DetailPreview,
+  OptionDraftsContext,
+  OptionFocusContext,
+  type OptionDrafts,
+  type OptionPreview,
+  type OptionTouch,
+} from '../option-setup'
+import type { PanelFocus } from '../plan-panel'
 
 /* 설정 탭 — 가격 플랜과 계정 관리를 한 화면에 모은다.
    비밀번호는 자주 건드리는 값이 아니라 버튼 하나로 두고 다이얼로그에서 바꾼다. */
@@ -37,6 +45,10 @@ export function SettingsPanel({
   const [drafts, setDrafts] = useState<OptionDrafts | null>(null)
   /* 가격 플랜에서 고친 의뢰 받는 분야 — 끄면 미리보기에서 그 유형이 바로 빠진다 */
   const [picked, setPicked] = useState<string[] | null>(null)
+  /* 포함 항목에서 건드린 개별 칸 — 미리보기가 그 유형의 라디오를 고른다.
+     seq 를 올려 같은 칸을 다시 건드려도(그 사이 미리보기에서 다른 줄을 눌렀어도) 다시 옮긴다 */
+  const [focus, setFocus] = useState<PanelFocus | null>(null)
+  const touch = useCallback((t: OptionTouch) => setFocus((f) => ({ ...t, seq: (f?.seq ?? 0) + 1 })), [])
   const [pwOpen, setPwOpen] = useState(Boolean(openPasswordAtFirst))
   const [toast, setToast] = useState<string | null>(null)
 
@@ -50,17 +62,27 @@ export function SettingsPanel({
   return (
     /* 왼쪽은 설정, 오른쪽은 상세 페이지 미리보기 — 미리보기는 가격 플랜 옆에서 시작해
        포함 항목까지 스크롤해도 오른쪽 위에 붙어 따라온다. 좁은 화면에서는 맨 위에 한 번 */
-    <div className={preview ? 'grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_400px]' : ''}>
+    <div className={preview ? 'grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_484px]' : ''}>
       {preview && (
         <aside className="xl:sticky xl:top-20 xl:order-last">
-          <DetailPreview preview={preview} drafts={drafts} picked={picked} />
+          <DetailPreview preview={preview} drafts={drafts} picked={picked} focus={focus} />
         </aside>
       )}
 
       <div className="min-w-0 space-y-8">
-        <PlanForm designer={d} copy={copy} categories={categories} onPicked={setPicked} />
+        {/* 프리미엄 금액은 어드민이 정한다 — 미리보기 재료에 실려 온 값을 그대로 보여만 준다 */}
+        <PlanForm
+          designer={d}
+          copy={copy}
+          categories={categories}
+          premiums={preview?.premiums ?? {}}
+          ownPrices={preview?.designer.own_prices ?? {}}
+          onPicked={setPicked}
+        />
 
-        <OptionDraftsContext value={setDrafts}>{optionSetup}</OptionDraftsContext>
+        <OptionDraftsContext value={setDrafts}>
+          <OptionFocusContext value={touch}>{optionSetup}</OptionFocusContext>
+        </OptionDraftsContext>
 
         {planSetup}
 

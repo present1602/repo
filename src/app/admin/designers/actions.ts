@@ -8,7 +8,9 @@ import { generateTempPassword, hashPassword } from '@/lib/password'
 import { sendTempPassword } from '@/lib/designer-mail'
 import { displayName } from '@/lib/display-name'
 import { putImage, signImageUpload, claimImage, signPageUploads, claimPages } from '@/lib/upload'
+import { BAD_VIDEO, readVideoId, youtubeId } from '@/lib/youtube'
 import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
+import { PRICE_SCOPES, PRICE_TIERS, type PriceScope, type PriceTier } from '@/lib/specialty-shape'
 import {
   MAX_DESCRIPTION,
   MAX_BIO,
@@ -35,6 +37,7 @@ import {
   removeCustomOption,
   replaceBucketOptions,
   replaceSlotOptions,
+  setCustomOptionTiers,
   slotOpenFor,
 } from '@/lib/plan-options-db'
 
@@ -486,16 +489,17 @@ export async function setDesignerPlanSetup(
   return { ok: true }
 }
 
-/* 기본 단계 포함 항목 한 목록 — 공통 또는 분야·범위 하나(0004_plan_options_by_category.sql).
+/* 포함 항목 한 목록의 한 단계 — 공통 또는 분야·범위 하나(0004·0017).
    디자이너가 아직 고르지 않은 분야도 미리 채워 둘 수 있다. */
 export async function setDesignerBucketOptions(
   id: string,
   bucket: string,
   options: RegisteredOption[],
+  tier: PlanTier = 'basic',
 ): Promise<Result> {
   await guard()
 
-  const err = await replaceBucketOptions(id, bucket, options)
+  const err = await replaceBucketOptions(id, bucket, options, tier)
   if (err) return fail(err)
 
   refresh(id)
@@ -503,11 +507,32 @@ export async function setDesignerBucketOptions(
   return { ok: true }
 }
 
-/* 직접 적은 포함 항목 — 어드민이 대신 더하거나 지운다(0005) */
-export async function addDesignerCustomOption(id: string, bucket: string, text: string): Promise<Result> {
+/* 직접 적은 포함 항목 — 어드민이 대신 더하거나 지운다(0005). tiers — 처음 넣을 단계(0017) */
+export async function addDesignerCustomOption(
+  id: string,
+  bucket: string,
+  text: string,
+  tiers?: { basic: boolean; premium: boolean },
+): Promise<Result> {
   await guard()
 
-  const err = await addCustomOption(id, bucket, text)
+  const err = await addCustomOption(id, bucket, text, tiers)
+  if (err) return fail(err)
+
+  refresh(id)
+  revalidatePath('/studio')
+  return { ok: true }
+}
+
+/* 직접 적은 항목의 STANDARD·PREMIUM 체크(0017) */
+export async function setDesignerCustomOptionTiers(
+  id: string,
+  optionId: string,
+  tiers: { basic: boolean; premium: boolean },
+): Promise<Result> {
+  await guard()
+
+  const err = await setCustomOptionTiers(id, optionId, tiers)
   if (err) return fail(err)
 
   refresh(id)
@@ -522,6 +547,52 @@ export async function removeDesignerCustomOption(id: string, optionId: string): 
   if (err) return fail(err)
 
   refresh(id)
+  revalidatePath('/studio')
+  return { ok: true }
+}
+
+/* 이 디자이너에게만 적용되는 분야별 시작가(0016_designer_specialty_prices.sql).
+
+   분야 전체 금액(specialty_plan_prices)을 디자이너 한 명에게만 덮는다 —
+   "이 디자이너의 상세페이지만 더 비싸게" 를 두는 칸이다.
+   price 가 null 이면 줄을 지운다 — 덮지 않겠다는 뜻이고, 그러면 분야 금액이 다시 나간다. */
+export async function setDesignerSpecialtyPrice(
+  id: string,
+  specialtyId: string,
+  scope: PriceScope,
+  tier: PriceTier,
+  price: number | null,
+): Promise<Result> {
+  const db = await guard()
+
+  if (!(PRICE_SCOPES as readonly string[]).includes(scope)) return fail('알 수 없는 의뢰 범위입니다.')
+  if (!(PRICE_TIERS as readonly string[]).includes(tier)) return fail('알 수 없는 단계입니다.')
+  if (price != null && !isContractPrice(price)) {
+    return fail(
+      `시작가는 ${formatPrice(MIN_CONTRACT_PRICE)} 이상 ${formatPrice(MAX_CONTRACT_PRICE)} 이하로 적어 주세요.`,
+    )
+  }
+
+  const missing = (msg: string) =>
+    /designer_specialty_prices/i.test(msg)
+      ? fail('0016_designer_specialty_prices.sql 을 먼저 실행해 주세요.')
+      : fail('변경에 실패했습니다.')
+
+  const where = { designer_id: id, specialty_id: specialtyId, scope, tier }
+
+  const { error } =
+    price == null
+      ? await db.from('designer_specialty_prices').delete().match(where)
+      : await db.from('designer_specialty_prices').upsert({ ...where, price })
+
+  if (error) {
+    console.error('[designers] 분야별 시작가 변경 실패:', error.message)
+    return missing(error.message)
+  }
+
+  refresh(id)
+  /* 탐색 카드·의뢰 폼의 금액이 함께 바뀐다 */
+  revalidatePath('/explore')
   revalidatePath('/studio')
   return { ok: true }
 }
@@ -736,6 +807,9 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
   const aiUsed = readAiUsed(form)
   /* 해당할 때만 켜는 표시라 '묻지 않음'이 없다 — 키가 있으면 켠 것 */
   const soomWork = form.get('soomWork') != null
+  /* 작업 끝에 붙일 유튜브 영상 — 주소를 받아 id 만 저장한다(youtube.ts) */
+  const video = readVideoId(form)
+  if (video === false) return fail(BAD_VIDEO)
 
   if (!imageUrl) return fail('이미지를 선택해 주세요.')
 
@@ -801,6 +875,8 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
       ...(soomWork ? { soom_work: true } : {}),
       /* 0008 전 DB 에서는 컬럼이 없다 — PDF 일 때만 싣는다 */
       ...(pages && pages.length > 0 ? { pages } : {}),
+      /* 0019 전 DB 에서도 같다 — 영상을 붙였을 때만 싣는다 */
+      ...(video ? { video_id: video } : {}),
       ...readCrop(form),
       row_span: rowSpan,
       sort_order: sortOrder,
@@ -812,6 +888,9 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
     console.error('[works] 어드민 등록 실패:', error?.message)
     if (error?.message.includes('pages')) {
       return fail('PDF 저장 칸이 없습니다. 0008_work_pdf_pages.sql 마이그레이션을 실행해 주세요.')
+    }
+    if (error?.message.includes('video_id')) {
+      return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
     }
     /* 트리거가 막은 경우 메시지를 그대로 보여준다 */
     return fail(error?.message.includes('최대') ? error.message : '등록에 실패했습니다.')
@@ -833,6 +912,10 @@ export type AdminWorkInput = {
   aiUsed: boolean
   /* SOOM 에서 수행한 의뢰인지(020_work_soom_project.sql) */
   soomWork: boolean
+  /* 작업 끝에 붙일 유튜브 주소(0019_work_video.sql). 빈 문자열이면 떼고,
+     넘어오지 않으면(undefined) 지금 붙어 있는 것을 그대로 둔다 — 스튜디오
+     쪽(WorkInput)과 같은 규칙이다. */
+  videoUrl?: string
 }
 
 export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
@@ -844,19 +927,32 @@ export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
   }
 
   /* designer_works.year 컬럼은 남아 있지만 화면에서 쓰지 않으므로 건드리지 않는다 */
-  const { error } = await db
-    .from('designer_works')
-    .update({
-      title: input.title.trim() || null,
-      description: description || null,
-      client: input.client.trim() || null,
-      ai_used: input.aiUsed,
-      soom_work: input.soomWork,
-    })
-    .eq('id', input.id)
+  const patch: Record<string, unknown> = {
+    title: input.title.trim() || null,
+    description: description || null,
+    client: input.client.trim() || null,
+    ai_used: input.aiUsed,
+    soom_work: input.soomWork,
+  }
+
+  /* 영상은 넘어왔을 때만 손댄다 — 빈 문자열은 "떼기"다 */
+  if (input.videoUrl != null) {
+    const trimmed = input.videoUrl.trim()
+    if (!trimmed) patch.video_id = null
+    else {
+      const vid = youtubeId(trimmed)
+      if (!vid) return fail(BAD_VIDEO)
+      patch.video_id = vid
+    }
+  }
+
+  const { error } = await db.from('designer_works').update(patch).eq('id', input.id)
 
   if (error) {
     console.error('[works] 어드민 수정 실패:', error.message)
+    if (error.message.includes('video_id')) {
+      return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
+    }
     return fail('수정에 실패했습니다.')
   }
 

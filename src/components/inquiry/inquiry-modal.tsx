@@ -88,6 +88,7 @@ export function InquiryModal({
   initialCategory,
   initialScope,
   initialSample = false,
+  initialPremium = false,
   onClose,
 }: {
   designerId?: string
@@ -100,6 +101,8 @@ export function InquiryModal({
   initialScope?: InquiryScope
   /* 패널에서 '메인화면 먼저 의뢰'를 켜고 열었는지 */
   initialSample?: boolean
+  /* 패널의 PREMIUM 탭에서 열었는지 — 그 줄에 프리미엄이 있으면 골라 둔다 */
+  initialPremium?: boolean
   onClose: () => void
 }) {
   const [fetched, setFetched] = useState<CategoryChoice[] | null>(null)
@@ -127,7 +130,9 @@ export function InquiryModal({
   const [pickedScope, setPickedScope] = useState<InquiryScope | null>(null)
   /* 고른 본계약 줄에 덧붙이는 옵션 — 프리미엄과 메인화면 먼저 의뢰는 함께 고르지 않는다
      (메인 시안은 본계약 전에 먼저 받는 의뢰라 본계약 단계가 아직 정해지지 않는다) */
-  const [extra, setExtra] = useState<'none' | 'premium' | 'sample'>(initialSample ? 'sample' : 'none')
+  const [extra, setExtra] = useState<'none' | 'premium' | 'sample'>(
+    initialSample ? 'sample' : initialPremium ? 'premium' : 'none',
+  )
 
   const cat =
     cats.find((c) => c.name === (pickedCat ?? initialCategory)) ?? (cats.length === 1 ? cats[0] : null)

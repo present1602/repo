@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { PublicWork } from '@/lib/designer-shape'
 import type { WorkPage } from '@/lib/portfolio-limits'
+import { DEFAULT_RATIO, embedUrl, youtubeRatioProbe } from '@/lib/youtube'
 import { AiBadge } from './work-thumb'
 
 /* 좌우로 미끄러지는 시간(ms). 트랙에 거는 CSS 전환과 같은 값이어야
@@ -327,6 +328,9 @@ export function WorkModal<W extends PublicWork>({
                        src 가 바뀌면 배율·스크롤은 ZoomImage 안에서 되돌린다. */
                       src={item.image_url}
                       pages={item.pages}
+                      /* 영상은 가운데 칸에만 건다 — 양옆까지 걸면 보이지도 않는
+                         유튜브 플레이어가 셋 떠서 느려진다 */
+                      videoId={off === 0 ? item.video_id : null}
                       alt={item.title ?? ''}
                       active={off === 0}
                       onSwipe={
@@ -557,6 +561,7 @@ const TALL_RATIO = 1.6
 function ZoomImage({
   src,
   pages,
+  videoId,
   alt,
   active,
   onSwipe,
@@ -567,6 +572,8 @@ function ZoomImage({
   src: string
   /* PDF 작업의 둘째 장부터 — 첫 장(src) 아래로 이어 붙여 한 장처럼 키우고 내려 본다 */
   pages?: WorkPage[] | null
+  /* 맨 끝에 붙은 유튜브 영상(0019_work_video.sql) — 그림 아래로 이어 붙인다 */
+  videoId?: string | null
   alt: string
   /* 트랙 가운데 칸인지 — 양옆은 미리 깔아 둔 그림이라 조작을 받지 않는다 */
   active?: boolean
@@ -586,7 +593,36 @@ function ZoomImage({
   const [first, setFirst] = useState<{ w: number; h: number } | null>(null)
   /* 맞춤·배율 계산은 이어 붙인 전체를 한 장으로 본다 — 둘째 장부터는 첫 장
      너비에 맞춰 늘이거나 줄인 높이로 더한다 */
-  const natural = useMemo(
+  /* 영상의 가로세로 비 — 세로 영상(쇼츠)이면 1 보다 작다. 알아내기 전에는
+     16:9 로 둔다(youtube.ts). 비율을 모른 채 자리를 비워 두면 영상이 뜨는
+     순간 아래 내용이 밀린다. */
+  const [videoRatio, setVideoRatio] = useState(DEFAULT_RATIO)
+  /* 다른 영상으로 바뀌면 비율을 되돌린다 — 남겨 두면 앞 영상의 비율로 한 번
+     그린 뒤 고쳐진다. 아래 seenSrc 와 같은 "렌더 중 상태 조정" 패턴이다. */
+  const [seenVideo, setSeenVideo] = useState(videoId)
+  if (seenVideo !== videoId) {
+    setSeenVideo(videoId)
+    setVideoRatio(DEFAULT_RATIO)
+  }
+  useEffect(() => {
+    if (!videoId) return
+    let alive = true
+    const probe = new Image()
+    probe.onload = () => {
+      if (alive && probe.naturalWidth > 0 && probe.naturalHeight > 0) {
+        setVideoRatio(probe.naturalWidth / probe.naturalHeight)
+      }
+    }
+    /* 못 받아도 그냥 16:9 로 둔다 — 영상 자체는 뜬다 */
+    probe.src = youtubeRatioProbe(videoId)
+    return () => {
+      alive = false
+    }
+  }, [videoId])
+
+  /* 그림만 이어 붙인 크기 — 영상을 더하기 전. 맞춤 배율(fit)을 이것으로
+     잡아야 영상 칸 계산과 서로 물고 돌지 않는다. */
+  const imagesOnly = useMemo(
     () =>
       first && {
         w: first.w,
@@ -626,14 +662,42 @@ function ZoomImage({
 
   const MAX_ZOOM = ZOOMS[ZOOMS.length - 1]
 
-  /* 길쭉한 그림은 너비에 맞춰 잘리게 두고, 나머지는 칸 안에 통째로 넣는다 */
-  const tall = natural ? natural.h / natural.w > TALL_RATIO : false
+  /* 길쭉한 그림은 너비에 맞춰 잘리게 두고, 나머지는 칸 안에 통째로 넣는다.
+     영상은 빼고 그림만으로 잰다 — 영상 칸 크기가 fit 에서 나오므로,
+     fit 이 영상까지 보고 정해지면 둘이 서로 물고 돈다. */
+  const tall = imagesOnly ? imagesOnly.h / imagesOnly.w > TALL_RATIO : false
   const fit =
-    boxSize && natural
+    boxSize && imagesOnly
       ? tall
-        ? boxSize.w / natural.w
-        : Math.min(boxSize.w / natural.w, boxSize.h / natural.h)
+        ? boxSize.w / imagesOnly.w
+        : Math.min(boxSize.w / imagesOnly.w, boxSize.h / imagesOnly.h)
       : null
+
+  /* 영상 칸 — 그림과 같은 너비에 영상의 제 비율로 높이를 준다.
+
+     세로 영상(쇼츠)은 그대로 두면 칸보다 길어져 한 화면에 안 들어온다.
+     그래서 화면에 그려질 높이가 칸 높이를 넘지 않는 선까지 너비를 줄인다 —
+     세로 영상도 통째로 보이고, 가로 영상은 지금까지와 똑같다. 그림과 달리
+     영상은 스크롤해 가며 뜯어보는 것이 아니라 재생하는 것이다.
+
+     단위를 맞춘다 — 여기 w·h 는 그림과 같은 "원래 크기" 단위이고,
+     칸 높이(boxSize.h)는 화면 픽셀이라 fit 으로 나눠 맞춘다. 폭이 좁은
+     화면에서는 fit 이 너비에 맞춰 정해지므로, 높이 제한을 거치지 않으면
+     세로 영상이 칸보다 길어진다(폰에서 630px vs 칸 566px). */
+  const videoBox = useMemo(() => {
+    if (!imagesOnly || !videoId) return null
+    const maxH = boxSize && fit ? boxSize.h / fit : Infinity
+    /* 높이부터 맞추고, 그래도 그림보다 넓으면 그림 너비로 줄인다 */
+    const h = Math.min(imagesOnly.w / videoRatio, maxH)
+    const w = h * videoRatio
+    return { w, h }
+  }, [imagesOnly, videoId, boxSize, fit, videoRatio])
+
+  /* 영상 칸까지 더한 전체 — 스크롤이 닿을 범위다. 빼면 영상 앞에서 멈춘다 */
+  const natural = useMemo(
+    () => imagesOnly && { w: imagesOnly.w, h: imagesOnly.h + (videoBox?.h ?? 0) },
+    [imagesOnly, videoBox],
+  )
 
   /* 붙잡아 둔 자리를 새 배율에서 같은 곳에 오도록 스크롤을 맞춘다.
      그림이 칸보다 작은 쪽은 가운데에 놓이므로(길쭉한 그림의 세로는 위에서
@@ -1073,6 +1137,40 @@ function ZoomImage({
                   className="block bg-neutral-50"
                 />
               ))}
+            {/* 맨 끝 영상 — 영상의 제 비율대로 잇는다(videoBox).
+                세로 영상은 한 화면에 들어오도록 너비를 줄여 맞추므로
+                그림보다 좁게 나올 수 있다 — 가운데로 놓는다.
+
+                키운 상태(zoom > 1)에서는 플레이어를 걷고 자리만 남긴다.
+                iframe 은 그 안에서 포인터를 먹어 끌어 옮기기가 멈추고,
+                반대로 영상을 누르려다 스와이프로 작업이 넘어가기도 한다.
+                확대는 PDF 글자를 읽으려고 쓰는 기능이라 영상에는 쓸 일이
+                없으므로, 배율 1 에서만 재생할 수 있게 둔다. */}
+            {fit && first && videoId && videoBox && (
+              <div
+                style={{
+                  width: videoBox.w * fit * zoom,
+                  height: videoBox.h * fit * zoom,
+                }}
+                className="relative block bg-neutral-900"
+              >
+                {zoom === 1 ? (
+                  <iframe
+                    src={embedUrl(videoId)}
+                    title={alt || '작업 영상'}
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                    className="absolute inset-0 size-full border-0"
+                  />
+                ) : (
+                  <p className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-white/70">
+                    영상은 원래 크기에서 재생됩니다
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

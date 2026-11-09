@@ -16,6 +16,7 @@ import {
   type PlanTier,
 } from '@/lib/plans'
 import { SCOPES, type Scope } from '@/lib/scopes'
+import { MAX_FAQ_ANSWER, MAX_FAQ_QUESTION } from '@/lib/faq-shape'
 import {
   isSpecialtyScopeMode,
   PRICE_SCOPES,
@@ -508,6 +509,134 @@ export async function deleteSpecialty(id: string): Promise<Result> {
   }
 
   refreshSpecialties()
+  return { ok: true }
+}
+
+/* ─────────── 자주 묻는 질문 ───────────
+
+   제목 + 내용 한 쌍을 차례대로 둔다(0015_faqs.sql). 공개 화면에서는
+   켜 둔 것만 제목으로 보이고, 누르면 내용이 펼쳐진다. */
+
+function refreshFaqs() {
+  revalidatePath('/admin/settings')
+  /* 공개 화면 어디에 붙여도 따라오게 레이아웃째 되살린다 */
+  revalidatePath('/', 'layout')
+}
+
+/* 표가 없으면 어떤 파일을 돌려야 하는지 알려 준다 */
+function faqFail(message: string, what: string) {
+  console.error(`[faqs] ${what} 실패:`, message)
+  return fail(
+    /faqs/i.test(message) ? 'FAQ 표가 아직 없습니다. 0015_faqs.sql 을 먼저 실행해 주세요.' : `${what}에 실패했습니다.`,
+  )
+}
+
+/* 제목은 비울 수 없다 — 접혀 있을 때 보이는 줄이다. 내용은 비워 둘 수 있다 */
+function cleanFaq(
+  question: string,
+  answer: string,
+): { error: string } | { error?: undefined; question: string; answer: string } {
+  const q = question.trim()
+  if (!q) return { error: '질문을 입력해 주세요.' }
+  if (q.length > MAX_FAQ_QUESTION) {
+    return { error: `질문은 ${MAX_FAQ_QUESTION}자 이내로 입력해 주세요.` }
+  }
+  /* 줄바꿈은 그대로 살린다 — 앞뒤 빈 줄만 덜어낸다 */
+  const a = answer.trim()
+  if (a.length > MAX_FAQ_ANSWER) {
+    return { error: `답변은 ${MAX_FAQ_ANSWER}자 이내로 입력해 주세요.` }
+  }
+  return { question: q, answer: a }
+}
+
+export async function addFaq(question: string, answer: string): Promise<Result> {
+  const db = await guard()
+
+  const c = cleanFaq(question, answer)
+  if (c.error != null) return fail(c.error)
+
+  /* 맨 뒤에 세운다 — 기존 차례를 흔들지 않는다(addSpecialty 와 같은 방침) */
+  const { data: last } = await db
+    .from('faqs')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const { error } = await db.from('faqs').insert({
+    question: c.question,
+    answer: c.answer,
+    sort_order: ((last?.sort_order as number) ?? -1) + 1,
+  })
+  if (error) return faqFail(error.message, '추가')
+
+  refreshFaqs()
+  return { ok: true }
+}
+
+export async function updateFaq(id: string, question: string, answer: string): Promise<Result> {
+  const db = await guard()
+
+  const c = cleanFaq(question, answer)
+  if (c.error != null) return fail(c.error)
+
+  const { error } = await db
+    .from('faqs')
+    .update({ question: c.question, answer: c.answer, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) return faqFail(error.message, '수정')
+
+  refreshFaqs()
+  return { ok: true }
+}
+
+/* 끄면 공개 화면에서만 빠진다 — 어드민 목록에는 '숨김' 으로 남는다 */
+export async function setFaqVisible(id: string, visible: boolean): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db.from('faqs').update({ visible }).eq('id', id)
+  if (error) return faqFail(error.message, '노출 변경')
+
+  refreshFaqs()
+  return { ok: true }
+}
+
+/* 순서 바꾸기 — 받은 차례대로 0번부터 다시 매긴다(reorderSpecialties 와 같은 방침) */
+export async function reorderFaqs(ids: string[]): Promise<Result> {
+  const db = await guard()
+
+  if (ids.length === 0) return { ok: true }
+
+  const { data: all, error: readErr } = await db.from('faqs').select('id')
+  if (readErr) return faqFail(readErr.message, '순서 변경')
+
+  const known = new Set((all ?? []).map((f) => f.id as string))
+  const clean = ids.filter((id) => known.has(id))
+
+  /* 화면이 가진 목록과 DB 가 어긋나면 섣불리 쓰지 않는다 —
+     빠진 줄이 0번으로 몰려 차례가 뒤엉킨다 */
+  if (clean.length !== known.size) {
+    return fail('목록이 바뀌었습니다. 새로고침 후 다시 시도해 주세요.')
+  }
+
+  const results = await Promise.all(
+    clean.map((id, i) => db.from('faqs').update({ sort_order: i }).eq('id', id)),
+  )
+
+  const failedOne = results.find((r) => r.error)
+  if (failedOne?.error) return faqFail(failedOne.error.message, '순서 변경')
+
+  refreshFaqs()
+  return { ok: true }
+}
+
+export async function deleteFaq(id: string): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db.from('faqs').delete().eq('id', id)
+  if (error) return faqFail(error.message, '삭제')
+
+  refreshFaqs()
   return { ok: true }
 }
 

@@ -11,8 +11,15 @@ import {
   formatPrice,
   type PlanCopies,
 } from '@/lib/plans'
-import { MAX_TAGS } from '@/lib/specialty-shape'
-import { categoryPrice, menuCategories, type CategoryMeta } from '@/lib/inquiry-choices'
+import { MAX_TAGS, type DesignerSpecialtyPrices } from '@/lib/specialty-shape'
+import {
+  categoryPremium,
+  categoryPrice,
+  menuCategories,
+  type CategoryMeta,
+  type InquiryScope,
+} from '@/lib/inquiry-choices'
+import type { DesignerPremiums } from '@/lib/plans'
 import { updateRequestSettings } from '@/app/studio/actions'
 import { Flash } from '@/components/flash'
 
@@ -32,6 +39,8 @@ export function PlanForm({
   designer: d,
   copy,
   categories: all,
+  premiums,
+  ownPrices,
   onPicked,
 }: {
   designer: AdminDesigner
@@ -39,6 +48,10 @@ export function PlanForm({
   /* 어드민이 만든 분야 전부, 설정 차례대로. 메뉴에 나오는(visible) 것은 의뢰 받는 분야,
      나머지는 프로필 태그로만 고른다 */
   categories: CategoryMeta[]
+  /* 유형별 프리미엄 — 어드민만 정한다. 디자이너는 금액을 보기만 한다(036) */
+  premiums: DesignerPremiums
+  /* 어드민이 이 디자이너에게만 적어 둔 분야별 시작가(0016) */
+  ownPrices: DesignerSpecialtyPrices
   /* 고친 의뢰 받는 분야를 저장 전에 알린다 — 설정 탭 미리보기가 바로 따라 바뀌게 */
   onPicked?: (names: string[]) => void
 }) {
@@ -269,9 +282,19 @@ export function PlanForm({
                       )
                         .filter(([plan]) => copy[plan].visible)
                         .map(([plan, price]) => (
-                          <span key={plan} className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{copy[plan].basic.name}</span>
-                            <span className="ml-auto text-xs text-neutral-500">{formatPrice(price)}~</span>
+                          <span key={plan} className="block">
+                            <span className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{copy[plan].basic.name}</span>
+                              <span className="ml-auto text-xs text-neutral-500">{formatPrice(price)}~</span>
+                            </span>
+                            {/* 프리미엄 — 어드민이 정한 금액을 보기만 한다 */}
+                            <PremiumLine
+                              copy={copy}
+                              premiums={premiums}
+                              meta={c}
+                              scope={plan === 'full_design' ? 'design' : 'design_dev'}
+                              ownPrices={ownPrices}
+                            />
                           </span>
                         ))}
                       <span className="block text-xs leading-relaxed text-neutral-500">
@@ -299,6 +322,14 @@ export function PlanForm({
                         : '이 분야를 고르면 받습니다. 금액은 관리자가 정합니다.'
                     }
                   >
+                    {/* 프리미엄 — 어드민이 정한 금액을 보기만 한다 */}
+                    <PremiumLine
+                      copy={copy}
+                      premiums={premiums}
+                      meta={c}
+                      scope={c.scope_mode === 'design_dev' ? 'design_dev' : 'design'}
+                      ownPrices={ownPrices}
+                    />
                     {c.scope_mode === 'design_dev' && <DevShareNote />}
                   </Row>
                 )}
@@ -383,6 +414,36 @@ export function PlanForm({
 
 /* 의뢰 유형 한 줄 — 체크 · 이름 · 금액 · 설명 */
 /* 개발이 들어가는 의뢰의 수익 배분 — 금액이 디자이너 몫 전부로 읽히지 않게 그 줄 아래에 붙인다 */
+/* 프리미엄 한 줄 — 금액은 어드민만 정하므로 디자이너에게는 보여주기만 한다(036).
+   공개 화면과 같은 규칙(categoryPremium)으로 고른다 — 여기 보이는 금액이 고객에게 나가는 금액이다.
+   나가지 않는 상태면 줄 자체를 두지 않는다. */
+function PremiumLine({
+  copy,
+  premiums,
+  meta,
+  scope,
+  ownPrices,
+}: {
+  copy: PlanCopies
+  premiums: DesignerPremiums
+  meta: CategoryMeta
+  scope: InquiryScope
+  ownPrices: DesignerSpecialtyPrices
+}) {
+  const live = categoryPremium(copy, premiums, meta, scope, ownPrices)
+  if (!live) return null
+
+  return (
+    <span className="mt-1 flex items-center gap-2">
+      <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
+        프리미엄
+      </span>
+      <span className="min-w-0 truncate text-xs text-neutral-500">{live.name}</span>
+      <span className="ml-auto shrink-0 text-xs text-neutral-500">{formatPrice(live.price)}~</span>
+    </span>
+  )
+}
+
 function DevShareNote() {
   return (
     <span className="mt-1.5 block text-[11px] leading-relaxed text-violet-700">

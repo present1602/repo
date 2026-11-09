@@ -21,7 +21,13 @@ import {
 } from './plans'
 import type { InquiryType } from './inquiry-types'
 import type { Scope } from './scopes'
-import { priceOf, type SpecialtyPrices, type SpecialtyScopeMode } from './specialty-shape'
+import {
+  ownPriceOf,
+  priceOf,
+  type DesignerSpecialtyPrices,
+  type SpecialtyPrices,
+  type SpecialtyScopeMode,
+} from './specialty-shape'
 
 export const INQUIRY_SCOPES = ['sample', 'design', 'design_dev'] as const
 export type InquiryScope = (typeof INQUIRY_SCOPES)[number]
@@ -105,9 +111,17 @@ export type CategoryMeta = {
   prices: SpecialtyPrices
 }
 
-/* 분야가 정한 그 범위의 기본 시작가 — 메인 시안은 늘 디자이너 가격이라 null */
-export function categoryPrice(meta: Pick<CategoryMeta, 'prices'>, scope: InquiryScope): number | null {
-  return scope === 'sample' ? null : priceOf(meta.prices, scope, 'basic').price
+/* 그 분야·범위에 적힌 기본 시작가 — 메인 시안은 늘 디자이너 가격이라 null.
+
+   디자이너 한 명에게만 적어 둔 금액(0016)이 있으면 그것이 분야 전체 금액을 덮는다 —
+   "이 디자이너의 상세페이지만 더 비싸게" 를 두는 칸이다. own 을 주지 않으면 예전과 같다. */
+export function categoryPrice(
+  meta: Pick<CategoryMeta, 'id' | 'prices'>,
+  scope: InquiryScope,
+  own?: DesignerSpecialtyPrices,
+): number | null {
+  if (scope === 'sample') return null
+  return ownPriceOf(own, meta.id, scope, 'basic') ?? priceOf(meta.prices, scope, 'basic').price
 }
 
 /* 이 분야·범위에서 나가는 프리미엄.
@@ -118,16 +132,20 @@ export function categoryPrice(meta: Pick<CategoryMeta, 'prices'>, scope: Inquiry
 export function categoryPremium(
   copies: PlanCopies,
   premiums: DesignerPremiums,
-  meta: Pick<CategoryMeta, 'prices'> | undefined,
+  meta: Pick<CategoryMeta, 'id' | 'prices'> | undefined,
   scope: InquiryScope,
+  ownPrices?: DesignerSpecialtyPrices,
 ): { name: string; desc: string; price: number } | null {
   const live = livePremium(copies, premiums, SCOPE_PLAN[scope])
   if (scope === 'sample' || !meta) return live
   const own = priceOf(meta.prices, scope, 'premium')
+  /* 분야에서 끄면 디자이너에게 적어 둔 금액이 있어도 나가지 않는다 — 끄는 쪽이 이긴다 */
   if (!own.enabled) return null
-  if (own.price != null) {
+  /* 디자이너에게만 적어 둔 프리미엄(0016)이 분야 금액을 덮는다 */
+  const mine = ownPriceOf(ownPrices, meta.id, scope, 'premium') ?? own.price
+  if (mine != null) {
     const copy = copies[SCOPE_PLAN[scope]].premium
-    return { name: copy.name, desc: copy.desc, price: own.price }
+    return { name: copy.name, desc: copy.desc, price: mine }
   }
   return live
 }
@@ -173,6 +191,7 @@ type DesignerPrices = Pick<
   | 'scope_full_design'
   | 'scope_with_dev'
   | 'tags'
+  | 'own_prices'
 >
 
 /* 이 디자이너가 이 분야에서 그 범위를 받는지(0004_plan_options_by_category.sql).
@@ -209,12 +228,17 @@ export function dividerBefore(cats: string[], i: number): boolean {
   return cats.filter((c) => c === cats[i - 1]).length > 1
 }
 
-type Source = { copies: PlanCopies; premiums?: DesignerPremiums }
+type Source = {
+  copies: PlanCopies
+  premiums?: DesignerPremiums
+  /* 이 디자이너에게만 적어 둔 분야별 시작가(0016) — 분야 전체 금액을 덮는다 */
+  ownPrices?: DesignerSpecialtyPrices
+}
 
 function build(
   all: CategoryMeta[],
   metas: CategoryMeta[],
-  { copies, premiums }: Source,
+  { copies, premiums, ownPrices }: Source,
   prices: Record<InquiryScope, string>,
   allows: (scope: InquiryScope, meta: CategoryMeta) => boolean,
 ): CategoryChoice[] {
@@ -229,10 +253,11 @@ function build(
       const fixed = meta.scope_mode !== 'choice'
       const options = scopes.map((s): ScopeOption => {
         /* 디자이너가 정해지지 않은 폼은 분야 프리미엄만 나간다 */
-        const live = categoryPremium(copies, premiums ?? {}, meta, s)
+        const live = categoryPremium(copies, premiums ?? {}, meta, s, ownPrices)
         /* 어드민이 적은 분야 시작가가 이긴다(0011) — 분야마다 금액이 다르게 나가게.
-           비어 있으면 디자이너 가격. 메인 시안은 늘 디자이너 가격 */
-        const own = categoryPrice(meta, s)
+           그 디자이너에게만 적어 둔 금액이 있으면 그것이 또 이긴다(0016).
+           둘 다 비어 있으면 디자이너 기본가. 메인 시안은 늘 디자이너 가격 */
+        const own = categoryPrice(meta, s, ownPrices)
         const priceLabel = own != null ? `${formatPrice(own)}~` : prices[s]
         const fixedScope = fixed && s !== 'sample' ? s : null
         const label = copies[SCOPE_PLAN[s]].basic.name.trim() || SCOPE_TEXT[s].label
@@ -288,7 +313,9 @@ export function designerChoices(
   return build(
     metas,
     mine.length > 0 ? mine : menu,
-    source,
+    /* 디자이너에게만 적어 둔 분야 시작가(0016)는 디자이너 줄에 실려 온다 —
+       호출부마다 따로 넘기지 않게 */
+    { ...source, ownPrices: source.ownPrices ?? d.own_prices },
     {
       sample: formatPriceRange(d.design_price, d.price_max),
       design: `${formatPrice(d.full_design_price)}~`,
@@ -298,41 +325,54 @@ export function designerChoices(
   )
 }
 
-/* 분야별 포함 항목 칸 — 탐색 메뉴에 나오는 분야마다, 그 디자이너가 받는 범위의 플랜(0004).
+/* 분야별 포함 항목 칸 — 탐색 메뉴에 나오는 분야마다, 그 디자이너가 받는 범위의 목록(0004·0018).
    on 은 디자이너가 그 분야를 골랐는지. 고르지 않은 분야도 칸은 보여준다(비활성).
-   사이트에서 숨긴 플랜은 뺀다. 범위가 정해진 분야는 플랜 이름 대신 분야 이름 하나로 묶는다. */
+   사이트에서 숨긴 플랜은 뺀다.
+   본계약(디자인만·프로젝트)은 분야마다 한 목록이다 — 같은 디자이너가 맡으니 포함 항목을 나누지 않는다.
+     plan 은 그 목록의 열쇠(bucketOf)를 만들 대표 플랜, label 은 두 범위 이름을 잇는다.
+     범위가 정해진 분야는 플랜 이름 대신 분야 이름.
+   메인화면 먼저 의뢰는 따로 받는 작은 의뢰라 목록이 따로다.
+   scope — 이 칸을 건드리면 미리보기가 고를 줄. 본계약은 패널이 처음 고르는 범위(defaultScope)
+   premium — 그 목록의 범위 중 하나라도 프리미엄이 나가는지(상세 패널·의뢰 폼과 같은 categoryPremium).
+     켜진 칸에만 PREMIUM 열이 생긴다. 프리미엄 정보를 주지 않으면 모두 false */
 export type OptionCategory = {
   id: string
   name: string
   on: boolean
-  plans: { plan: BucketPlan; label: string }[]
+  plans: { plan: BucketPlan; scope: InquiryScope; label: string; premium: boolean }[]
 }
 
 export function optionCategories(
   d: Pick<DesignerPrices, 'scope_sample' | 'scope_full_design' | 'scope_with_dev' | 'tags'>,
   metas: CategoryMeta[],
   copies: PlanCopies,
+  source?: { premiums: DesignerPremiums; ownPrices?: DesignerSpecialtyPrices },
 ): OptionCategory[] {
-  return menuCategories(metas)
-    .map((m) => ({
-      id: m.id,
-      name: m.name,
-      on: d.tags.includes(m.name),
-      plans: designerScopesOf(d, m)
-        .map((s) => SCOPE_PLAN[s] as BucketPlan)
-        .filter((p) => copies[p].visible)
-        .map((plan) => ({
-          plan,
-          label:
-            m.scope_mode !== 'choice' && plan !== 'sample'
-              ? fixedTitle(m.name, plan === 'with_dev' ? 'design_dev' : 'design')
-              : copies[plan].basic.name.trim() || SCOPE_TEXT[INQUIRY_SCOPE_OF[plan]].label,
-        })),
-    }))
+  return menuCategories(metas).map((m) => {
+    const scopes = designerScopesOf(d, m).filter((s) => copies[SCOPE_PLAN[s]].visible)
+    const premiumOf = (s: InquiryScope) =>
+      source != null && categoryPremium(copies, source.premiums, m, s, source.ownPrices) != null
+    const labelOf = (s: InquiryScope) => {
+      const plan = SCOPE_PLAN[s] as BucketPlan
+      return m.scope_mode !== 'choice' && s !== 'sample'
+        ? fixedTitle(m.name, s === 'design_dev' ? 'design_dev' : 'design')
+        : copies[plan].basic.name.trim() || SCOPE_TEXT[s].label
+    }
+
+    const main = scopes.filter((s) => s !== 'sample')
+    const plans: OptionCategory['plans'] = []
+    if (scopes.includes('sample')) {
+      plans.push({ plan: 'sample', scope: 'sample', label: labelOf('sample'), premium: premiumOf('sample') })
+    }
+    if (main.length > 0) {
+      plans.push({
+        plan: SCOPE_PLAN[main[0]] as BucketPlan,
+        scope: defaultScope(main) ?? main[0],
+        label: main.map(labelOf).join(' · '),
+        premium: main.some(premiumOf),
+      })
+    }
+    return { id: m.id, name: m.name, on: d.tags.includes(m.name), plans }
+  })
 }
 
-const INQUIRY_SCOPE_OF: Record<BucketPlan, InquiryScope> = {
-  sample: 'sample',
-  full_design: 'design',
-  with_dev: 'design_dev',
-}

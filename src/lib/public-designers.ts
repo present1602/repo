@@ -16,6 +16,7 @@ import type {
   FeedWork,
 } from './designer-shape'
 import { listSampleSpecialties, listSpecialtyNames } from './specialties'
+import { readOwnPrices } from './designer-specialty-prices'
 import { sampleAllowed } from './specialty-shape'
 
 /* 로그인 없이 보이는 화면(탐색·상세)이 쓰는 조회.
@@ -73,16 +74,24 @@ function scopeFallback(msg: string | undefined): string | null {
 }
 const CROP_COLS = 'crop_x, crop_y, crop_w, crop_h'
 const WORK_COLS =
-  `id, designer_id, image_url, thumb_url, pages, width, height, title, description, row_span, client, ai_used, soom_work, ${CROP_COLS}, sort_order`
+  `id, designer_id, image_url, thumb_url, pages, video_id, width, height, title, description, row_span, client, ai_used, soom_work, ${CROP_COLS}, sort_order`
 
 /* 008·009 마이그레이션 전에도 화면이 뜨게 하는 대비책.
 
    없는 컬럼을 물으면 질의가 통째로 실패한다 — 컬럼 하나 때문에 홈·탐색·
    상세가 전부 비는 건 과하다. 007 이 featured 에 쓴 방침과 같게, 그 컬럼이
    쓰이는 기능만 쉬고 화면은 평소대로 뜨게 한다.
-   020(soom_work)·0008(pages)도 같다 — 빠지면 undefined 로 와 그 표시만 쉰다.
-   008·009·010·020·0008 을 적용하고 나면 이 재시도는 지워도 된다. */
-const OPTIONAL_COLS = ['ai_used', 'soom_work', 'thumb_url', 'pages', ...CROP_COLS.split(', ')]
+   020(soom_work)·0008(pages)·0019(video_id)도 같다 — 빠지면 undefined 로 와
+   그 표시만 쉰다.
+   008·009·010·020·0008·0019 를 적용하고 나면 이 재시도는 지워도 된다. */
+const OPTIONAL_COLS = [
+  'ai_used',
+  'soom_work',
+  'thumb_url',
+  'pages',
+  'video_id',
+  ...CROP_COLS.split(', '),
+]
 
 /* 아직 없는 컬럼 때문에 실패했으면 그것만 빼고 한 번 더 묻는다.
 
@@ -159,10 +168,24 @@ async function selectDesigners<T extends object>(
   }
   if (r.error || !r.data) return r
 
-  const [allowed, known] = await Promise.all([sampleSpecialties(), specialtyNames()])
+  const ids = r.data.map((d) => (d as { id?: string }).id).filter((id) => id != null)
+  const [allowed, known, own] = await Promise.all([
+    sampleSpecialties(),
+    specialtyNames(),
+    /* 디자이너별 분야 시작가(0016) — 한 번에 받아 N+1 을 피한다 */
+    readOwnPrices(ids),
+  ])
   return {
     ...r,
-    data: r.data.map((d) => knownTags(gateSample({ ...SCOPE_DEFAULTS, ...d }, allowed), known)),
+    data: r.data.map((d) =>
+      knownTags(
+        gateSample(
+          { ...SCOPE_DEFAULTS, ...d, own_prices: own.get((d as { id: string }).id) ?? {} },
+          allowed,
+        ),
+        known,
+      ),
+    ),
   }
 }
 
@@ -200,8 +223,19 @@ async function selectDesigner<T extends object>(
   }
   if (r.error || !r.data) return r
 
-  const [allowed, known] = await Promise.all([sampleSpecialties(), specialtyNames()])
-  return { ...r, data: knownTags(gateSample({ ...SCOPE_DEFAULTS, ...r.data }, allowed), known) }
+  const id = (r.data as { id?: string }).id
+  const [allowed, known, own] = await Promise.all([
+    sampleSpecialties(),
+    specialtyNames(),
+    readOwnPrices(id ? [id] : []),
+  ])
+  return {
+    ...r,
+    data: knownTags(
+      gateSample({ ...SCOPE_DEFAULTS, ...r.data, own_prices: (id && own.get(id)) || {} }, allowed),
+      known,
+    ),
+  }
 }
 
 /* 탐색 목록 — 공개 디자이너 + 카드용 썸네일.

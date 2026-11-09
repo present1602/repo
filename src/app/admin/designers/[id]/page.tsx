@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
 import { getDesignerById, listWorks } from '@/lib/designers-db'
 import { listCategoryMetas, listSpecialtyOptions } from '@/lib/specialties'
+import { getOwnPrices } from '@/lib/designer-specialty-prices'
 import {
   getDesignerOptionSetup,
   getDesignerPlanDetails,
@@ -44,18 +45,30 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
   const tab = isDesignerTab(rawTab) ? rawTab : 'profile'
 
   /* 포트폴리오·분야 목록은 서로 기다릴 이유가 없다 */
-  const [works, specialties, premiums, copies, planDetails, templates, planOptions, metas, optionSetup] =
-    await Promise.all([
-      listWorks(id),
-      listSpecialtyOptions(),
-      getDesignerPremiums(id),
-      getPlanCopies(),
-      getDesignerPlanDetails(id),
-      listOptionTemplates({ designerId: id }),
-      getDesignerPlanOptions(id),
-      listCategoryMetas(),
-      getDesignerOptionSetup(id),
-    ])
+  const [
+    works,
+    specialties,
+    premiums,
+    copies,
+    planDetails,
+    templates,
+    planOptions,
+    metas,
+    optionSetup,
+    ownPrices,
+  ] = await Promise.all([
+    listWorks(id),
+    listSpecialtyOptions(),
+    getDesignerPremiums(id),
+    getPlanCopies(),
+    getDesignerPlanDetails(id),
+    listOptionTemplates({ designerId: id }),
+    getDesignerPlanOptions(id),
+    listCategoryMetas(),
+    getDesignerOptionSetup(id),
+    /* 이 디자이너에게만 적어 둔 분야별 시작가(0016) */
+    getOwnPrices(id),
+  ])
 
   /* 설정에서 프리미엄을 켠 유형 — 켜진 유형만 디자이너별로 켤 수 있다 */
   const premiumOn = Object.fromEntries(SCOPES.map((s) => [s, copies[s].premium.enabled])) as Record<
@@ -90,6 +103,7 @@ export default async function DesignerDetailPage(props: PageProps<'/admin/design
         planOptions={planOptions}
         metas={metas}
         optionSetup={optionSetup}
+        ownPrices={ownPrices}
         portfolio={<AdminPortfolio designerId={id} works={works} />}
       />
     </main>

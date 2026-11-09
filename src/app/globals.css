@@ -63,6 +63,31 @@
   }
 }
 
+/* 스튜디오 미리보기에서 바뀐 포함 항목 — 연보라 바탕으로 두 번 깜빡이고 바탕이 빠지며 자리를 잡는다
+   (plan-panel.tsx 의 TierBox). 동작 줄이기를 켠 사용자에게는 바탕만 잠깐 칠한다 */
+@keyframes item-flash {
+  0% { opacity: 0; background-color: rgb(237 233 254); }
+  15% { opacity: 1; }
+  30% { opacity: 0.2; }
+  45% { opacity: 1; }
+  60% { opacity: 0.2; }
+  75% { opacity: 1; background-color: rgb(237 233 254); }
+  100% { opacity: 1; background-color: transparent; }
+}
+@keyframes item-tint {
+  from { background-color: rgb(237 233 254); }
+  to { background-color: transparent; }
+}
+.item-flash {
+  margin-inline: -0.25rem;
+  padding-inline: 0.25rem;
+  border-radius: 0.25rem;
+  animation: item-flash 1.6s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .item-flash { animation: item-tint 1.6s ease-out; }
+}
+
 /* ─────────── 제안서 쪽 넘김 ───────────
 
    한 번에 펼침면 하나씩 멈춘다. 중간에 걸친 채로 서면 위아래가 잘려

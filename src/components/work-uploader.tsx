@@ -34,6 +34,7 @@ import {
   reshapeCrop,
 } from '@/lib/crop'
 import { makeStackThumb, makeThumb } from '@/lib/make-thumb'
+import { youtubeId } from '@/lib/youtube'
 import { firstPageCrop, stackSize } from '@/lib/work-stack'
 import { DESIGNER_IMAGES_BUCKET, uploadSigned } from '@/lib/direct-upload'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
@@ -146,6 +147,8 @@ export function WorkUploader({
       if (o.height) form.set('height', String(o.height))
       form.set('description', o.description)
       form.set('client', o.client)
+      /* 적었을 때만 보낸다 — 키가 없으면 서버가 "영상 칸을 다루지 않음"으로 읽는다 */
+      if (o.videoUrl) form.set('videoUrl', o.videoUrl)
       /* 답했다는 사실과 답 자체를 따로 보낸다 — 체크하지 않은 체크박스는
          브라우저가 전송하지 않아 '아니오'와 '묻지 않음'이 구분되지 않는다. */
       form.set('aiAnswered', '1')
@@ -334,6 +337,8 @@ type UploadOpts = {
   crop: Crop | null
   /* 썸네일로 따로 고른 이미지 — 있으면 영역 대신 이것을 줄여 쓴다 */
   thumbFile: File | null
+  /* 작업 끝에 붙일 유튜브 주소 — 비었으면 영상 없음. 서버가 id 만 뽑아 담는다 */
+  videoUrl: string
 }
 
 function UploadDialog({
@@ -369,6 +374,12 @@ function UploadDialog({
 
   const [description, setDescription] = useState('')
   const [client, setClient] = useState('')
+  /* 작업 끝에 붙일 유튜브 주소 — 적어 두면 상세에서 마지막 장 아래로 이어진다.
+     모양은 저장할 때 서버가 가린다(youtube.ts) — 여기서도 미리 비춰 준다. */
+  const [videoUrl, setVideoUrl] = useState('')
+  /* 적었는데 읽지 못하는 주소인지 — 저장 버튼을 막고 테두리로 알린다.
+     비어 있는 것은 "영상 없음"이라 잘못이 아니다. */
+  const badVideo = videoUrl.trim() !== '' && youtubeId(videoUrl) == null
   const [aiUsed, setAiUsed] = useState(aiDefault)
   /* SOOM 의뢰 여부 — 해당할 때만 켜는 표시라 꺼진 채로 시작한다 */
   const [soomWork, setSoomWork] = useState(false)
@@ -543,6 +554,29 @@ function UploadDialog({
             />
           </label>
 
+          {/* 유튜브 영상 — 상세에서 그림(PDF 면 마지막 장) 아래로 이어 붙는다.
+              주소를 그대로 붙여넣으면 되고, 저장할 때 영상 id 만 담는다. */}
+          <label className="mt-3 block">
+            <span className="mb-1.5 block text-xs font-medium text-neutral-600">
+              유튜브 영상 <span className="font-normal text-neutral-400">(선택)</span>
+            </span>
+            <input
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              disabled={pending}
+              inputMode="url"
+              placeholder="https://youtu.be/..."
+              className={`h-9 w-full rounded-lg border px-3 text-sm outline-none ring-violet-500 focus:ring-2 ${
+                badVideo ? 'border-rose-400' : 'border-neutral-300'
+              }`}
+            />
+            <span className="mt-1 block text-xs text-neutral-400">
+              {badVideo
+                ? '유튜브 주소를 확인해 주세요.'
+                : '적어 두면 작업 맨 끝에서 영상이 재생됩니다.'}
+            </span>
+          </label>
+
           <div className="mt-3 space-y-2">
             <Check
               checked={aiUsed}
@@ -695,11 +729,14 @@ function UploadDialog({
                    저장한다 — 목록·카드가 그 비율로 자리를 잡는다(work-stack.ts) */
                 crop: (cropOn ? crop : null) ?? firstCrop,
                 thumbFile,
+                videoUrl: videoUrl.trim(),
               })
             }
             /* 크기를 못 읽었어도 올릴 수 있다 — 서버가 null 로 받아
-               기존 규칙대로 자리를 잡는다. 읽는 중일 때만 잠깐 막는다. */
-            disabled={pending || (size == null && !measureFailed)}
+               기존 규칙대로 자리를 잡는다. 읽는 중일 때만 잠깐 막는다.
+               영상 주소를 잘못 적었으면 올리기 전에 막는다 — 그림을 다 올린 뒤
+               서버가 거절하면 버킷에 쓰지 않는 파일이 남는다. */
+            disabled={pending || (size == null && !measureFailed) || badVideo}
             className="mt-4 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? (status ?? '올리는 중…') : '저장'}

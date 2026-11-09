@@ -70,9 +70,10 @@ export function DesignerConsole({
       </aside>
 
       <main className="min-w-0 flex-1">
-        {/* 포트폴리오는 썸네일을 보는 화면이라 조금 넓게 — 폼 탭은 읽기 좋은 폭을 지킨다 */}
+        {/* 포트폴리오는 썸네일을 보는 화면이라 조금 넓게 — 폼 탭은 읽기 좋은 폭을 지킨다.
+            설정은 폼 옆에 상세 미리보기(484px)가 붙어 더 넓게 쓴다(7xl 의 1.2배) */}
         <div
-          className={`mx-auto px-5 py-8 md:px-8 md:py-10 ${tab === 'portfolio' ? 'max-w-6xl' : tab === 'settings' ? 'max-w-7xl' : 'max-w-4xl'}`}
+          className={`mx-auto px-4 py-8 md:px-5 md:py-10 ${tab === 'portfolio' ? 'max-w-6xl' : tab === 'settings' ? 'max-w-[96rem]' : 'max-w-4xl'}`}
         >
           {/* 좁은 화면에는 좌측 메뉴가 없어 로그아웃이 갈 곳이 없다 —
               이름 줄 옆에 둔다. 넓은 화면에서는 사이드바 아래에만 있다. */}

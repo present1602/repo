@@ -21,6 +21,7 @@ import {
   deleteWork,
   reorderWorks,
 } from '@/app/studio/actions'
+import { youtubeId, youtubeWatchUrl } from '@/lib/youtube'
 import { Img } from '@/components/img'
 import { WorkThumb } from '@/components/work-thumb'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
@@ -411,6 +412,10 @@ function WorkEditDialog({
   const [aiUsed, setAiUsed] = useState(w.ai_used === true)
   /* 020 전 DB 에서는 undefined 로 온다 — 꺼짐으로 본다 */
   const [soomWork, setSoomWork] = useState(w.soom_work === true)
+  /* 맨 끝에 붙은 유튜브 영상(0019). 저장해 둔 것은 id 뿐이라 주소로 되돌려
+     보여준다 — 비우고 저장하면 영상을 뗀다. */
+  const [videoUrl, setVideoUrl] = useState(w.video_id ? youtubeWatchUrl(w.video_id) : '')
+  const badVideo = videoUrl.trim() !== '' && youtubeId(videoUrl) == null
   const [pending, start] = useActionTransition()
   const router = useRouter()
 
@@ -449,7 +454,8 @@ function WorkEditDialog({
     description !== (w.description ?? '') ||
     client !== (w.client ?? '') ||
     aiUsed !== w.ai_used ||
-    soomWork !== (w.soom_work === true)
+    soomWork !== (w.soom_work === true) ||
+    videoUrl.trim() !== (w.video_id ? youtubeWatchUrl(w.video_id) : '')
 
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
   useEffect(() => {
@@ -539,7 +545,15 @@ function WorkEditDialog({
       }
 
       if (dirty) {
-        const r = await updateWork({ id: w.id, title, description, client, aiUsed, soomWork })
+        const r = await updateWork({
+          id: w.id,
+          title,
+          description,
+          client,
+          aiUsed,
+          soomWork,
+          videoUrl: videoUrl.trim(),
+        })
         if (!r.ok) {
           onMessage({ ok: false, text: r.error ?? '처리에 실패했습니다.' })
           return
@@ -657,6 +671,25 @@ function WorkEditDialog({
               placeholder="없음"
               className="h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none ring-violet-500 focus:ring-2"
             />
+          </label>
+
+          {/* 유튜브 영상 — 작업 맨 끝에 붙는다. 비우고 저장하면 떼진다 */}
+          <label className="mt-3 block">
+            <span className="mb-1.5 block text-xs font-medium text-neutral-600">
+              유튜브 영상 <span className="font-normal text-neutral-400">(선택)</span>
+            </span>
+            <input
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              inputMode="url"
+              placeholder="https://youtu.be/..."
+              className={`h-9 w-full rounded-lg border px-3 text-sm outline-none ring-violet-500 focus:ring-2 ${
+                badVideo ? 'border-rose-400' : 'border-neutral-300'
+              }`}
+            />
+            <span className="mt-1 block text-xs text-neutral-400">
+              {badVideo ? '유튜브 주소를 확인해 주세요.' : '작업 맨 끝에서 영상이 재생됩니다.'}
+            </span>
           </label>
 
           {/* AI 사용 여부 — 공개 화면에는 켠 것만 표기된다 */}
@@ -794,7 +827,7 @@ function WorkEditDialog({
           {/* 썸네일(잡은 영역·고른 파일)과 다른 칸을 함께 저장한다 */}
           <button
             onClick={save}
-            disabled={pending || (!dirty && !thumbDirty)}
+            disabled={pending || (!dirty && !thumbDirty) || badVideo}
             className="mt-4 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? '저장 중…' : '저장'}

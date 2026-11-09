@@ -40,6 +40,7 @@ export function PlanSetup({
   templates,
   registered,
   details,
+  premiumOptions = true,
 }: {
   mode: 'admin' | 'designer'
   designerId: string
@@ -49,6 +50,9 @@ export function PlanSetup({
   registered: DesignerPlanOptions
   /* 디자이너별 작업 기간 — 어드민 화면에서만 */
   details?: DesignerPlanDetails
+  /* 프리미엄 포함 항목을 여기서 고르는지 — 0017 부터는 포함 항목 표(option-setup.tsx)의
+     PREMIUM 열이 맡아 끈다. 그러면 여기서는 작업 기간만 */
+  premiumOptions?: boolean
 }) {
   const savedOf = (s: SetupSlot): Draft => ({
     duration: details?.[s.scope]?.[s.tier]?.duration ?? '',
@@ -69,7 +73,7 @@ export function PlanSetup({
     const key = slotOf(s.scope, s.tier)
     const cur = draft[key]
     /* 기본 단계 포함 항목은 공통·분야별 목록(option-setup.tsx)이 맡는다 — 여기서는 작업 기간만 */
-    const withOptions = s.tier === 'premium'
+    const withOptions = s.tier === 'premium' && premiumOptions
 
     const options = withOptions
       ? optionsOf(templates.filter((t) => templateAllows(t, key)), cur.picks)
@@ -105,11 +109,13 @@ export function PlanSetup({
   return (
     <section className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
       <h2 className="text-sm font-semibold">
-        {mode === 'admin' ? '작업 기간 · 프리미엄 포함 항목' : '프리미엄 포함 항목'}
+        {mode === 'admin' ? (premiumOptions ? '작업 기간 · 프리미엄 포함 항목' : '작업 기간') : '프리미엄 포함 항목'}
       </h2>
       <p className="mt-1 text-xs leading-relaxed text-neutral-500">
         {mode === 'admin'
-          ? '플랜마다 작업 기간을 정합니다. 비워 두면 설정의 전체 공통값(회색 글씨)을 따릅니다. 프리미엄은 포함 항목도 여기서 고릅니다.'
+          ? `플랜마다 작업 기간을 정합니다. 비워 두면 설정의 전체 공통값(회색 글씨)을 따릅니다.${
+              premiumOptions ? ' 프리미엄은 포함 항목도 여기서 고릅니다.' : ''
+            }`
           : '켜진 프리미엄 플랜에 보여줄 항목을 고르고 숫자를 넣어 저장하세요.'}
       </p>
 
@@ -154,7 +160,7 @@ export function PlanSetup({
                 </label>
               )}
 
-              {s.tier === 'premium' && (
+              {s.tier === 'premium' && premiumOptions && (
                 <div className="mt-2.5">
                   <OptionChecklist usable={usable} picks={cur.picks} onChange={(picks) => set({ ...cur, picks })} />
                 </div>

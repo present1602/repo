@@ -136,48 +136,67 @@ export type OptionTemplate = {
 export type RegisteredOption = { templateId: string; n: number | null }
 export type DesignerPlanOptions = Partial<Record<PlanSlot, RegisteredOption[]>>
 
-/* 기본 단계 포함 항목의 자리(0004·0005).
+/* 포함 항목의 자리(0004·0005·0018).
      공통 항목 — 모든 의뢰 유형에 먼저 나간다(COMMON_BUCKET)
-     개별 항목 — 분야(·그 안의 범위)마다, 공통 다음에 나간다(bucketOf)
+     개별 항목 — 분야마다, 공통 다음에 나간다(bucketOf).
+       같은 분야면 디자인만이든 프로젝트든 같은 디자이너가 맡으므로 본계약은 한 목록('<분야 id>')이다.
+       메인화면 먼저 의뢰는 본계약 전에 따로 받는 작은 의뢰라 따로('<분야 id>:sample').
    목록마다 어드민 템플릿에서 고른 것(RegisteredOption)과 직접 적은 것(CustomOption)이 있다.
-   프리미엄 단계는 지금처럼 플랜마다(DesignerPlanOptions) 등록한다. */
+   '<분야 id>:full_design'·':with_dev' 는 0018 전 목록이다 — 읽지도 쓰지도 않는다. */
 export const COMMON_BUCKET = 'common'
 /* 분야별 목록에 오는 플랜 — 로고는 분야('로고/일러스트')가 맡아 없다 */
 export type BucketPlan = Exclude<Scope, 'logo'>
 
 export function bucketOf(specialtyId: string, plan: BucketPlan): string {
-  return `${specialtyId}:${plan}`
+  return plan === 'sample' ? `${specialtyId}:sample` : specialtyId
 }
 
-/* 0004 의 check 제약과 같은 모양 */
-const BUCKET_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:(sample|full_design|with_dev)$/
+/* 0018 의 check 제약 중 지금 쓰는 모양 */
+const BUCKET_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:sample)?$/
 
 export function isBucket(v: string): boolean {
   return v === COMMON_BUCKET || BUCKET_RE.test(v)
 }
 
-/* 그 목록에서 고를 수 있는 템플릿인지 — 분야별은 그 플랜의 기본 칸으로,
-   공통은 어느 기본 칸에서든 고를 수 있으면 */
+/* 그 목록에서 고를 수 있는 템플릿인지 — 메인 시안 목록은 그 플랜의 기본 칸으로,
+   본계약 목록은 디자인만·프로젝트 중 어느 기본 칸에서든, 공통은 어느 기본 칸에서든 고를 수 있으면 */
 export function templateAllowsBucket(t: OptionTemplate, bucket: string): boolean {
   if (bucket === COMMON_BUCKET) {
     return t.targets == null || t.targets.some((s) => s.endsWith(':basic'))
   }
-  const plan = bucket.split(':')[1] as BucketPlan
-  return templateAllows(t, slotOf(plan, 'basic'))
+  if (bucket.endsWith(':sample')) return templateAllows(t, slotOf('sample', 'basic'))
+  return templateAllows(t, slotOf('full_design', 'basic')) || templateAllows(t, slotOf('with_dev', 'basic'))
 }
 
 /* 디자이너가 직접 적은 항목(0005) — 그 목록에만 있다 */
-export type CustomOption = { id: string; text: string }
+/* basic·premium — 단계마다 넣을지(0017). 0017 전이면 기본에만 들어간 것으로 읽는다 */
+export type CustomOption = { id: string; text: string; basic: boolean; premium: boolean }
 
 /* 0005 의 check 제약과 같은 값 */
 export const MAX_CUSTOM_TEXT = 80
 export const MAX_CUSTOM_PER_BUCKET = 10
 
 export type DesignerOptionSetup = {
-  /* bucket → 템플릿에서 고른 항목 */
+  /* bucket → 템플릿에서 고른 항목(기본 단계) */
   buckets: Record<string, RegisteredOption[]>
+  /* bucket → 템플릿에서 고른 항목(프리미엄 단계, 0017) — 같은 목록의 같은 항목을 체크·숫자만 달리 둔다.
+     null 이면 0017 전 — 프리미엄 항목은 예전 플랜별 목록(DesignerPlanOptions)에서 읽는다 */
+  premium: Record<string, RegisteredOption[]> | null
   /* bucket → 직접 적은 항목, 적은 차례대로. 0005 전이면 비어 있다 */
   custom: Record<string, CustomOption[]>
+}
+
+/* 템플릿 항목이 어느 단계에서 몇으로 체크됐는지 — 그 단계 목록에서 꺼낸다 */
+export function tierPicksOf(setup: DesignerOptionSetup, tier: PlanTier, bucket: string): RegisteredOption[] {
+  return (tier === 'premium' ? setup.premium?.[bucket] : setup.buckets[bucket]) ?? []
+}
+
+/* 그 템플릿이 공통 목록 몫인지 — 공통에서 어느 단계든 체크했으면 공통이 그 줄을 맡는다.
+   개별 목록에서는 체크된 채 잠겨 보이고, 서버도 개별 목록에 두지 않는다 */
+export function commonOwns(setup: Pick<DesignerOptionSetup, 'buckets' | 'premium'>, templateId: string): boolean {
+  return [setup.buckets[COMMON_BUCKET], setup.premium?.[COMMON_BUCKET]].some((list) =>
+    (list ?? []).some((o) => o.templateId === templateId),
+  )
 }
 
 export const N_TOKEN = '{n}'
@@ -287,7 +306,7 @@ export function setupItems(
 ): string[] {
   const listOf = (b: string) => [
     ...resolveTier({ name: '', desc: '', duration: '' }, undefined, false, slot, templates, setup.buckets[b]).items,
-    ...(setup.custom[b] ?? []).map((c) => c.text),
+    ...(setup.custom[b] ?? []).filter((c) => c.basic).map((c) => c.text),
   ]
   return [...new Set([...listOf(COMMON_BUCKET), ...(bucket === COMMON_BUCKET ? [] : listOf(bucket))])]
 }

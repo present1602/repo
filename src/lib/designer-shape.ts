@@ -4,6 +4,7 @@
    designers-db.ts 에서 가져오면 supabase-admin(service_role) 이 브라우저 번들로 끌려온다. */
 
 import type { WorkPage } from './portfolio-limits'
+import type { DesignerSpecialtyPrices } from './specialty-shape'
 
 export type DesignerRow = {
   id: string
@@ -78,6 +79,9 @@ export type PublicWork = {
   /* PDF 로 올린 작업의 둘째 장부터(0008_work_pdf_pages.sql) — 모달이 첫 장 아래로
      이어 붙여 스크롤로 보여 준다. 0008 전 DB 에서는 오지 않는다. */
   pages?: WorkPage[] | null
+  /* 작업 끝에 붙인 유튜브 영상 id(0019_work_video.sql) — 모달이 마지막 장
+     아래에 이어 붙여 보여 준다. 0019 전 DB 에서는 오지 않는다. */
+  video_id?: string | null
   width: number | null
   height: number | null
   title: string | null
@@ -115,6 +119,10 @@ export type PublicDesigner = {
   /* 디자인 전체·프로젝트 최소가 "N원~" — 어드민이 디자이너마다 정한다 */
   full_design_price: number
   project_price: number
+  /* 이 디자이너에게만 적어 둔 분야별 시작가(0016_designer_specialty_prices.sql).
+     분야 전체 금액(specialty_plan_prices)을 덮는다 — 적어 둔 분야만 담긴다.
+     0016 전이거나 적어 둔 것이 없으면 비어 있다. */
+  own_prices: DesignerSpecialtyPrices
   /* 탐색 화면이 이 넷으로 거른다(scopes.ts) */
   scope_sample: boolean
   scope_logo: boolean

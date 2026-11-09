@@ -42,7 +42,8 @@ import {
 import { Img } from '@/components/img'
 import { Field, input, ghostButton } from './form-bits'
 import { SpecialtyPicker } from './specialty-picker'
-import type { SpecialtyOption } from '@/lib/specialty-shape'
+import type { DesignerSpecialtyPrices, SpecialtyOption } from '@/lib/specialty-shape'
+import { DesignerCategoryPrices } from './designer-category-prices'
 import { DESIGNER_TABS, type DesignerTab } from './designer-tabs'
 import { PlanSetup, type SetupSlot } from '@/components/plan-setup'
 import { OptionSetup } from '@/components/option-setup'
@@ -70,6 +71,7 @@ export function DesignerDetail({
   planOptions,
   metas,
   optionSetup,
+  ownPrices,
   portfolio,
 }: {
   /* 지금 탭 — 주소의 ?tab= 에서 온다(designer-tabs.ts) */
@@ -85,6 +87,8 @@ export function DesignerDetail({
   /* 분야 전부(분야별 포함 항목 칸)와 기본 단계 포함 항목 — 공통·분야별(0004). null 이면 0004 전 */
   metas: CategoryMeta[]
   optionSetup: DesignerOptionSetup | null
+  /* 이 디자이너에게만 적어 둔 분야별 시작가(0016) — 비어 있으면 분야 금액이 나간다 */
+  ownPrices: DesignerSpecialtyPrices
   designer: AdminDesigner
   /* 전문 분야 선택지 — 숨긴 분야까지 전부, 메뉴 노출 분야가 앞 */
   specialties: SpecialtyOption[]
@@ -205,18 +209,32 @@ export function DesignerDetail({
               premiumOn={premiumOn}
               onNotice={setNotice}
             />
+            {/* 이 디자이너에게만 적용되는 분야별 시작가(0016) — 분야 전체 금액보다 먼저 나간다 */}
+            <DesignerCategoryPrices
+              designerId={d.id}
+              tags={d.tags ?? []}
+              metas={metas}
+              copies={copies}
+              ownPrices={ownPrices}
+              fallback={{
+                design: d.full_design_price ?? DEFAULT_FULL_DESIGN_PRICE,
+                design_dev: d.project_price ?? DEFAULT_PROJECT_PRICE,
+              }}
+              onNotice={setNotice}
+            />
             {/* 이 디자이너만 쓰는 문장 — 어드민만 만든다. 만든 것은 아래 등록 목록에 함께 나온다 */}
             <OptionTemplateManager
               templates={templates.filter((t) => t.designerId === d.id)}
               copies={copies}
               designerId={d.id}
             />
-            {/* 기본 단계 포함 항목 — 공통 또는 분야별. 고르지 않은 분야도 미리 채워 둘 수 있다 */}
+            {/* 포함 항목 — 공통 또는 분야별, 프리미엄이 켜진 칸은 STANDARD·PREMIUM 두 열.
+                고르지 않은 분야도 미리 채워 둘 수 있다 */}
             <OptionSetup
               mode="admin"
               designerId={d.id}
               setup={optionSetup}
-              categories={optionCategories(d, metas, copies)}
+              categories={optionCategories(d, metas, copies, { premiums, ownPrices })}
               templates={templates}
             />
             {/* 작업 기간은 받지 않는 유형도 미리 채워 둘 수 있게 전부. 로고는 분야가 맡아 뺐다.
@@ -232,6 +250,8 @@ export function DesignerDetail({
               templates={templates}
               registered={planOptions}
               details={planDetails}
+              /* 0017 부터 프리미엄 포함 항목은 위 포함 항목 표의 PREMIUM 열이 맡는다 */
+              premiumOptions={optionSetup?.premium == null}
             />
           </div>
           <ScopeSection designer={d} onNotice={setNotice} />
