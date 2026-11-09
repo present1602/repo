@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { INQUIRY_FILE_EXTS, INQUIRY_FILE_MAX_MB } from '@/lib/inquiry-shape'
 
@@ -17,6 +17,103 @@ export const inputCls =
 /* 첨부파일 한 개당 상한 — 접수 API·버킷 한도와 같은 값 */
 const MAX_MB = INQUIRY_FILE_MAX_MB
 
+/* 손잡이를 잡고 내려 닫기(모바일).
+
+   시트는 아래에서 올라온 모양이라, 손잡이를 끌어 내리면 닫히는 것이
+   그 모양대로의 동작이다. 손잡이 자리에서만 받는다 — 시트 아무 데나
+   받으면 폼을 스크롤하려던 손짓이 닫기로 읽힌다.
+
+   끄는 동안에는 transition 을 끈다(손가락에 바로 붙게), 손을 떼면
+   다시 켜서 닫히거나 제자리로 돌아가는 것이 보이게 한다.
+   아래로만 민다 — 위로 끌어 시트가 화면 밖으로 솟지 않게. */
+const CLOSE_PX = 90 // 이만큼 내리면 닫는다
+const CLOSE_VELOCITY = 0.5 // 짧게 톡 내려도(px/ms) 닫는다
+/* 미끄러져 사라지는 시간(ms) — 끌어 닫든 바깥을 누르든 같은 속도로 내려간다.
+   style 의 transition 과 맞춘다. 짧게 둔다: 닫기는 기다릴 일이 아니다 */
+const SLIDE_MS = 220
+
+function useSheetDrag(onClose: () => void) {
+  const ref = useRef<HTMLDivElement>(null)
+  /* 시작 지점과 시각 — state 로 두면 손짓마다 다시 그려져 끌림이 끊긴다 */
+  const from = useRef<{ y: number; t: number } | null>(null)
+  const dy = useRef(0)
+  /* 닫는 중에 또 부르지 않게 — 바깥을 두 번 누르면 애니메이션이 겹친다 */
+  const closing = useRef(false)
+
+  const move = (y: number) => {
+    const el = ref.current
+    if (!el) return
+    el.style.transform = y > 0 ? `translateY(${y}px)` : ''
+  }
+
+  /* 아래로 미끄러뜨린 뒤 닫는다 — 끌어 닫기와 바깥 누르기가 같은 길을 쓴다.
+     넓은 화면(가운데 모달)에서는 아래로 미끄러지는 것이 어색하므로 그냥 닫는다 */
+  const slideClose = useCallback(() => {
+    if (closing.current) return
+    const el = ref.current
+    const sheet = el && window.matchMedia('(max-width: 767px)').matches
+    if (!sheet) {
+      onClose()
+      return
+    }
+    closing.current = true
+    /* 막도 함께 옅어진다 — 시트만 내려가고 어두운 막이 남으면 끊겨 보인다 */
+    const veil = el.closest('[data-sheet-veil]') as HTMLElement | null
+    if (veil) {
+      veil.style.transition = `opacity ${SLIDE_MS}ms ease-out`
+      veil.style.opacity = '0'
+    }
+    el.style.transition = `transform ${SLIDE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`
+    el.style.transform = `translateY(${el.offsetHeight}px)`
+    el.addEventListener('transitionend', onClose, { once: true })
+    /* transitionend 가 안 오는 경우(화면 밖·탭 전환 등)에도 닫히게 */
+    window.setTimeout(onClose, SLIDE_MS + 80)
+  }, [onClose])
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    /* 주 버튼·손가락만. 넓은 화면에서는 손잡이가 숨어 있어 여기까지 오지 않는다 */
+    if (e.button !== 0) return
+    from.current = { y: e.clientY, t: performance.now() }
+    dy.current = 0
+    const el = ref.current
+    if (el) el.style.transition = 'none'
+    /* 손가락이 손잡이를 벗어나도 계속 따라오게 */
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!from.current) return
+    dy.current = e.clientY - from.current.y
+    move(dy.current)
+  }
+
+  const end = (e: React.PointerEvent) => {
+    const start = from.current
+    if (!start) return
+    from.current = null
+
+    const el = ref.current
+    if (el) el.style.transition = ''
+
+    const ms = performance.now() - start.t
+    const fast = ms > 0 && dy.current / ms > CLOSE_VELOCITY
+    if (dy.current > CLOSE_PX || (fast && dy.current > 20)) {
+      /* 내려간 자리에서 이어서 사라지게 — 제자리로 튀었다가 닫히면 끊겨 보인다 */
+      slideClose()
+      return
+    }
+    /* 모자라면 제자리로 */
+    move(0)
+    e.currentTarget.releasePointerCapture?.(e.pointerId)
+  }
+
+  return {
+    ref,
+    slideClose,
+    handle: { onPointerDown, onPointerMove, onPointerUp: end, onPointerCancel: end },
+  }
+}
+
 /* 모바일은 아래에서 올라오는 시트, 데스크톱은 가운데 모달 */
 export function Dialog({
   eyebrow,
@@ -29,19 +126,23 @@ export function Dialog({
   onClose: () => void
   children: ReactNode
 }) {
-  /* Esc 로 닫고, 열려 있는 동안 뒤쪽이 스크롤되지 않게 한다 */
+  const sheet = useSheetDrag(onClose)
+
+  /* Esc 로 닫고, 열려 있는 동안 뒤쪽이 스크롤되지 않게 한다.
+     닫는 길은 하나로 모은다 — 바깥 누름·손잡이·Esc 가 같은 모양으로 사라진다 */
+  const close = sheet.slideClose
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') close()
     }
     window.addEventListener('keydown', onKey)
     return () => {
       document.body.style.overflow = prev
       window.removeEventListener('keydown', onKey)
     }
-  }, [onClose])
+  }, [close])
 
   return createPortal(
     /* 바깥 칸이 스크롤을 맡고, 모달은 내용만큼 늘어난다 —
@@ -56,21 +157,37 @@ export function Dialog({
        body 에 바로 붙인다(portal) — 의뢰 패널처럼 sticky 상자 안에서 열면 z-index 가 그 상자에
        갇혀 사이트 바가 어두운 막 위로 올라온다. 위아래로 여백을 둬 창이 화면 끝에 붙지 않게 한다 */
     <div
+      data-sheet-veil
       className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-neutral-950/70"
-      onClick={onClose}
+      /* 바깥을 누르면 모바일에서는 시트가 아래로 미끄러지며 사라진다(slideClose) —
+         그냥 사라지면 어디로 간 것인지 읽히지 않는다. 넓은 화면은 그대로 닫는다 */
+      onClick={sheet.slideClose}
     >
       <div className="flex min-h-full flex-col pt-10 md:px-8 md:py-14">
         <div
+          ref={sheet.ref}
           role="dialog"
           aria-modal="true"
           onClick={(e) => e.stopPropagation()}
+          /* 손을 떼고 제자리로 돌아갈 때 쓰는 전환 — 끄는 동안에는 위 훅이 잠깐 끄고,
+             닫을 때는 slideClose 가 같은 모양의 더 짧은 전환으로 바꿔 끼운다 */
+          style={{ transition: `transform ${SLIDE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)` }}
           /* 넓은 화면에서는 창 높이를 화면 안(위아래 여백 py-14 를 뺀 만큼)으로 묶고 본문만 스크롤한다 —
              창이 화면보다 길면 아래 여백이 스크롤 끝에서야 보여 위아래가 어긋나 보인다.
              머리는 flex 의 고정 칸이라 잘리지 않는다 */
           className="mt-auto w-full rounded-t-2xl bg-white md:mx-auto md:mb-auto md:flex md:max-h-[calc(100dvh-7rem)] md:max-w-2xl md:flex-col md:overflow-hidden md:rounded-2xl"
         >
-          {/* 손잡이 — 아래에서 올라온 시트라는 걸 알린다 */}
-          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-neutral-300 md:hidden" />
+          {/* 손잡이 — 아래에서 올라온 시트라는 걸 알리고, 잡아 내리면 닫힌다.
+              막대는 1px 이라 그대로는 못 잡는다 — 위아래 여백을 둬 누를 자리를
+              넓히고(44px 가까이), 그 칸이 손짓을 받는다.
+              touch-none 이 있어야 끄는 동안 브라우저가 스크롤로 가로채지 않는다 */}
+          <div
+            {...sheet.handle}
+            aria-hidden
+            className="flex cursor-grab touch-none items-center justify-center py-4 active:cursor-grabbing md:hidden"
+          >
+            <div className="h-1 w-10 rounded-full bg-neutral-300" />
+          </div>
 
           <div className="flex shrink-0 items-start justify-between gap-3 border-b border-neutral-200 px-6 py-4 md:px-10 md:py-5">
             <div className="min-w-0">
@@ -82,7 +199,7 @@ export function Dialog({
               </h2>
             </div>
             <button
-              onClick={onClose}
+              onClick={close}
               aria-label="닫기"
               className="-mr-1 shrink-0 rounded p-1 text-2xl leading-none text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900"
             >

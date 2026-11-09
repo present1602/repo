@@ -14,6 +14,21 @@ import { uploadSigned } from '@/lib/direct-upload'
 import { recalledRef } from '@/lib/invite-link'
 import type { BudgetsByCategory } from '@/lib/inquiry-budget'
 
+/* 분야 칸을 몇 줄로 나눌지 — 줄마다 고르게 차도록 칸 수를 정한다.
+   3개면 한 줄(3칸), 4개면 2×2, 5~6개면 3칸씩 두 줄.
+   한 줄에 세 칸까지만 둔다 — 그보다 좁으면 분야 이름이 접힌다.
+
+   Tailwind 는 클래스 이름을 글자 그대로 찾으므로(`grid-cols-${n}` 은 안 된다)
+   미리 적어 둔 것 중에서 고른다. 좁은 화면은 늘 두 칸이다 —
+   390px 에서 세 칸이면 '홈페이지/반응형웹' 이 두 줄로 접힌다. */
+function colsFor(n: number): string {
+  if (n <= 2) return 'grid-cols-2'
+  if (n === 3) return 'grid-cols-2 sm:grid-cols-3'
+  if (n === 4) return 'grid-cols-2'
+  /* 5개 이상은 세 칸씩 — 2열로 두면 줄이 세 줄까지 길어진다 */
+  return 'grid-cols-2 sm:grid-cols-3'
+}
+
 /* 범위 이름 옆 짧은 풀이 — 플랜 이름(어드민 설정)만으로는 개발이 들어가는지 알기 어렵다 */
 const SCOPE_NOTE: Partial<Record<InquiryScope, string>> = {
   design: '디자인만 의뢰',
@@ -165,6 +180,9 @@ export function InquiryModal({
   /* 고른 분야의 예산 구간 — 구간을 두지 않은 분야(상세페이지처럼)는 빈 목록이라
      아래에서 그 자리를 띄우지 않는다 */
   const budgetList = (cat && budgets[cat.name]) || []
+  /* 분야·예산 칸은 개수에 따라 줄을 나눈다 — 마지막 줄만 덩그러니 남지 않게 */
+  const catCols = colsFor(cats.length)
+  const budgetCols = colsFor(budgetList.length)
 
   const pickCat = (name: string) => {
     setPickedCat(name)
@@ -278,17 +296,6 @@ export function InquiryModal({
             className="absolute left-[-9999px] size-0 opacity-0"
           />
 
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm text-neutral-600">
-              {simple
-                ? '무엇을 만드시는지만 골라주시면, 나머지는 저희가 메일로 맞춰드립니다.'
-                : '일정, 비용, 작업 방식 등 궁금한 점을 남겨주세요.'}
-            </p>
-            <p className="shrink-0 text-[11px] text-neutral-500">
-              <span className="text-red-600">*</span> 필수
-            </p>
-          </div>
-
           {/* 의뢰 유형 — 견적도 여기서 갈린다 */}
           {choices == null ? (
             <p className="mt-6 text-sm text-neutral-400">의뢰 유형을 불러오는 중…</p>
@@ -311,7 +318,7 @@ export function InquiryModal({
                     <legend className="mb-2 text-xs font-medium text-neutral-700">
                       어떤 분야인가요? <span className="text-red-600">*</span>
                     </legend>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <div className={`grid gap-2 ${catCols}`}>
                       {cats.map((c) => (
                         <label
                           key={c.name}
@@ -436,7 +443,7 @@ export function InquiryModal({
                     <legend className="mb-2 text-xs font-medium text-neutral-700">
                       예산 범위 <span className="font-normal text-neutral-500">(선택)</span>
                     </legend>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className={`grid gap-2 ${budgetCols}`}>
                       {budgetList.map((b) => (
                         <label
                           key={b.id}
