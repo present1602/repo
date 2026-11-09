@@ -17,6 +17,7 @@ import {
 } from '@/lib/plans'
 import { SCOPES, type Scope } from '@/lib/scopes'
 import { MAX_FAQ_ANSWER, MAX_FAQ_QUESTION } from '@/lib/faq-shape'
+import { BUDGET_LABEL_MAX, BUDGET_MAX_PER_CATEGORY } from '@/lib/inquiry-budget'
 import {
   isSpecialtyScopeMode,
   PRICE_SCOPES,
@@ -737,5 +738,84 @@ export async function deleteOptionTemplate(id: string): Promise<Result> {
   }
 
   refreshTemplates()
+  return { ok: true }
+}
+
+/* ─────────── 분야별 예산 범위(0022_specialty_budgets.sql) ───────────
+
+   간편 의뢰에서 2차 범위 대신 묻는 구간이다. 구간은 분야마다 다르고
+   (앱은 300만원, 이커머스는 200만원이 경계다) 앞으로도 바뀌므로
+   고정 목록이 아니라 여기서 적는다. 줄이 없는 분야는 예산을 묻지 않는다. */
+
+/* 표가 없을 때(0022 전) 돌릴 파일을 알려 준다 — 뭉뚱그린 오류만 남으면 못 찾는다 */
+function budgetFail(error: { message: string }, what: string) {
+  console.error(`[budget] ${what} 실패:`, error.message)
+  return fail(
+    /specialty_budgets/i.test(error.message)
+      ? '예산 범위 표가 없습니다. 0022_specialty_budgets.sql 을 실행해 주세요.'
+      : `${what}에 실패했습니다.`,
+  )
+}
+
+export async function addSpecialtyBudget(specialtyId: string, label: string): Promise<Result> {
+  const db = await guard()
+
+  const clean = label.trim()
+  if (!specialtyId) return fail('분야를 찾을 수 없습니다.')
+  if (!clean) return fail('구간 문구를 입력해 주세요.')
+  /* DB check(specialty_budgets_label_len)와 같은 값 — 거부되면 뭉뚱그린 오류만 남는다 */
+  if (clean.length > BUDGET_LABEL_MAX) {
+    return fail(`구간 문구는 ${BUDGET_LABEL_MAX}자까지 쓸 수 있습니다.`)
+  }
+
+  /* 너무 많으면 고르는 칸이 길어져 읽기 어렵다 — 저장 전에 막는다 */
+  const { count, error: countErr } = await db
+    .from('specialty_budgets')
+    .select('id', { count: 'exact', head: true })
+    .eq('specialty_id', specialtyId)
+  if (countErr) return budgetFail(countErr, '구간 추가')
+  if ((count ?? 0) >= BUDGET_MAX_PER_CATEGORY) {
+    return fail(`한 분야에 구간은 ${BUDGET_MAX_PER_CATEGORY}개까지 둘 수 있습니다.`)
+  }
+
+  /* 맨 뒤에 붙인다 — 적은 차례가 곧 화면 차례다 */
+  const { error } = await db
+    .from('specialty_budgets')
+    .insert({ specialty_id: specialtyId, label: clean, sort_order: count ?? 0 })
+
+  if (error) {
+    /* 같은 분야에 같은 구간은 두지 않는다(specialty_budgets_uniq) */
+    if (error.code === '23505') return fail('이미 있는 구간입니다.')
+    return budgetFail(error, '구간 추가')
+  }
+
+  refreshSpecialties()
+  return { ok: true }
+}
+
+export async function deleteSpecialtyBudget(id: string): Promise<Result> {
+  const db = await guard()
+
+  if (!id) return fail('구간을 찾을 수 없습니다.')
+
+  const { error } = await db.from('specialty_budgets').delete().eq('id', id)
+  if (error) return budgetFail(error, '구간 삭제')
+
+  refreshSpecialties()
+  return { ok: true }
+}
+
+/* 순서 바꾸기 — 받은 차례대로 0번부터 다시 매긴다(reorderSpecialties 와 같은 방침) */
+export async function reorderSpecialtyBudgets(ids: string[]): Promise<Result> {
+  const db = await guard()
+
+  if (ids.length === 0) return { ok: true }
+
+  for (const [i, id] of ids.entries()) {
+    const { error } = await db.from('specialty_budgets').update({ sort_order: i }).eq('id', id)
+    if (error) return budgetFail(error, '순서 변경')
+  }
+
+  refreshSpecialties()
   return { ok: true }
 }

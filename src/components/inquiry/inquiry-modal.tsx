@@ -12,7 +12,7 @@ import {
 import { getGeneralInquiryChoices, prepareInquiryUpload } from '@/app/inquiry-actions'
 import { uploadSigned } from '@/lib/direct-upload'
 import { recalledRef } from '@/lib/invite-link'
-import { INQUIRY_BUDGETS } from '@/lib/inquiry-budget'
+import type { BudgetsByCategory } from '@/lib/inquiry-budget'
 
 /* 범위 이름 옆 짧은 풀이 — 플랜 이름(어드민 설정)만으로는 개발이 들어가는지 알기 어렵다 */
 const SCOPE_NOTE: Partial<Record<InquiryScope, string>> = {
@@ -108,6 +108,8 @@ export function InquiryModal({
   onClose: () => void
 }) {
   const [fetched, setFetched] = useState<CategoryChoice[] | null>(null)
+  /* 분야별 예산 구간(0022) — 간편 의뢰에서만 쓴다. 구간을 둔 분야만 들어 있다 */
+  const [budgets, setBudgets] = useState<BudgetsByCategory>({})
   const choices = given ?? fetched
 
   /* 간편 의뢰 — 디자이너가 정해지지 않은 의뢰(홈 띠 배너·네비바의 '의뢰하기').
@@ -121,7 +123,11 @@ export function InquiryModal({
     if (given) return
     let alive = true
     getGeneralInquiryChoices()
-      .then((c) => alive && setFetched(c))
+      .then((r) => {
+        if (!alive) return
+        setFetched(r.choices)
+        setBudgets(r.budgets)
+      })
       .catch(() => alive && setFetched([]))
     return () => {
       alive = false
@@ -156,12 +162,18 @@ export function InquiryModal({
     main.find((o) => o.key === (scopeKey ?? defaultScope(main.map((x) => x.key)))) ?? null
   const withSample = extra === 'sample' && sample != null && option?.sampleOk === true
   const withPremium = extra === 'premium' && option?.premium != null
+  /* 고른 분야의 예산 구간 — 구간을 두지 않은 분야(상세페이지처럼)는 빈 목록이라
+     아래에서 그 자리를 띄우지 않는다 */
+  const budgetList = (cat && budgets[cat.name]) || []
 
   const pickCat = (name: string) => {
     setPickedCat(name)
     setPickedScope(null)
     /* 분야를 바꾸면 처음처럼 프리미엄을 골라 둔다 */
     setExtra('premium')
+    /* 구간은 분야마다 다르다 — 앞 분야에서 고른 값이 따라가지 않게 비운다.
+       그대로 두면 이커머스에 없는 '300만원 이하'가 묻어 가 서버가 되돌린다 */
+    setBudget(null)
     setError('')
   }
   const pickScope = (key: InquiryScope) => {
@@ -417,30 +429,31 @@ export function InquiryModal({
                 )}
 
                 {/* 예산 범위 — 간편 의뢰에서 2차 범위 대신 묻는다.
-                    선택사항이다: 기본은 '선택 안 함'이고 그대로 보낼 수 있다 */}
-                {simple && (
+                    구간은 분야마다 다르고(어드민 설정), 구간을 두지 않은 분야는
+                    이 자리를 아예 띄우지 않는다. 선택사항이라 비워 두고 보낼 수 있다 */}
+                {simple && budgetList.length > 0 && (
                   <fieldset>
                     <legend className="mb-2 text-xs font-medium text-neutral-700">
                       예산 범위 <span className="font-normal text-neutral-500">(선택)</span>
                     </legend>
                     <div className="grid grid-cols-2 gap-2">
-                      {INQUIRY_BUDGETS.map((b) => (
+                      {budgetList.map((b) => (
                         <label
-                          key={b}
+                          key={b.id}
                           className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50 has-[:checked]:font-medium has-[:checked]:text-violet-700"
                         >
                           <input
                             type="radio"
                             name="budget"
-                            value={b}
-                            checked={budget === b}
+                            value={b.label}
+                            checked={budget === b.label}
                             /* 고른 것을 다시 누르면 선택을 푼다 — 라디오는 되돌릴 길이
                                없어서, 잘못 눌렀을 때 '선택 안 함'으로 못 돌아간다 */
-                            onClick={() => budget === b && setBudget(null)}
-                            onChange={() => setBudget(b)}
+                            onClick={() => budget === b.label && setBudget(null)}
+                            onChange={() => setBudget(b.label)}
                             className="shrink-0 accent-violet-600"
                           />
-                          <span className="min-w-0 break-keep">{b}</span>
+                          <span className="min-w-0 break-keep">{b.label}</span>
                         </label>
                       ))}
                     </div>

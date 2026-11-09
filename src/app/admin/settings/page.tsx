@@ -11,6 +11,7 @@ import {
   listOptionTemplates,
 } from '@/lib/site-settings'
 import { listAllSpecialties } from '@/lib/specialties'
+import { readBudgetRows } from '@/lib/specialty-budgets'
 import { listAllFaqs } from '@/lib/faqs'
 import { PlanCopyForm } from '@/components/admin/plan-copy-form'
 import { OptionTemplateManager } from '@/components/admin/option-template-manager'
@@ -47,7 +48,7 @@ export default async function AdminSettingsPage(props: PageProps<'/admin/setting
 
   /* 서로 기다릴 이유가 없다. 탭마다 필요한 것만 읽는다 —
      포함 항목 템플릿 탭도 프리미엄을 켠 플랜을 알아야 해서 플랜 문구를 함께 읽는다 */
-  const [copies, specialties, scopePrompt, showDuration, templates, exploreDesc, faqs] =
+  const [copies, specialties, scopePrompt, showDuration, templates, exploreDesc, faqs, budgetRows] =
     await Promise.all([
       tab === 'general' || tab === 'faq' ? null : getPlanCopies(),
       tab === 'general' ? listAllSpecialties() : null,
@@ -56,7 +57,12 @@ export default async function AdminSettingsPage(props: PageProps<'/admin/setting
       tab === 'options' ? listOptionTemplates() : null,
       tab === 'general' ? getExploreDesc() : null,
       tab === 'faq' ? listAllFaqs() : null,
+      /* 분야별 예산 구간(0022) — 분야 목록과 같은 탭에서만 쓴다 */
+      tab === 'general' ? readBudgetRows() : null,
     ])
+
+  /* Map 은 클라이언트 컴포넌트로 넘어가지 않는다 — 평범한 객체로 바꾼다 */
+  const budgets = budgetRows ? Object.fromEntries(budgetRows) : null
 
   return (
     <main className="min-w-0 flex-1 px-5 py-6 md:px-8">
@@ -100,7 +106,11 @@ export default async function AdminSettingsPage(props: PageProps<'/admin/setting
           <>
             <ScopePromptToggle enabled={scopePrompt!} />
             <ShowDurationToggle enabled={showDuration!} />
-            <SpecialtyManager specialties={specialties!} exploreDesc={exploreDesc!} />
+            <SpecialtyManager
+              specialties={specialties!}
+              exploreDesc={exploreDesc!}
+              budgets={budgets ?? {}}
+            />
           </>
         )}
 

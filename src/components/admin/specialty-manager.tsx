@@ -22,7 +22,11 @@ import {
   setExploreDesc,
   reorderSpecialties,
   deleteSpecialty,
+  addSpecialtyBudget,
+  deleteSpecialtyBudget,
+  reorderSpecialtyBudgets,
 } from '@/app/admin/settings/actions'
+import { BUDGET_LABEL_MAX, BUDGET_MAX_PER_CATEGORY, type BudgetChoice } from '@/lib/inquiry-budget'
 import { Flash } from '@/components/flash'
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null
@@ -35,10 +39,13 @@ type Notice = { kind: 'ok' | 'error'; text: string } | null
 export function SpecialtyManager({
   specialties,
   exploreDesc,
+  budgets = {},
 }: {
   specialties: Specialty[]
   /* '전체'일 때 탐색 제목 아래 문구 */
   exploreDesc: string
+  /* 분야 id → 예산 구간들(0022). 구간을 둔 분야만 들어 있다 */
+  budgets?: Record<string, BudgetChoice[]>
 }) {
   const [notice, setNotice] = useState<Notice>(null)
   const [draft, setDraft] = useState('')
@@ -311,6 +318,15 @@ export function SpecialtyManager({
                       }
                     />
                   ))}
+                  {/* 간편 의뢰에서 묻는 예산 구간 — 비워 두면 그 분야는 예산을 묻지 않는다 */}
+                  <BudgetRows
+                    specialty={s}
+                    rows={budgets[s.id] ?? []}
+                    disabled={pending}
+                    onAdd={(label) => act(() => addSpecialtyBudget(s.id, label), `'${s.name}' 구간을 더했습니다.`)}
+                    onDelete={(id) => act(() => deleteSpecialtyBudget(id))}
+                    onReorder={(ids) => act(() => reorderSpecialtyBudgets(ids))}
+                  />
                   </div>
                 </>
               )}
@@ -552,3 +568,124 @@ function RenameRow({
 
 const ghost =
   'rounded-md border border-neutral-300 px-2 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-50'
+
+/* 예산 구간 줄 — 간편 의뢰(디자이너를 지정하지 않은 의뢰)에서 2차 범위 대신 묻는다.
+
+   구간은 분야마다 다르다(앱은 300만원, 이커머스는 200만원이 경계다).
+   비워 두면 그 분야는 예산을 아예 묻지 않는다 — 상세페이지를 그렇게 둔다.
+   적은 차례가 곧 화면 차례이고, ↑↓ 로 바꾼다(분야 목록처럼 끌지 않는다 —
+   줄이 서너 개라 버튼이 더 빠르고, 중첩 드래그는 분야 순서와 엉킨다). */
+function BudgetRows({
+  specialty: s,
+  rows,
+  disabled,
+  onAdd,
+  onDelete,
+  onReorder,
+}: {
+  specialty: Specialty
+  rows: BudgetChoice[]
+  disabled: boolean
+  onAdd: (label: string) => void
+  onDelete: (id: string) => void
+  onReorder: (ids: string[]) => void
+}) {
+  const [draft, setDraft] = useState('')
+  const full = rows.length >= BUDGET_MAX_PER_CATEGORY
+
+  const add = () => {
+    const clean = draft.trim()
+    if (!clean || full) return
+    onAdd(clean)
+    setDraft('')
+  }
+
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir
+    if (j < 0 || j >= rows.length) return
+    const ids = rows.map((r) => r.id)
+    ;[ids[i], ids[j]] = [ids[j], ids[i]]
+    onReorder(ids)
+  }
+
+  return (
+    <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 text-[11px] text-neutral-500">
+      <span className="w-20 shrink-0 pt-1 font-medium text-neutral-600">예산 범위</span>
+
+      <div className="min-w-0 flex-1 space-y-1">
+        {rows.length === 0 ? (
+          <p className="pt-1 text-neutral-400">
+            비어 있음 — 이 분야는 간편 의뢰에서 예산을 묻지 않습니다.
+          </p>
+        ) : (
+          rows.map((b, i) => (
+            <div key={b.id} className="flex items-center gap-1">
+              <span className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-neutral-700">
+                {b.label}
+              </span>
+              <button
+                onClick={() => move(i, -1)}
+                disabled={disabled || i === 0}
+                aria-label={`${b.label} 위로`}
+                className="rounded-md border border-neutral-300 px-1.5 py-1 transition hover:bg-neutral-100 disabled:opacity-30"
+              >
+                ↑
+              </button>
+              <button
+                onClick={() => move(i, 1)}
+                disabled={disabled || i === rows.length - 1}
+                aria-label={`${b.label} 아래로`}
+                className="rounded-md border border-neutral-300 px-1.5 py-1 transition hover:bg-neutral-100 disabled:opacity-30"
+              >
+                ↓
+              </button>
+              <button
+                onClick={() => {
+                  if (!confirm(`'${b.label}' 구간을 지울까요?\n이미 이 구간으로 들어온 문의는 그대로 남습니다.`)) return
+                  onDelete(b.id)
+                }}
+                disabled={disabled}
+                aria-label={`${b.label} 삭제`}
+                className="rounded-md border border-red-200 px-1.5 py-1 text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+          ))
+        )}
+
+        {/* 더 둘 수 없으면 칸을 숨기지 않고 까닭을 적는다 — 사라지면 왜 없는지 모른다 */}
+        {full ? (
+          <p className="pt-0.5 text-neutral-400">
+            구간은 {BUDGET_MAX_PER_CATEGORY}개까지 둘 수 있습니다.
+          </p>
+        ) : (
+          <div className="flex items-center gap-1 pt-0.5">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                /* 폼 안이 아니라 제출은 없지만, 눌렀을 때 아무 일도 없으면 고장으로 읽힌다 */
+                e.preventDefault()
+                add()
+              }}
+              disabled={disabled}
+              maxLength={BUDGET_LABEL_MAX}
+              placeholder="예: 300만원 이하"
+              aria-label={`${s.name} 예산 구간 추가`}
+              className="w-36 rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-violet-500 disabled:opacity-50"
+            />
+            <button
+              onClick={add}
+              disabled={disabled || !draft.trim()}
+              className="rounded-md border border-neutral-300 px-2 py-1 font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-50"
+            >
+              추가
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -4,7 +4,7 @@ import { supabaseAdmin, supabaseConfigured, INQUIRY_FILES_BUCKET } from '@/lib/s
 import { allowedEmails } from '@/lib/admin-auth'
 import { INQUIRY_TYPE_SCOPE, isInquiryPlanTier, type InquiryType } from '@/lib/inquiry-types'
 import { SCOPE_INQUIRY_TYPE, isInquiryScope, scopesOf } from '@/lib/inquiry-choices'
-import { isInquiryBudget } from '@/lib/inquiry-budget'
+import { getBudgetsByCategory } from '@/lib/specialty-budgets'
 import { getPlanCopies } from '@/lib/site-settings'
 import { listCategoryMetas } from '@/lib/specialties'
 import { priceOf } from '@/lib/specialty-shape'
@@ -76,10 +76,9 @@ export async function POST(req: Request) {
     /* 기본·프리미엄 — 프리미엄이 있는 유형을 골랐을 때만 온다. 그 밖에는 null */
     const rawTier = String(form.get('planTier') ?? '').trim()
     const planTier = isInquiryPlanTier(rawTier) ? rawTier : null
-    /* 간편 의뢰의 예산 범위(0021) — 선택사항이라 없을 수 있다.
-       목록에 없는 값은 버린다. DB check 제약과 같은 목록이다 */
+    /* 간편 의뢰의 예산 범위(0021·0022) — 선택사항이라 없을 수 있다.
+       구간은 분야마다 다르므로 아래에서 그 분야의 목록과 맞춰 본다 */
     const rawBudget = String(form.get('budget') ?? '').trim()
-    const budget = isInquiryBudget(rawBudget) ? rawBudget : null
     const designerId = String(form.get('designerId') ?? '').trim()
     let designerName = String(form.get('designerName') ?? '').trim()
     const submitKey = String(form.get('submitKey') ?? '').trim()
@@ -100,6 +99,14 @@ export async function POST(req: Request) {
        inquiry_type 도 비워 둔다(칸은 null 을 받는다).
        화면이 범위를 보내 왔으면 예전 화면이므로 그대로 맞춰 본다. */
     const simple = !designerId && !rawScope
+    /* 고른 예산 구간 — 그 분야에 실제로 있는 구간일 때만 담는다(0022).
+       구간은 어드민이 고치므로 화면이 보낸 값을 그대로 믿지 않는다.
+       간편 의뢰가 아니면 묻지도 않았으므로 버린다. */
+    let budget: string | null = null
+    if (simple && rawBudget && category) {
+      const list = (await getBudgetsByCategory())[category] ?? []
+      budget = list.some((b) => b.label === rawBudget) ? rawBudget : null
+    }
     if (metas.length > 0) {
       const meta = metas.find((m) => m.name === category)
       if (!meta) return bad('무엇을 만드는지 골라 주세요. 새로고침 후 다시 시도해 주세요.')
