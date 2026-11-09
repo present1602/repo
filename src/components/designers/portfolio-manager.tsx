@@ -311,7 +311,9 @@ function AddButton({
   onMessage: (m: { ok: boolean; text: string } | null) => void
 }) {
   return (
-    <div className="flex flex-col items-end gap-1">
+    /* ml-auto — 좁은 화면에서 줄이 넘어가도 오른쪽 끝에 붙는다(안내 글 폭만큼만 차지해 가운데쯤 뜨지 않게).
+       글 정렬은 안내 글에만 건다 — 업로드 창이 이 안에 그려져 정렬을 물려받는다 */
+    <div className="ml-auto flex flex-col items-end gap-1">
       <WorkUploader
         actions={{ prepareUpload: prepareWorkUpload, preparePages: prepareWorkPages, addWork }}
         disabled={disabled}
@@ -320,7 +322,7 @@ function AddButton({
         successText={() => '작업을 올렸습니다.'}
         onMessage={onMessage}
       />
-      <span className="text-[11px] text-neutral-400">
+      <span className="text-right text-[11px] text-neutral-400">
         이미지·PDF {MAX_SOURCE_BYTES / 1024 / 1024}MB 이하 · PDF {MAX_PDF_PAGES}쪽까지
       </span>
     </div>

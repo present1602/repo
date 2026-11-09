@@ -88,7 +88,7 @@ export function InquiryModal({
   initialCategory,
   initialScope,
   initialSample = false,
-  initialPremium = false,
+  initialPremium = true,
   onClose,
 }: {
   designerId?: string
@@ -101,7 +101,8 @@ export function InquiryModal({
   initialScope?: InquiryScope
   /* 패널에서 '메인화면 먼저 의뢰'를 켜고 열었는지 */
   initialSample?: boolean
-  /* 패널의 PREMIUM 탭에서 열었는지 — 그 줄에 프리미엄이 있으면 골라 둔다 */
+  /* 프리미엄을 골라 둔 채 열지 — 기본은 골라 둔다(프리미엄이 있는 줄이면 체크된 채 보인다).
+     패널의 STANDARD 탭에서 열면 false 로 넘어와 그 선택을 따른다 */
   initialPremium?: boolean
   onClose: () => void
 }) {
@@ -129,7 +130,8 @@ export function InquiryModal({
   const [pickedCat, setPickedCat] = useState<string | null>(null)
   const [pickedScope, setPickedScope] = useState<InquiryScope | null>(null)
   /* 고른 본계약 줄에 덧붙이는 옵션 — 프리미엄과 메인화면 먼저 의뢰는 함께 고르지 않는다
-     (메인 시안은 본계약 전에 먼저 받는 의뢰라 본계약 단계가 아직 정해지지 않는다) */
+     (메인 시안은 본계약 전에 먼저 받는 의뢰라 본계약 단계가 아직 정해지지 않는다).
+     프리미엄이 기본이다 — 'premium' 이어도 그 줄에 프리미엄이 없으면 아무것도 덧붙지 않는다(withPremium) */
   const [extra, setExtra] = useState<'none' | 'premium' | 'sample'>(
     initialSample ? 'sample' : initialPremium ? 'premium' : 'none',
   )
@@ -149,15 +151,18 @@ export function InquiryModal({
   const pickCat = (name: string) => {
     setPickedCat(name)
     setPickedScope(null)
-    setExtra('none')
+    /* 분야를 바꾸면 처음처럼 프리미엄을 골라 둔다 */
+    setExtra('premium')
     setError('')
   }
   const pickScope = (key: InquiryScope) => {
     /* 패널에서 골라 온 분야를 그대로 둔 채 범위만 바꿀 때도 분야를 굳혀 둔다 */
     if (cat) setPickedCat(cat.name)
     setPickedScope(key)
-    /* 메인 시안은 같은 분야면 어느 본계약 줄에서도 그대로 둔다 — 프리미엄은 줄마다 다르다 */
-    setExtra((x) => (x === 'premium' ? 'none' : x))
+    /* 메인 시안은 같은 분야면 그대로 둔다(그 줄이 메인 시안을 받을 때만).
+       아니면 새 줄의 프리미엄을 골라 둔다 — 프리미엄이 있는 줄은 늘 체크된 채 보인다 */
+    const keepSample = main.find((o) => o.key === key)?.sampleOk === true
+    setExtra((x) => (x === 'sample' && keepSample ? x : 'premium'))
     setError('')
   }
 

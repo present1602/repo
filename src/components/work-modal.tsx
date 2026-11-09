@@ -1152,7 +1152,7 @@ function ZoomImage({
                   width: videoBox.w * fit * zoom,
                   height: videoBox.h * fit * zoom,
                 }}
-                className="relative block bg-neutral-900"
+                className="relative mx-auto block bg-neutral-900"
               >
                 {zoom === 1 ? (
                   <iframe

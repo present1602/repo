@@ -531,10 +531,12 @@ export function DetailPreview({
         <span className="text-[11px] font-semibold text-neutral-700">상세 페이지 미리보기</span>
         <span className="text-[10px] text-neutral-400">고치면 바로 저장되고 여기 보여요</span>
       </div>
-      {/* 실제 상세는 왼쪽 포트폴리오가 훨씬 넓다 — 그 느낌이 나게 작업 자리를 넉넉히 */}
-      <div className="grid grid-cols-[132px_minmax(0,1fr)] gap-3 p-3">
+      {/* 실제 상세는 왼쪽 포트폴리오가 훨씬 넓다 — 그 느낌이 나게 작업 자리를 넉넉히.
+          휴대폰 폭에서는 작업 자리를 빼고 패널만 — 둘을 나란히 두면 패널이 200px 남짓으로 눌려
+          유형 이름·금액이 글자 단위로 꺾인다(실제 상세도 휴대폰에서는 패널이 한 줄을 다 쓴다) */}
+      <div className="grid gap-3 p-3 sm:grid-cols-[132px_minmax(0,1fr)]">
         {/* 작업 자리 — 이름 줄과 작업 카드를 흐린 상자로 */}
-        <div aria-hidden className="space-y-2">
+        <div aria-hidden className="hidden space-y-2 sm:block">
           <div className="flex items-center gap-1.5">
             <span className="size-5 shrink-0 rounded-full bg-neutral-300" />
             <span className="h-2 flex-1 rounded bg-neutral-300" />
