@@ -9,23 +9,33 @@ import type { InquiryRow } from './inquiry-shape'
 
 export async function listInquiries(): Promise<InquiryRow[]> {
   if (!supabaseAdmin) return []
+  const db = supabaseAdmin
 
-  const { data, error } = await supabaseAdmin
-    .from('inquiries')
-    .select('*')
-    /* 최근 것이 위로 — 미확인을 먼저 올리지는 않는다.
-       확인했다고 목록에서 자리가 바뀌면 방금 뭘 봤는지 놓친다. */
-    .order('created_at', { ascending: false })
-    /* 쌓이면 끊어 받아야 하지만, 당분간은 한 번에 다 받아도 된다 */
-    .limit(500)
+  /* 치운 건(0020_inquiry_hidden.sql)은 뺀다 — 줄은 남아 있다 */
+  const ask = (skipHidden: boolean) => {
+    let q = db
+      .from('inquiries')
+      .select('*')
+      /* 최근 것이 위로 — 미확인을 먼저 올리지는 않는다.
+         확인했다고 목록에서 자리가 바뀌면 방금 뭘 봤는지 놓친다. */
+      .order('created_at', { ascending: false })
+      /* 쌓이면 끊어 받아야 하지만, 당분간은 한 번에 다 받아도 된다 */
+      .limit(500)
+    if (skipHidden) q = q.is('hidden_at', null)
+    return q
+  }
 
-  if (error) {
+  let r = await ask(true)
+  /* 0020 전이면 hidden_at 칸이 없다 — 빼고 다시 묻는다(아무것도 치우지 않은 상태로 읽힌다) */
+  if (r.error?.message.includes('hidden_at')) r = await ask(false)
+
+  if (r.error) {
     /* 012 전이면 테이블이 없다 — 화면은 비우고 넘어간다 */
-    console.error('[inquiry] 목록 조회 실패:', error.message)
+    console.error('[inquiry] 목록 조회 실패:', r.error.message)
     return []
   }
 
-  return (data ?? []) as InquiryRow[]
+  return (r.data ?? []) as InquiryRow[]
 }
 
 /* 미확인 건수 — 사이드바 배지에 쓴다.

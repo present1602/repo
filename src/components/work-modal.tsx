@@ -1134,6 +1134,16 @@ function ZoomImage({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onScroll={onScroll}
+        /* 그림 위에서는 우클릭 메뉴를 열지 않는다 — '이미지를 다른 이름으로 저장'으로
+           무심코 가져가는 것만 막는다. 작정하면 개발자도구·소스보기·스크린샷으로
+           얼마든지 받을 수 있다(버킷이 공개라 주소만 알면 바로 열린다) —
+           저작권 보호 장치가 아니라 가져가지 말라는 표시로만 둔다.
+
+           칸 전체가 아니라 <img> 위에서만 막는다. 영상(iframe)과 빈 여백에서는
+           메뉴가 그대로 열려야 한다 — 다 막으면 '새 탭에서 열기'까지 사라진다. */
+        onContextMenu={(e) => {
+          if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault()
+        }}
         /* 집기는 위 onTouch* 가 맡으므로 브라우저 핀치(pinch-zoom)는 열지 않는다.
            끝에서 더 밀 때 튕기는 효과는 트랙이 대신하므로 스크롤 바운스는 끈다. */
         style={{
@@ -1177,7 +1187,8 @@ function ZoomImage({
                     ? { width: first.w * fit * zoom, height: first.h * fit * zoom, maxWidth: 'none' }
                     : undefined
                 }
-                className={fit ? 'block' : 'max-h-full max-w-full object-contain'}
+                /* 길게 눌러 저장(iOS Safari 의 콜아웃)도 막는다 — 우클릭과 같은 뜻이다 */
+                className={`[-webkit-touch-callout:none] ${fit ? 'block' : 'max-h-full max-w-full object-contain'}`}
               />
               {/* 둘째 장부터 — 첫 장과 같은 너비로 잇는다. 크기를 미리 알고 있어
                   받아지기 전에도 자리를 잡으므로 내려 보는 동안 화면이 밀리지 않는다.
@@ -1198,7 +1209,7 @@ function ZoomImage({
                       height: (p.height * first.w * fit * zoom) / p.width,
                       maxWidth: 'none',
                     }}
-                    className="block bg-neutral-50"
+                    className="block bg-neutral-50 [-webkit-touch-callout:none]"
                   />
                 ))}
             </div>

@@ -4,6 +4,7 @@ import { supabaseAdmin, supabaseConfigured, INQUIRY_FILES_BUCKET } from '@/lib/s
 import { allowedEmails } from '@/lib/admin-auth'
 import { INQUIRY_TYPE_SCOPE, isInquiryPlanTier, type InquiryType } from '@/lib/inquiry-types'
 import { SCOPE_INQUIRY_TYPE, isInquiryScope, scopesOf } from '@/lib/inquiry-choices'
+import { isInquiryBudget } from '@/lib/inquiry-budget'
 import { getPlanCopies } from '@/lib/site-settings'
 import { listCategoryMetas } from '@/lib/specialties'
 import { priceOf } from '@/lib/specialty-shape'
@@ -75,6 +76,10 @@ export async function POST(req: Request) {
     /* 기본·프리미엄 — 프리미엄이 있는 유형을 골랐을 때만 온다. 그 밖에는 null */
     const rawTier = String(form.get('planTier') ?? '').trim()
     const planTier = isInquiryPlanTier(rawTier) ? rawTier : null
+    /* 간편 의뢰의 예산 범위(0021) — 선택사항이라 없을 수 있다.
+       목록에 없는 값은 버린다. DB check 제약과 같은 목록이다 */
+    const rawBudget = String(form.get('budget') ?? '').trim()
+    const budget = isInquiryBudget(rawBudget) ? rawBudget : null
     const designerId = String(form.get('designerId') ?? '').trim()
     let designerName = String(form.get('designerName') ?? '').trim()
     const submitKey = String(form.get('submitKey') ?? '').trim()
@@ -90,23 +95,31 @@ export async function POST(req: Request) {
     const metas = (await listCategoryMetas()).filter((m) => m.visible)
     let inquiryType: InquiryType | null = null
     let mainType: InquiryType | null = null
+    /* 간편 의뢰 — 디자이너를 지정하지 않고 들어온 의뢰(홈·네비바)는
+       1차 분야만 고르고 범위는 묻지 않는다. 그래서 범위를 짚지 않고,
+       inquiry_type 도 비워 둔다(칸은 null 을 받는다).
+       화면이 범위를 보내 왔으면 예전 화면이므로 그대로 맞춰 본다. */
+    const simple = !designerId && !rawScope
     if (metas.length > 0) {
       const meta = metas.find((m) => m.name === category)
       if (!meta) return bad('무엇을 만드는지 골라 주세요. 새로고침 후 다시 시도해 주세요.')
-      if (!scope || !scopesOf(meta).includes(scope)) {
+      if (!simple && (!scope || !scopesOf(meta).includes(scope))) {
         return bad('맡길 범위를 골라 주세요.')
       }
-      inquiryType = SCOPE_INQUIRY_TYPE[scope]
-      if (scope === 'sample' && isInquiryScope(rawMain) && rawMain !== 'sample' && scopesOf(meta).includes(rawMain)) {
-        /* 그 범위에서 메인 시안 옵션을 뺀 분야(0013) — 예전 화면이나 직접 보낸 요청을 막는다 */
-        if (!priceOf(meta.prices, rawMain, 'basic').allowSample) {
-          return bad('이 의뢰에는 메인화면 먼저 의뢰를 붙일 수 없습니다. 새로고침 후 다시 골라 주세요.')
+      /* 범위를 고른 의뢰만 유형이 정해진다 — 간편 의뢰는 분야만 남기고 비워 둔다 */
+      if (scope) {
+        inquiryType = SCOPE_INQUIRY_TYPE[scope]
+        if (scope === 'sample' && isInquiryScope(rawMain) && rawMain !== 'sample' && scopesOf(meta).includes(rawMain)) {
+          /* 그 범위에서 메인 시안 옵션을 뺀 분야(0013) — 예전 화면이나 직접 보낸 요청을 막는다 */
+          if (!priceOf(meta.prices, rawMain, 'basic').allowSample) {
+            return bad('이 의뢰에는 메인화면 먼저 의뢰를 붙일 수 없습니다. 새로고침 후 다시 골라 주세요.')
+          }
+          mainType = SCOPE_INQUIRY_TYPE[rawMain]
         }
-        mainType = SCOPE_INQUIRY_TYPE[rawMain]
-      }
-      /* 사이트에서 숨긴 플랜은 받지 않는다 — 화면에서 뺐어도 예전 화면이나 직접 보낸 요청이 올 수 있다 */
-      if (!(await getPlanCopies())[INQUIRY_TYPE_SCOPE[inquiryType]].visible) {
-        return bad('지금은 받지 않는 의뢰 유형입니다. 새로고침 후 다시 골라 주세요.')
+        /* 사이트에서 숨긴 플랜은 받지 않는다 — 화면에서 뺐어도 예전 화면이나 직접 보낸 요청이 올 수 있다 */
+        if (!(await getPlanCopies())[INQUIRY_TYPE_SCOPE[inquiryType]].visible) {
+          return bad('지금은 받지 않는 의뢰 유형입니다. 새로고침 후 다시 골라 주세요.')
+        }
       }
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -223,6 +236,8 @@ export async function POST(req: Request) {
       inquiry_type: inquiryType,
       /* 036 전 DB 에는 칸이 없다 — 그때는 프리미엄이 공개되지 않아 값도 오지 않는다 */
       ...(planTier ? { plan_tier: planTier } : {}),
+      /* 0021 전 DB 에는 칸이 없다 — 아래에서 빼고 다시 넣는다 */
+      ...(budget ? { budget } : {}),
       designer_id: designerId || null,
       designer_name: designerName || null,
       files: uploaded,
@@ -233,9 +248,16 @@ export async function POST(req: Request) {
     const insert = (row: Record<string, unknown>) =>
       db.from('inquiries').insert(row).select('id').single()
 
+    /* 분야는 유형이 없어도 남긴다 — 간편 의뢰는 분야가 유일하게 고른 값이다 */
     let { data: row, error: dbErr } = await insert(
-      inquiryType ? { ...fields, category } : fields,
+      category ? { ...fields, category } : fields,
     )
+    /* 0021 전 DB 에는 budget 칸이 없다 — 접수를 잃지 않게 예산 없이 다시 넣는다 */
+    if (dbErr?.message.includes('budget')) {
+      console.warn('[inquiry] budget 칸 없음(0021 전) — 예산 없이 저장:', budget)
+      const { budget: _drop, ...rest } = fields as typeof fields & { budget?: string }
+      ;({ data: row, error: dbErr } = await insert(category ? { ...rest, category } : rest))
+    }
     /* 0003 전 DB 에는 category 칸이 없다 — 접수를 잃지 않게 분야 없이 다시 넣는다 */
     if (dbErr?.message.includes('category')) {
       console.warn('[inquiry] category 칸 없음(0003 전) — 분야 없이 저장:', category)
@@ -263,12 +285,14 @@ export async function POST(req: Request) {
     const to = allowedEmails()
     let mailed = false
 
-    /* 분야·범위를 한 줄로, 프리미엄을 골랐으면 그 옆에 — 메일 제목만 보고도 견적이 갈린다 */
+    /* 분야·범위를 한 줄로, 프리미엄을 골랐으면 그 옆에 — 메일 제목만 보고도 견적이 갈린다.
+       간편 의뢰는 범위가 없으므로 분야와 예산이 그 자리를 대신한다 */
     const typeLabel =
       [
-        inquiryType ? category : '',
-        (inquiryType ?? '일반 문의') + (mainType ? ` → ${mainType}` : ''),
+        category,
+        (inquiryType ?? '간편 의뢰') + (mainType ? ` → ${mainType}` : ''),
         planTier === 'premium' ? '프리미엄' : '',
+        budget ?? '',
       ]
         .filter(Boolean)
         .join(' · ')
@@ -290,6 +314,8 @@ export async function POST(req: Request) {
             phone,
             message,
             inquiryType: typeLabel,
+            /* 범위를 안 고른 간편 의뢰만 — 그때는 예산이 견적의 유일한 실마리다 */
+            budget: inquiryType ? '' : (budget ?? '고르지 않음'),
             designerName,
             viaRef,
             uploaded,
@@ -320,6 +346,7 @@ function mailHtml({
   phone,
   message,
   inquiryType,
+  budget,
   designerName,
   viaRef,
   uploaded,
@@ -330,12 +357,15 @@ function mailHtml({
   phone: string
   message: string
   inquiryType: string
+  /* 간편 의뢰일 때만 채워 보낸다 — 비어 있으면 줄을 띄우지 않는다 */
+  budget: string
   designerName: string
   viaRef: boolean
   uploaded: Uploaded[]
 }) {
   const rows: [string, string][] = [
     ['의뢰 유형', inquiryType],
+    ...((budget ? [['예산 범위', budget]] : []) as [string, string][]),
     ['성함 / 회사명', name],
     ['이메일', email],
     ['연락처', phone],

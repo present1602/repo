@@ -53,6 +53,9 @@ export type InquiryRow = {
   /* 기본·프리미엄(036_plan_copy_premium.sql) — 프리미엄을 고를 수 있던 문의만.
      036 전에는 select('*') 에 없어 undefined 로 온다. */
   plan_tier?: 'basic' | 'premium' | null
+  /* 간편 의뢰에서 고른 예산 범위(0021_inquiry_budget.sql) — 선택사항이라 비어 있을 수 있다.
+     0021 전에는 select('*') 에 없어 undefined 로 온다. */
+  budget?: string | null
 
   /* 특정 디자이너에게 보낸 문의면 채워진다. 외래키가 없으므로
      그 디자이너가 지워졌어도 이름은 남아 있다. */
@@ -67,6 +70,11 @@ export type InquiryRow = {
   status: InquiryStatus
   status_at: string | null
   memo: string | null
+
+  /* 어드민이 목록에서 치운 시각(0020_inquiry_hidden.sql) — 줄은 지우지 않는다.
+     목록 조회가 비어 있는 것만 가져오므로 화면에 오는 건은 늘 null 이다.
+     0020 전 DB 에서는 select('*') 에 없어 undefined 로 온다. */
+  hidden_at?: string | null
 
   /* 알림 메일이 나갔는지. 거짓이면 메일로는 못 받았다는 뜻이라
      목록에서 눈에 띄게 표시한다. */

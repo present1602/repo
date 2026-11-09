@@ -12,6 +12,7 @@ import {
 import { getGeneralInquiryChoices, prepareInquiryUpload } from '@/app/inquiry-actions'
 import { uploadSigned } from '@/lib/direct-upload'
 import { recalledRef } from '@/lib/invite-link'
+import { INQUIRY_BUDGETS } from '@/lib/inquiry-budget'
 
 /* 범위 이름 옆 짧은 풀이 — 플랜 이름(어드민 설정)만으로는 개발이 들어가는지 알기 어렵다 */
 const SCOPE_NOTE: Partial<Record<InquiryScope, string>> = {
@@ -109,6 +110,12 @@ export function InquiryModal({
   const [fetched, setFetched] = useState<CategoryChoice[] | null>(null)
   const choices = given ?? fetched
 
+  /* 간편 의뢰 — 디자이너가 정해지지 않은 의뢰(홈 띠 배너·네비바의 '의뢰하기').
+     1차 분야만 묻고 2차 범위는 받지 않는다: 상대도 범위도 안 정한 채 들어온
+     사람에게 플랜까지 고르게 하면 거기서 폼을 닫는다. 금액이 갈리는 자리는
+     예산 범위(선택)가 대신하고, 나머지는 사람이 메일로 맞춘다. */
+  const simple = !designerName
+
   /* 일반 폼 — 열 때 한 번 받아 온다. 실패하면 분야 없이 보낼 수 있게 빈 목록으로 둔다 */
   useEffect(() => {
     if (given) return
@@ -135,6 +142,8 @@ export function InquiryModal({
   const [extra, setExtra] = useState<'none' | 'premium' | 'sample'>(
     initialSample ? 'sample' : initialPremium ? 'premium' : 'none',
   )
+  /* 간편 의뢰의 예산 범위 — 선택사항이라 처음에는 아무것도 고르지 않은 채 둔다 */
+  const [budget, setBudget] = useState<string | null>(null)
 
   const cat =
     cats.find((c) => c.name === (pickedCat ?? initialCategory)) ?? (cats.length === 1 ? cats[0] : null)
@@ -179,7 +188,8 @@ export function InquiryModal({
       setError('의뢰 분야를 골라 주세요.')
       return
     }
-    if (cat && !option) {
+    /* 간편 의뢰는 범위를 묻지 않았으므로 짚지 않는다 */
+    if (!simple && cat && !option) {
       setError('의뢰 범위를 골라 주세요.')
       return
     }
@@ -235,7 +245,7 @@ export function InquiryModal({
   }
 
   return (
-    <Dialog eyebrow="INQUIRY" title={designerName ? '문의하기' : '의뢰 문의하기'} onClose={onClose}>
+    <Dialog eyebrow="INQUIRY" title={designerName ? '문의하기' : '간편 의뢰'} onClose={onClose}>
       {done ? (
         <Done
           title="문의가 전달되었습니다"
@@ -257,7 +267,11 @@ export function InquiryModal({
           />
 
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm text-neutral-600">일정, 비용, 작업 방식 등 궁금한 점을 남겨주세요.</p>
+            <p className="text-sm text-neutral-600">
+              {simple
+                ? '무엇을 만드시는지만 골라주시면, 나머지는 저희가 메일로 맞춰드립니다.'
+                : '일정, 비용, 작업 방식 등 궁금한 점을 남겨주세요.'}
+            </p>
             <p className="shrink-0 text-[11px] text-neutral-500">
               <span className="text-red-600">*</span> 필수
             </p>
@@ -270,9 +284,14 @@ export function InquiryModal({
             cats.length > 0 && (
               <div className="mt-6 space-y-5">
                 {cat && <input type="hidden" name="category" value={cat.name} />}
+                {/* 간편 의뢰는 범위를 보내지 않는다 — 서버도 분야만 맞춰 본다 */}
                 {/* 메인 시안을 덧붙이면 접수 유형은 메인 시안, 염두에 둔 본계약은 mainScope 로 함께 */}
-                {cat && option && <input type="hidden" name="scope" value={withSample ? 'sample' : option.key} />}
-                {cat && option && withSample && <input type="hidden" name="mainScope" value={option.key} />}
+                {!simple && cat && option && (
+                  <input type="hidden" name="scope" value={withSample ? 'sample' : option.key} />
+                )}
+                {!simple && cat && option && withSample && (
+                  <input type="hidden" name="mainScope" value={option.key} />
+                )}
 
                 {/* 1차 — 분야. 하나뿐이면 고를 게 없으므로 묻지 않는다 */}
                 {cats.length > 1 && (
@@ -302,8 +321,9 @@ export function InquiryModal({
                   </fieldset>
                 )}
 
-                {/* 2차 — 그 분야가 받는 범위. 분야를 골라야 열린다 */}
-                {cat && (
+                {/* 2차 — 그 분야가 받는 범위. 분야를 골라야 열린다.
+                    간편 의뢰에서는 묻지 않고 아래 예산 범위로 대신한다 */}
+                {!simple && cat && (
                   <fieldset>
                     <legend className="mb-2 text-xs font-medium text-neutral-700">
                       {cats.length > 1 ? `${cat.name} — ` : ''}어떻게 의뢰할까요?{' '}
@@ -390,9 +410,46 @@ export function InquiryModal({
                   </fieldset>
                 )}
 
-                {/* 프리미엄을 고를 수 있던 범위일 때만 보낸다 — 아니면 서버가 null 로 둔다 */}
-                {option?.premium && !withSample && (
+                {/* 프리미엄을 고를 수 있던 범위일 때만 보낸다 — 아니면 서버가 null 로 둔다.
+                    간편 의뢰는 범위를 안 골랐으므로 단계도 정해지지 않는다 */}
+                {!simple && option?.premium && !withSample && (
                   <input type="hidden" name="planTier" value={withPremium ? 'premium' : 'basic'} />
+                )}
+
+                {/* 예산 범위 — 간편 의뢰에서 2차 범위 대신 묻는다.
+                    선택사항이다: 기본은 '선택 안 함'이고 그대로 보낼 수 있다 */}
+                {simple && (
+                  <fieldset>
+                    <legend className="mb-2 text-xs font-medium text-neutral-700">
+                      예산 범위 <span className="font-normal text-neutral-500">(선택)</span>
+                    </legend>
+                    <div className="grid grid-cols-2 gap-2">
+                      {INQUIRY_BUDGETS.map((b) => (
+                        <label
+                          key={b}
+                          className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50 has-[:checked]:font-medium has-[:checked]:text-violet-700"
+                        >
+                          <input
+                            type="radio"
+                            name="budget"
+                            value={b}
+                            checked={budget === b}
+                            /* 고른 것을 다시 누르면 선택을 푼다 — 라디오는 되돌릴 길이
+                               없어서, 잘못 눌렀을 때 '선택 안 함'으로 못 돌아간다 */
+                            onClick={() => budget === b && setBudget(null)}
+                            onChange={() => setBudget(b)}
+                            className="shrink-0 accent-violet-600"
+                          />
+                          <span className="min-w-0 break-keep">{b}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[11px] text-neutral-500">
+                      {budget
+                        ? '다시 누르면 선택이 해제됩니다.'
+                        : '아직 정하지 않으셨다면 비워 두셔도 됩니다.'}
+                    </p>
+                  </fieldset>
                 )}
               </div>
             )

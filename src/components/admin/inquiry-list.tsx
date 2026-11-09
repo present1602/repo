@@ -10,7 +10,7 @@ import {
   INQUIRY_FILTERS,
   FILTER_LABELS,
 } from '@/lib/inquiry-shape'
-import { setInquiryStatus } from '@/app/admin/inquiries/actions'
+import { hideInquiry, setInquiryStatus } from '@/app/admin/inquiries/actions'
 import { sendReviewLinkForInquiry } from '@/app/admin/reviews/actions'
 import { Flash } from '@/components/flash'
 
@@ -93,6 +93,8 @@ export function InquiryList({
               open={openId === q.id}
               onToggle={() => setOpenId(openId === q.id ? null : q.id)}
               onNotice={setNotice}
+              /* 확인함에서만 치운다 — 전체 탭에 두면 아직 안 본 문의를 지운다 */
+              deletable={filter === 'read'}
             />
           ))}
         </ul>
@@ -109,12 +111,14 @@ function InquiryItem({
   open,
   onToggle,
   onNotice,
+  deletable,
 }: {
   inquiry: InquiryRow
   designers: DesignerOption[]
   open: boolean
   onToggle: () => void
   onNotice: (n: Notice) => void
+  deletable: boolean
 }) {
   const [pending, start] = useActionTransition()
   const router = useRouter()
@@ -128,6 +132,21 @@ function InquiryItem({
         onNotice({ kind: 'error', text: r.error })
         return
       }
+      router.refresh()
+    })
+  }
+
+  /* 목록에서만 치운다 — DB 에는 남는다(0020_inquiry_hidden.sql) */
+  const remove = () => {
+    onNotice(null)
+    if (!window.confirm('문의를 삭제하시겠습니까?')) return
+    start(async () => {
+      const r = await hideInquiry(q.id)
+      if (!r.ok) {
+        onNotice({ kind: 'error', text: r.error })
+        return
+      }
+      onNotice({ kind: 'ok', text: '문의를 삭제했습니다.' })
       router.refresh()
     })
   }
@@ -158,6 +177,12 @@ function InquiryItem({
                 프리미엄
               </span>
             )}
+            {/* 간편 의뢰의 예산 — 범위를 안 고른 의뢰라 견적이 여기서 갈린다 */}
+            {q.budget && (
+              <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800">
+                {q.budget}
+              </span>
+            )}
             <span className={`text-sm ${unread ? 'font-semibold' : 'font-medium'}`}>{q.name}</span>
             {q.designer_name && (
               <span className="text-xs text-neutral-500">→ {q.designer_name}</span>
@@ -184,17 +209,29 @@ function InquiryItem({
           </p>
         </button>
 
-        <button
-          onClick={toggleStatus}
-          disabled={pending}
-          className={`shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
-            unread
-              ? 'bg-neutral-900 text-white hover:bg-violet-600'
-              : 'border border-neutral-300 text-neutral-600 hover:bg-neutral-100'
-          }`}
-        >
-          {pending ? '…' : unread ? '확인' : '확인됨'}
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            onClick={toggleStatus}
+            disabled={pending}
+            className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+              unread
+                ? 'bg-neutral-900 text-white hover:bg-violet-600'
+                : 'border border-neutral-300 text-neutral-600 hover:bg-neutral-100'
+            }`}
+          >
+            {pending ? '…' : unread ? '확인' : '확인됨'}
+          </button>
+
+          {deletable && (
+            <button
+              onClick={remove}
+              disabled={pending}
+              className="rounded-md border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50 disabled:opacity-50"
+            >
+              삭제
+            </button>
+          )}
+        </div>
       </div>
 
       {open && <Detail inquiry={q} designers={designers} onNotice={onNotice} />}
@@ -246,6 +283,12 @@ function Detail({
         {q.via_ref && (
           <Row k="경로">
             <span className="text-emerald-700">초대 링크 — 이 디자이너에게 전달 · 본계약 시 섭외 보너스</span>
+          </Row>
+        )}
+        {/* 간편 의뢰는 범위를 묻지 않았다 — 고르지 않았으면 그 사실도 적는다 */}
+        {!q.inquiry_type && (
+          <Row k="예산">
+            {q.budget ?? <span className="text-neutral-400">고르지 않음</span>}
           </Row>
         )}
         {q.status_at && (
