@@ -289,14 +289,6 @@ export function PlanPanel({
         {tabs ? (onPremium ? 'Premium으로 문의하기' : 'Standard로 문의하기') : '문의하기'}
       </button>
 
-      {/* 다른 단계는 어떤지 한 줄로 — 탭을 눌러 보지 않아도 견줄 수 있게 */}
-      {tabs && picked.premium && (
-        <p className={`text-center text-xs text-neutral-500 ${preview ? 'mt-2' : 'mt-2.5'}`}>
-          {onPremium
-            ? `Standard는 ${picked.basic.priceLabel}${picked.basic.duration ? ` · ${picked.basic.duration}` : ''}`
-            : `Premium은 ${picked.premium.priceLabel}${picked.premium.duration ? ` · ${picked.premium.duration}` : ''}`}
-        </p>
-      )}
 
       {open && (
         <InquiryModal

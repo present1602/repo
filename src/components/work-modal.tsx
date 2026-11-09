@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { PublicWork } from '@/lib/designer-shape'
 import type { WorkPage } from '@/lib/portfolio-limits'
-import { DEFAULT_RATIO, embedUrl, youtubeRatioProbe } from '@/lib/youtube'
+import { DEFAULT_RATIO, embedUrl, playerCommand, youtubeRatioProbe } from '@/lib/youtube'
 import { AiBadge } from './work-thumb'
 
 /* 좌우로 미끄러지는 시간(ms). 트랙에 거는 CSS 전환과 같은 값이어야
@@ -673,31 +673,87 @@ function ZoomImage({
         : Math.min(boxSize.w / imagesOnly.w, boxSize.h / imagesOnly.h)
       : null
 
-  /* 영상 칸 — 그림과 같은 너비에 영상의 제 비율로 높이를 준다.
+  /* 영상 칸 — 맨 끝까지 내리면 칸(보이는 영역) 하나를 영상 칸이 꽉 채운다.
 
-     세로 영상(쇼츠)은 그대로 두면 칸보다 길어져 한 화면에 안 들어온다.
-     그래서 화면에 그려질 높이가 칸 높이를 넘지 않는 선까지 너비를 줄인다 —
-     세로 영상도 통째로 보이고, 가로 영상은 지금까지와 똑같다. 그림과 달리
-     영상은 스크롤해 가며 뜯어보는 것이 아니라 재생하는 것이다.
+     칸 크기 그대로(배율 1 에서 화면 픽셀 = boxSize) 자리를 잡고, 영상은 그 안에
+     제 비율대로 통째로 넣어 가운데에 둔다 — 가로 영상이면 위아래, 세로
+     영상(쇼츠)이면 양옆에 여백이 남는다. 끝까지 내리면 위 그림은 보이지 않고
+     영상만 보인다. 설명 칸이 접히고 펴져 칸 높이가 바뀌어도 ResizeObserver 가
+     boxSize 를 고쳐 영상 칸도 같이 맞는다.
 
-     단위를 맞춘다 — 여기 w·h 는 그림과 같은 "원래 크기" 단위이고,
-     칸 높이(boxSize.h)는 화면 픽셀이라 fit 으로 나눠 맞춘다. 폭이 좁은
-     화면에서는 fit 이 너비에 맞춰 정해지므로, 높이 제한을 거치지 않으면
-     세로 영상이 칸보다 길어진다(폰에서 630px vs 칸 566px). */
+     단위는 그림과 같은 "원래 크기" — 화면 픽셀(boxSize)을 fit 으로 나눈다.
+     그래야 확대(zoom)·붙잡기 계산이 그림과 한 단위로 돈다. */
   const videoBox = useMemo(() => {
-    if (!imagesOnly || !videoId) return null
-    const maxH = boxSize && fit ? boxSize.h / fit : Infinity
-    /* 높이부터 맞추고, 그래도 그림보다 넓으면 그림 너비로 줄인다 */
-    const h = Math.min(imagesOnly.w / videoRatio, maxH)
-    const w = h * videoRatio
-    return { w, h }
-  }, [imagesOnly, videoId, boxSize, fit, videoRatio])
+    if (!videoId || !boxSize || !fit) return null
+    const slot = { w: boxSize.w / fit, h: boxSize.h / fit }
+    /* 칸 안에 통째로 — 칸이 영상보다 납작하면 높이에, 아니면 너비에 맞춘다 */
+    const video =
+      slot.w / slot.h > videoRatio
+        ? { w: slot.h * videoRatio, h: slot.h }
+        : { w: slot.w, h: slot.w / videoRatio }
+    return { slot, video }
+  }, [videoId, boxSize, fit, videoRatio])
 
-  /* 영상 칸까지 더한 전체 — 스크롤이 닿을 범위다. 빼면 영상 앞에서 멈춘다 */
+  /* 그림 칸 높이 — 영상이 있으면 적어도 칸 하나만큼. 그림이 짧아도 첫 화면은
+     그림만(가운데에), 다음 화면은 영상만 보이게 나눈다 */
+  const imagesH = imagesOnly ? Math.max(imagesOnly.h, videoBox ? videoBox.slot.h : 0) : 0
+
+  /* 영상 칸까지 더한 전체 — 스크롤이 닿을 범위다. 빼면 영상 앞에서 멈춘다.
+     영상 칸은 칸 너비라 그림보다 넓을 수 있다 */
   const natural = useMemo(
-    () => imagesOnly && { w: imagesOnly.w, h: imagesOnly.h + (videoBox?.h ?? 0) },
-    [imagesOnly, videoBox],
+    () =>
+      imagesOnly && {
+        w: Math.max(imagesOnly.w, videoBox?.slot.w ?? 0),
+        h: imagesH + (videoBox?.slot.h ?? 0),
+      },
+    [imagesOnly, imagesH, videoBox],
   )
+
+  /* 영상 칸이 화면을 거의 다 채우면 저절로 재생하고, 절반 밑으로 벗어나면 멈춘다.
+     둘의 문턱을 달리 둔다(0.85 / 0.5) — 경계에서 손을 떼고 있으면 켜졌다 꺼졌다 하지 않게.
+     소리 없이 시작한다(embedUrl 의 mute=1 — 브라우저가 소리 나는 자동 재생을 막는다).
+
+     iframe 은 늦게 받아진다(loading="lazy") — 다 받기 전에 보낸 명령은 사라지므로
+     받아진 뒤(onLoad)에도 그 자리에 있으면 다시 보낸다. 가운데 칸에서만, 배율 1 에서만
+     (키우면 플레이어를 걷는다). */
+  const frameRef = useRef<HTMLIFrameElement>(null)
+  const slotRef = useRef<HTMLDivElement>(null)
+  const inView = useRef(false)
+  const hasSlot = Boolean(videoId && videoBox && fit && first)
+  useEffect(() => {
+    const slot = slotRef.current
+    const box = boxRef.current
+    /* 영상·배율이 바뀌면 이 effect 가 다시 돌아 새 플레이어를 잡는다 */
+    const frame = frameRef.current
+    if (!active || !hasSlot || zoom !== 1 || !slot || !box) return
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (!inView.current && e.intersectionRatio >= 0.85) {
+          inView.current = true
+          playerCommand(frame, 'playVideo')
+        } else if (inView.current && e.intersectionRatio < 0.5) {
+          inView.current = false
+          playerCommand(frame, 'pauseVideo')
+        }
+      },
+      { root: box, threshold: [0, 0.5, 0.85, 1] },
+    )
+    io.observe(slot)
+    return () => {
+      io.disconnect()
+      if (inView.current) playerCommand(frame, 'pauseVideo')
+      inView.current = false
+    }
+  }, [active, hasSlot, zoom, videoId])
+
+  /* 플레이어가 받아진 뒤 — 이미 영상 칸에 와 있으면 재생. 플레이어 안쪽 준비가
+     조금 늦을 수 있어 한 번 더 보낸다(두 번 받아도 재생은 한 번이다) */
+  const onFrameLoad = () => {
+    if (!inView.current) return
+    for (const ms of [300, 1200]) {
+      window.setTimeout(() => inView.current && playerCommand(frameRef.current, 'playVideo'), ms)
+    }
+  }
 
   /* 붙잡아 둔 자리를 새 배율에서 같은 곳에 오도록 스크롤을 맞춘다.
      그림이 칸보다 작은 쪽은 가운데에 놓이므로(길쭉한 그림의 세로는 위에서
@@ -1084,7 +1140,9 @@ function ZoomImage({
           touchAction: pannable ? 'pan-x pan-y' : 'pan-y',
           overscrollBehavior: 'none',
         }}
-        className={`absolute inset-0 overflow-auto ${
+        /* 영상이 있으면 끝 근처에서 손을 뗄 때 영상 칸에 붙는다(proximity — 멀면 그대로 둔다).
+           키운 동안은 끈다 — 배율을 바꾸며 맞춘 스크롤을 끌어가지 않게 */
+        className={`absolute inset-0 overflow-auto ${videoId && zoom === 1 ? 'snap-y snap-proximity' : ''} ${
           pannable ? (dragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''
         }`}
       >
@@ -1097,49 +1155,55 @@ function ZoomImage({
           }`}
         >
           <div ref={wrapRef} className={fit ? '' : 'contents'}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              ref={imgRef}
-              src={src}
-              alt={alt}
-              /* 브라우저 기본 이미지 끌기(유령 이미지)가 끌어 옮기기를 가로챈다 */
-              draggable={false}
-              onLoad={(e) =>
-                setFirst({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
-              }
-              /* 크기를 재기 전(이미지·칸이 아직 안 잡혔을 때)에는 CSS 로 칸에 맞춰 둔다 */
-              style={
-                fit && first
-                  ? { width: first.w * fit * zoom, height: first.h * fit * zoom, maxWidth: 'none' }
-                  : undefined
-              }
-              className={fit ? 'block' : 'max-h-full max-w-full object-contain'}
-            />
-            {/* 둘째 장부터 — 첫 장과 같은 너비로 잇는다. 크기를 미리 알고 있어
-                받아지기 전에도 자리를 잡으므로 내려 보는 동안 화면이 밀리지 않는다.
-                첫 장의 크기를 재기 전에는 그리지 않는다. */}
-            {fit &&
-              first &&
-              pages?.map((p) => (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  key={p.url}
-                  src={p.url}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  draggable={false}
-                  style={{
-                    width: first.w * fit * zoom,
-                    height: (p.height * first.w * fit * zoom) / p.width,
-                    maxWidth: 'none',
-                  }}
-                  className="block bg-neutral-50"
-                />
-              ))}
-            {/* 맨 끝 영상 — 영상의 제 비율대로 잇는다(videoBox).
-                세로 영상은 한 화면에 들어오도록 너비를 줄여 맞추므로
-                그림보다 좁게 나올 수 있다 — 가운데로 놓는다.
+            {/* 그림 칸 — 영상이 있으면 적어도 칸 하나 높이로 잡고 그림을 그 가운데에(imagesH).
+                영상 칸이 그림보다 넓을 수 있어 그림도 가운데로 모은다 */}
+            <div
+              className={fit && first && videoBox ? 'flex flex-col items-center justify-center' : 'contents'}
+              style={fit && first && videoBox ? { minHeight: imagesH * fit * zoom } : undefined}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={imgRef}
+                src={src}
+                alt={alt}
+                /* 브라우저 기본 이미지 끌기(유령 이미지)가 끌어 옮기기를 가로챈다 */
+                draggable={false}
+                onLoad={(e) =>
+                  setFirst({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
+                }
+                /* 크기를 재기 전(이미지·칸이 아직 안 잡혔을 때)에는 CSS 로 칸에 맞춰 둔다 */
+                style={
+                  fit && first
+                    ? { width: first.w * fit * zoom, height: first.h * fit * zoom, maxWidth: 'none' }
+                    : undefined
+                }
+                className={fit ? 'block' : 'max-h-full max-w-full object-contain'}
+              />
+              {/* 둘째 장부터 — 첫 장과 같은 너비로 잇는다. 크기를 미리 알고 있어
+                  받아지기 전에도 자리를 잡으므로 내려 보는 동안 화면이 밀리지 않는다.
+                  첫 장의 크기를 재기 전에는 그리지 않는다. */}
+              {fit &&
+                first &&
+                pages?.map((p) => (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    key={p.url}
+                    src={p.url}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                    style={{
+                      width: first.w * fit * zoom,
+                      height: (p.height * first.w * fit * zoom) / p.width,
+                      maxWidth: 'none',
+                    }}
+                    className="block bg-neutral-50"
+                  />
+                ))}
+            </div>
+            {/* 맨 끝 영상 — 칸(보이는 영역) 하나 크기의 자리에 영상을 제 비율로 가운데에(videoBox).
+                끝까지 내리면 영상만 보인다. 근처에서 손을 떼면 이 자리에 붙는다(snap).
 
                 키운 상태(zoom > 1)에서는 플레이어를 걷고 자리만 남긴다.
                 iframe 은 그 안에서 포인터를 먹어 끌어 옮기기가 멈추고,
@@ -1148,27 +1212,32 @@ function ZoomImage({
                 없으므로, 배율 1 에서만 재생할 수 있게 둔다. */}
             {fit && first && videoId && videoBox && (
               <div
-                style={{
-                  width: videoBox.w * fit * zoom,
-                  height: videoBox.h * fit * zoom,
-                }}
-                className="relative mx-auto block bg-neutral-900"
+                ref={slotRef}
+                style={{ width: videoBox.slot.w * fit * zoom, height: videoBox.slot.h * fit * zoom }}
+                className="mx-auto grid snap-start place-items-center"
               >
-                {zoom === 1 ? (
-                  <iframe
-                    src={embedUrl(videoId)}
-                    title={alt || '작업 영상'}
-                    loading="lazy"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                    className="absolute inset-0 size-full border-0"
-                  />
-                ) : (
-                  <p className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-white/70">
-                    영상은 원래 크기에서 재생됩니다
-                  </p>
-                )}
+                <div
+                  style={{ width: videoBox.video.w * fit * zoom, height: videoBox.video.h * fit * zoom }}
+                  className="relative bg-neutral-900"
+                >
+                  {zoom === 1 ? (
+                    <iframe
+                      ref={frameRef}
+                      onLoad={onFrameLoad}
+                      src={embedUrl(videoId, window.location.origin)}
+                      title={alt || '작업 영상'}
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                      className="absolute inset-0 size-full border-0"
+                    />
+                  ) : (
+                    <p className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-white/70">
+                      영상은 원래 크기에서 재생됩니다
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>

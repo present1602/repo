@@ -41,13 +41,27 @@ export function youtubeId(input: string): string | null {
   return null
 }
 
+/* embed 가 사는 곳 — 플레이어에 재생·멈춤을 보낼 때(postMessage) 받는 쪽을 이 주소로 못박는다 */
+export const EMBED_ORIGIN = 'https://www.youtube-nocookie.com'
+
 /* 보여줄 iframe 주소.
 
    youtube-nocookie 를 쓴다 — 재생하기 전에는 추적 쿠키를 심지 않는다.
    rel=0 은 끝난 뒤 남의 영상을 띄우지 않게(같은 채널 안에서만 추천),
-   playsinline 은 iOS 에서 전체화면으로 튀지 않게 한다. */
-export function embedUrl(id: string): string {
-  return `https://www.youtube-nocookie.com/embed/${id}?rel=0&playsinline=1`
+   playsinline 은 iOS 에서 전체화면으로 튀지 않게 한다.
+
+   enablejsapi=1 — 화면이 영상 칸에 닿으면 저절로 재생하고 벗어나면 멈추게
+   바깥에서 명령을 보낸다(playerCommand). origin 은 그 명령을 받을 페이지 주소다.
+   mute=1 — 브라우저(특히 iOS Safari)는 소리 나는 자동 재생을 막는다. 소리 없이
+   시작하고, 보는 사람이 플레이어의 소리 버튼으로 켠다. */
+export function embedUrl(id: string, origin?: string): string {
+  const o = origin ? `&origin=${encodeURIComponent(origin)}` : ''
+  return `${EMBED_ORIGIN}/embed/${id}?rel=0&playsinline=1&mute=1&enablejsapi=1${o}`
+}
+
+/* 플레이어에 보내는 명령 — 유튜브 iframe API 의 postMessage 모양 */
+export function playerCommand(frame: HTMLIFrameElement | null, func: 'playVideo' | 'pauseVideo') {
+  frame?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), EMBED_ORIGIN)
 }
 
 /* 영상의 가로세로 비를 알아내는 그림.
