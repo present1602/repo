@@ -78,8 +78,9 @@ export function PlanPanel({
     return (first.find((e) => e.scope === scope) ?? list[0])?.key ?? ''
   })
   const [withSample, setWithSample] = useState(false)
-  /* 보고 있는 단계 탭 — 프리미엄이 없는 유형으로 옮기면 STANDARD 로 보인다 */
-  const [tier, setTier] = useState<PlanTier>('basic')
+  /* 보고 있는 단계 탭 — 처음에는 PREMIUM(프리미엄이 있는 유형이면 그것부터 보인다).
+     프리미엄이 없는 유형으로 옮기면 탭이 없어 STANDARD 로 보인다 */
+  const [tier, setTier] = useState<PlanTier>('premium')
   const [open, setOpen] = useState<{
     category?: string
     scope?: InquiryScope
