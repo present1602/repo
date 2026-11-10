@@ -6,7 +6,7 @@ import { SiteNavbarData } from "@/components/site-navbar-data";
 import { SiteFooter } from "@/components/site-footer";
 import { ErrorToaster } from "@/components/error-toast";
 import { ChatWidgetData } from "@/components/chat/chat-widget-data";
-import { SITE_URL } from "@/lib/site-url";
+import { INDEXABLE, SITE_URL } from "@/lib/site-url";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -79,12 +79,15 @@ export const metadata: Metadata = {
     title: "에이전시숨 (SOOM) · 디자이너 포트폴리오 플랫폼",
     description: "소액 의뢰로 시작해 본 계약까지.",
   },
-  /* 검색 노출을 막을 이유가 없는 사이트다 — 기본값에 기대지 않고 명시한다.
-     어드민·토큰 주소는 robots.ts 에서 따로 막는다. */
-  robots: {
-    index: true,
-    follow: true,
-  },
+  /* 운영만 검색에 열어 둔다. dev.soom.it 등은 noindex 로 못박는다 —
+     robots.txt 의 Disallow 는 "읽지 말라"일 뿐이라, 다른 곳에 링크가 걸려
+     주소가 알려지면 내용을 안 읽은 채로도 색인될 수 있다. 그 자리를 막는
+     것이 noindex 다. 그래서 robots.ts 와 둘 다 건다(site-url.ts 의 INDEXABLE).
+
+     어드민·토큰 주소는 운영에서도 robots.ts 가 따로 막는다. */
+  robots: INDEXABLE
+    ? { index: true, follow: true }
+    : { index: false, follow: false },
 };
 
 /* 구조화 데이터 — 구글에게 "이 사이트가 어떤 조직인지"를 기계가 읽는 형태로

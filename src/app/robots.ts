@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { SITE_URL } from '@/lib/site-url'
+import { INDEXABLE, SITE_URL } from '@/lib/site-url'
 
 /* robots.txt — 크롤러에게 "어디까지 봐도 되는지"를 알려 준다.
 
@@ -15,8 +15,15 @@ import { SITE_URL } from '@/lib/site-url'
      디자이너 상세의 preview  어드민 미리보기(본 화면과 내용이 겹친다)
 
    Disallow 는 "크롤링하지 말라"는 뜻이고 색인 금지 보장은 아니다 —
-   토큰이 들어간 /r·/review 는 애초에 남이 알 수 없는 주소라 이 정도로 둔다. */
+   토큰이 들어간 /r·/review 는 애초에 남이 알 수 없는 주소라 이 정도로 둔다.
+
+   운영이 아닌 곳(dev.soom.it 등)은 통째로 막는다. 사이트맵도 알리지 않는다 —
+   막아 둔 곳의 주소 목록을 굳이 건네줄 이유가 없다(site-url.ts 의 INDEXABLE). */
 export default function robots(): MetadataRoute.Robots {
+  if (!INDEXABLE) {
+    return { rules: { userAgent: '*', disallow: '/' } }
+  }
+
   return {
     rules: {
       userAgent: '*',

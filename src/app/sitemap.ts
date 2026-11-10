@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { SITE_URL } from '@/lib/site-url'
+import { INDEXABLE, SITE_URL } from '@/lib/site-url'
 import { listPublicDesigners } from '@/lib/public-designers'
 
 /* sitemap.xml — 구글에게 "이 사이트에 어떤 주소가 있는지" 목록으로 알려 준다.
@@ -17,6 +17,10 @@ import { listPublicDesigners } from '@/lib/public-designers'
    listPublicDesigners 가 빈 배열을 돌려주므로, 그때는 고정 페이지만 담긴
    사이트맵이 나간다. 사이트맵 전체가 500 으로 죽는 것보다 낫다. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  /* 운영이 아니면 빈 목록을 돌려준다 — dev 주소를 크롤러에게 건네지 않는다.
+     DB 도 읽지 않는다(site-url.ts 의 INDEXABLE). */
+  if (!INDEXABLE) return []
+
   const designers = await listPublicDesigners()
 
   return [
