@@ -323,12 +323,12 @@ export default function ProposalV14Page() {
             <p className="mt-7 text-[11px] tracking-[0.35em] text-violet-600 md:mt-8">MAJOR PROJECTS</p>
             <ul className="mt-2 divide-y divide-neutral-200 border-y border-neutral-200">
               {[
-                'IP 출원업무 안내 자동화 서비스 개발',
                 'KB카드 QR결제 가맹점 관리자페이지 개발',
                 'LG전자 길안내로봇 앱 프론트엔드 개발',
                 '비상교육 AI 디지털교과서 관리자페이지 개발',
                 '울림엔터 팬커뮤니티 관리자페이지 개발',
-                'OCR 기반 모의고사 영어학습앱 개발'
+                'OCR 기반 모의고사 영어학습앱 개발',
+                '상표/특허 출원업무 안내 자동화 서비스 개발'
               ].map((t, i) => (
                 <li key={t} className="flex items-baseline gap-3 py-2.5 text-sm md:text-[15px]">
                   <span className="w-5 shrink-0 text-[10px] tracking-widest text-neutral-400">{pad(i + 1)}</span>

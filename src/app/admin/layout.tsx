@@ -3,6 +3,7 @@ import { getAdminUser } from '@/lib/admin-auth'
 import { NavProgress } from '@/components/nav-progress'
 import { countUnreadInquiries } from '@/lib/inquiries-db'
 import { countUnreadApplications } from '@/lib/applications-db'
+import { countChatTodo } from '@/lib/chat-knowledge'
 import { AdminMobileMenu, AdminSidebar } from '@/components/admin/sidebar'
 import { SignOutButton } from '@/components/admin/sign-out-button'
 
@@ -17,13 +18,15 @@ export default async function AdminLayout({ children }: LayoutProps<'/admin'>) {
      루트 레이아웃이 깐 회색 배경을 흰색으로 덮는다. */
   if (!user) return <div className="flex flex-1 flex-col bg-white">{children}</div>
 
-  /* 미확인 문의 건수를 사이드바 배지로 — 다른 화면에 있어도 눈에 띈다 */
-  const [unreadInquiries, unreadApplications] = await Promise.all([
+  /* 미확인 문의 건수를 사이드바 배지로 — 다른 화면에 있어도 눈에 띈다.
+     챗봇이 모른다고 답한 질문도 같은 자리에 쌓는다(0023_chat.sql) */
+  const [unreadInquiries, unreadApplications, chatTodo] = await Promise.all([
     countUnreadInquiries(),
     countUnreadApplications(),
+    countChatTodo(),
   ])
 
-  const menu = { email: user.email ?? '', unreadInquiries, unreadApplications }
+  const menu = { email: user.email ?? '', unreadInquiries, unreadApplications, chatTodo }
 
   return (
     <div className="flex flex-1 bg-white">

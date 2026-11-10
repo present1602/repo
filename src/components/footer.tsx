@@ -20,6 +20,7 @@ export function Footer() {
               <Row k="상호">밸런스</Row>
               <Row k="사업자등록번호">464-12-02831</Row>
               <Row k="사업장 소재지">서울 마포구 서교동 와우산로 162-10 2층</Row>
+              <Row k="전화번호">02-6954-2567</Row>
               <Row k="이메일">
                 <a href="mailto:manager@soom.it" className="transition hover:text-neutral-700">
                   manager@soom.it

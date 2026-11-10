@@ -15,6 +15,7 @@ const menu = [
   { href: '/admin/featured', label: '메인 노출' },
   { href: '/admin/exposure', label: '디자이너 노출 관리' },
   { href: '/admin/popups', label: '팝업' },
+  { href: '/admin/chat', label: '문의 챗봇' },
   { href: '/admin/settings', label: '설정' },
 ]
 
@@ -22,6 +23,8 @@ type MenuProps = {
   email: string
   unreadInquiries?: number
   unreadApplications?: number
+  /* 챗봇이 모른다고 답해 지식을 채워야 하는 질문 수(0023_chat.sql) */
+  chatTodo?: number
 }
 
 /* 데스크톱 — 왼쪽에 늘 펼쳐 둔다 */
@@ -57,7 +60,8 @@ export function AdminMobileMenu(props: MenuProps) {
     }
   }, [open])
 
-  const unread = (props.unreadInquiries ?? 0) + (props.unreadApplications ?? 0)
+  const unread =
+    (props.unreadInquiries ?? 0) + (props.unreadApplications ?? 0) + (props.chatTodo ?? 0)
 
   return (
     <div className="md:hidden">
@@ -95,11 +99,18 @@ export function AdminMobileMenu(props: MenuProps) {
   )
 }
 
-function MenuBody({ email, unreadInquiries = 0, unreadApplications = 0 }: MenuProps) {
+function MenuBody({
+  email,
+  unreadInquiries = 0,
+  unreadApplications = 0,
+  chatTodo = 0,
+}: MenuProps) {
   /* 메뉴별 미확인 배지 */
   const badges: Record<string, number> = {
     '/admin/inquiries': unreadInquiries,
     '/admin/applications': unreadApplications,
+    /* 채워야 할 지식 — 다른 화면에 있어도 쌓인 것이 보이게 */
+    '/admin/chat': chatTodo,
   }
 
   const pathname = usePathname() ?? ''

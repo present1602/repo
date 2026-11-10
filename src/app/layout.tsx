@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { SiteNavbarData } from "@/components/site-navbar-data";
 import { SiteFooter } from "@/components/site-footer";
 import { ErrorToaster } from "@/components/error-toast";
+import { ChatWidgetData } from "@/components/chat/chat-widget-data";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -59,6 +60,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             알 수 있으므로 Suspense 뒤로 넘겨 정적 셸을 막지 않는다. */}
         <Suspense fallback={null}>
           <SiteFooter />
+        </Suspense>
+
+        {/* 우하단 문의 챗봇(0023_chat.sql). 공개 스위치를 켜기 전에는 어드민에게만
+            보인다 — 그 판단에 로그인 확인이 필요하므로 Suspense 뒤에 둬서
+            모든 화면이 DB 를 기다리지 않게 한다(푸터와 같은 방식). */}
+        <Suspense fallback={null}>
+          <ChatWidgetData />
         </Suspense>
 
         {/* 저장 같은 동작이 예외로 실패했을 때 화면을 그대로 두고 위에 알린다(error-toast.tsx) */}

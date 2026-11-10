@@ -143,6 +143,29 @@ export async function getScopePrompt(): Promise<boolean> {
   return (data?.scope_prompt as boolean | undefined) ?? true
 }
 
+/* 문의 챗봇을 손님에게도 보여주는지(0023_chat.sql).
+   읽지 못하면 꺼진 것으로 본다 — 마이그레이션 전에는 어드민에게만 보인다.
+   지식이 모자란 챗봇이 손님의 첫인상이 되지 않게 기본값을 끔으로 둔다. */
+export async function getChatPublic(): Promise<boolean> {
+  if (!supabaseAdmin) return false
+
+  const { data, error } = await supabaseAdmin
+    .from('site_settings')
+    .select('chat_public')
+    .eq('id', true)
+    .maybeSingle()
+
+  if (error) {
+    /* 0023 전에는 칸이 없다 — 조용히 꺼진 것으로 둔다 */
+    if (!error.message.includes('chat_public')) {
+      console.error('[settings] 챗봇 공개 조회 실패:', error.message)
+    }
+    return false
+  }
+
+  return (data?.chat_public as boolean | undefined) ?? false
+}
+
 /* 탐색 '전체'일 때 제목 아래 문구(0002_specialty_description.sql). 읽지 못하면 빈 글자 —
    화면은 그때 문구를 비운다. */
 export async function getExploreDesc(): Promise<string> {
