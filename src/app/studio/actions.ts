@@ -143,12 +143,27 @@ export async function removeMyCustomOption(optionId: string): Promise<Result> {
 
 /* ─────────── 로그인 ─────────── */
 
+/* 복사해 넣은 비밀번호의 앞뒤 공백을 턴다.
+
+   임시 비밀번호는 메일이나 어드민 화면에서 복사해 넣는데, <code> 칸을
+   드래그하면 공백이나 줄바꿈이 딸려 온다. 눈에 보이지 않는 한 글자 때문에
+   '비밀번호가 올바르지 않습니다' 가 뜨면 받는 쪽은 까닭을 알 수 없다.
+   메일 본문에서는 보통 공백 대신 비끊김 공백( )이 딸려 오는데
+   trim() 이 떼지 못하므로 함께 턴다.
+
+   안쪽 공백은 그대로 둔다 — 직접 정한 비밀번호에 들어 있을 수 있다. */
+function trimPassword(v: string): string {
+  return v.replace(/^[\s ]+|[\s ]+$/g, '')
+}
+
 export async function login(email: string, password: string): Promise<Result> {
-  if (!email.trim() || !password) {
+  const clean = trimPassword(password)
+
+  if (!email.trim() || !clean) {
     return fail('이메일과 비밀번호를 입력해 주세요.')
   }
 
-  const r = await signIn(email, password)
+  const r = await signIn(email, clean)
   if (!r.ok) return fail(r.error)
   return { ok: true }
 }
@@ -163,7 +178,10 @@ export async function updatePassword(current: string, next: string): Promise<Res
   const me = await getDesignerUser()
   if (!me) return fail('로그인이 필요합니다.')
 
-  const r = await changePassword(me.id, current, next)
+  /* 지금 비밀번호도 복사해 넣는다 — 로그인과 같은 기준으로 공백을 턴다.
+     새 비밀번호는 손대지 않는다: 본인이 정하는 값이라 앞뒤 공백도 뜻이 있다
+     (여기서 떼면 적은 것과 저장된 것이 달라져 다음 로그인이 막힌다). */
+  const r = await changePassword(me.id, trimPassword(current), next)
   if (!r.ok) return fail(r.error)
 
   refresh()

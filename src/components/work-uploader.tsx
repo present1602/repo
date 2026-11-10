@@ -485,6 +485,14 @@ function UploadDialog({
     setCrop(reshapeCrop(crop, ratioValue(next), imgRatio))
   }
 
+  /* 영역 지정 취소 — 잡던 영역을 버린다. 올리기 전이라 되돌릴 '저장된 영역'이
+     없으므로 비운다(영역 없음 = PDF 는 첫 장, 그림은 전체가 썸네일). */
+  const cancelCrop = () => {
+    setCrop(null)
+    setRatio(null)
+    setCropOn(false)
+  }
+
   const pickThumb = (f: File) => {
     setThumbFile(f)
     setThumbUrl(URL.createObjectURL(f))
@@ -499,26 +507,42 @@ function UploadDialog({
         {/* 좌측 — 올릴 그림. 영역 지정을 켜면 여기서 직접 잡는다.
             PDF 는 첫 장 아래로 나머지 장을 이어 붙여 내려 보며 확인하고,
             영역도 그 이어진 그림 어디에서나 잡는다. */}
-        <ZoomArea
-          handle={zoomRef}
-          ratio={whole ? whole.width / whole.height : null}
-          naturalWidth={size?.width ?? null}
-          fit={isPdf ? 'width' : 'contain'}
-          className="max-h-[38vh] shrink-0 md:max-h-none md:flex-1 md:shrink"
-        >
-          {cropOn && crop ? (
-            <CropEditor
-              src={url}
-              pages={pageParts}
-              crop={crop}
-              onChange={setCrop}
-              lockedRatio={ratio == null ? null : ratioValue(ratio)}
-              imgRatio={imgRatio}
-            />
-          ) : (
-            <StackView src={url} pages={pageParts} />
+        {/* relative — 영역 지정 취소 버튼을 이 칸 바닥 가운데에 띄운다.
+            크기 지정은 ZoomArea 에서 이 상자로 옮긴다(안쪽은 꽉 채운다) */}
+        <div className="relative flex max-h-[38vh] shrink-0 md:max-h-none md:min-h-0 md:flex-1 md:shrink">
+          <ZoomArea
+            handle={zoomRef}
+            ratio={whole ? whole.width / whole.height : null}
+            naturalWidth={size?.width ?? null}
+            fit={isPdf ? 'width' : 'contain'}
+            className="min-w-0 flex-1"
+          >
+            {cropOn && crop ? (
+              <CropEditor
+                src={url}
+                pages={pageParts}
+                crop={crop}
+                onChange={setCrop}
+                lockedRatio={ratio == null ? null : ratioValue(ratio)}
+                imgRatio={imgRatio}
+              />
+            ) : (
+              <StackView src={url} pages={pageParts} />
+            )}
+          </ZoomArea>
+
+          {/* 영역을 잡는 중에만 — 끄는 길이 없으면 잡다 만 영역을 안고
+              저장하는 수밖에 없다(편집 창과 같은 자리·같은 모양) */}
+          {cropOn && (
+            <button
+              type="button"
+              onClick={cancelCrop}
+              className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-neutral-300 bg-white/90 px-3.5 py-1.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur-sm transition hover:bg-neutral-100 hover:text-neutral-900"
+            >
+              영역지정 취소
+            </button>
           )}
-        </ZoomArea>
+        </div>
 
         {/* 우측 — 정보 입력과 저장 */}
         <div className="flex min-h-0 w-full flex-col overflow-y-auto border-t border-neutral-200 p-4 md:w-80 md:shrink-0 md:border-l md:border-t-0 md:p-5">
