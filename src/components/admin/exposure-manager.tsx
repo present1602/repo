@@ -9,6 +9,7 @@ import { Img } from '@/components/img'
 import {
   addExploreFeatures,
   removeExploreFeature,
+  reorderDesigners,
   reorderExploreFeatures,
 } from '@/app/admin/exposure/actions'
 import { Flash } from '@/components/flash'
@@ -420,5 +421,146 @@ function Feature1Illustration() {
       </div>
       <p className="mt-1.5 text-center text-[10px] text-neutral-400">↑ feature1 · ↓ 기본 카드</p>
     </div>
+  )
+}
+
+/* ─────────── 탐색 전체 차례(0026_designer_sort_order.sql) ───────────
+
+   feature1 에 올리지 않은 디자이너까지 포함한 탐색 목록 전체의 차례다.
+   평소에는 손잡이를 숨겨 두고 '순서 편집'을 눌러야 끌 수 있다 — 목록이
+   길어 읽기만 하다가 실수로 끌려 차례가 바뀌는 일이 없게.
+   놓는 즉시 저장한다(저장 버튼을 따로 두면 켜 놓고 잊는다). */
+export function DesignerOrder({ designers }: { designers: ExposureDesigner[] }) {
+  const [editing, setEditing] = useState(false)
+  const [notice, setNotice] = useState<Notice>(null)
+  const [saving, startSave] = useActionTransition()
+  const router = useRouter()
+
+  const byId = useMemo(() => new Map(designers.map((d) => [d.id, d])), [designers])
+
+  /* 끄는 동안에만 쓰는 차례 — 평소에는 서버가 준 목록을 그대로 그린다 */
+  const [dragging, setDragging] = useState<{ id: string; ids: string[] } | null>(null)
+  const dragId = dragging?.id ?? null
+
+  const order = dragging
+    ? dragging.ids.map((id) => byId.get(id)).filter((d) => d != null)
+    : designers
+
+  const moveTo = (i: number) => {
+    setDragging((cur) => {
+      if (!cur) return cur
+      const from = cur.ids.indexOf(cur.id)
+      if (from === -1 || from === i) return cur
+      const next = [...cur.ids]
+      const [id] = next.splice(from, 1)
+      next.splice(i, 0, id)
+      return { ...cur, ids: next }
+    })
+  }
+
+  const commitOrder = () => {
+    const moved = dragging
+    setDragging(null)
+    if (!moved) return
+    /* 제자리에 놓았으면 저장하지 않는다 */
+    if (designers.map((d) => d.id).join() === moved.ids.join()) return
+
+    startSave(async () => {
+      const r = await reorderDesigners(moved.ids)
+      if (!r.ok) {
+        setNotice({ kind: 'error', text: r.error })
+        return
+      }
+      router.refresh()
+    })
+  }
+
+  return (
+    <section className="mt-6 rounded-xl bg-white p-5 ring-1 ring-neutral-200 md:p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold">
+          탐색 차례
+          <span className="ml-1.5 text-xs font-normal text-neutral-400">{designers.length}명</span>
+        </h2>
+        <div className="flex items-center gap-2">
+          {saving && <span className="text-xs text-neutral-400">순서 저장 중…</span>}
+          <button
+            type="button"
+            onClick={() => {
+              /* 편집을 끄는 중에 끌고 있었으면 그 자리에서 정리한다 */
+              setDragging(null)
+              setEditing((v) => !v)
+            }}
+            aria-pressed={editing}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+              editing
+                ? 'border-violet-600 bg-violet-50 text-violet-700'
+                : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+            }`}
+          >
+            {editing ? '편집 끝내기' : '순서 편집'}
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-1 text-xs text-neutral-500">
+        탐색 화면에 줄지어 서는 차례입니다. 위에 올린 디자이너는 이 차례와 상관없이 맨 위에 크게
+        섭니다.
+      </p>
+
+      <Flash msg={notice} onDone={() => setNotice(null)} className="mt-3" />
+
+      {designers.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-dashed border-neutral-300 py-12 text-center text-sm text-neutral-500">
+          탐색에 설 디자이너가 없습니다.
+        </p>
+      ) : (
+        <ul className="mt-4 divide-y divide-neutral-200 overflow-hidden rounded-xl ring-1 ring-neutral-200">
+          {order.map((d, i) => (
+            <li
+              key={d.id}
+              onDragOver={(e) => {
+                if (dragId == null) return
+                e.preventDefault()
+                moveTo(i)
+              }}
+              className={`flex items-center gap-3 bg-white py-2.5 pr-3 transition ${
+                dragId === d.id ? 'opacity-40' : ''
+              }`}
+            >
+              {/* 끌기 손잡이 — 편집 모드에서만 보인다. 평소에는 같은 폭의
+                  차례 번호를 두어 줄이 좌우로 흔들리지 않게 한다. */}
+              {editing ? (
+                <span
+                  draggable
+                  onDragStart={(e) => {
+                    setDragging({ id: d.id, ids: designers.map((x) => x.id) })
+                    e.dataTransfer.effectAllowed = 'move'
+                    /* Firefox 는 데이터가 없으면 드래그를 시작하지 않는다 */
+                    e.dataTransfer.setData('text/plain', d.id)
+                  }}
+                  onDragEnd={commitOrder}
+                  aria-label="끌어서 순서 바꾸기"
+                  title="끌어서 순서 바꾸기"
+                  className="flex w-8 shrink-0 cursor-grab touch-none items-center justify-center self-stretch text-neutral-300 hover:text-neutral-600 active:cursor-grabbing"
+                >
+                  <svg viewBox="0 0 16 16" fill="currentColor" className="size-4">
+                    {[4, 8, 12].map((cy) =>
+                      [6, 10].map((cx) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.3" />),
+                    )}
+                  </svg>
+                </span>
+              ) : (
+                <span className="w-8 shrink-0 text-center text-xs tabular-nums text-neutral-400">
+                  {i + 1}
+                </span>
+              )}
+
+              <DesignerLine designer={d} link={!editing} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }

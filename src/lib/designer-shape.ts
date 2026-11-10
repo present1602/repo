@@ -36,6 +36,10 @@ export type DesignerRow = {
      (0025_work_link.sql). 꺼져 있으면 스튜디오에 링크 칸이 뜨지 않는다.
      0025 전에는 select('*') 에 없어 undefined 로 온다 — 꺼짐으로 읽힌다. */
   portfolio_link_allowed?: boolean
+  /* 탐색 목록에서의 차례 — 작은 수가 앞, 같으면 등록 역순
+     (0026_designer_sort_order.sql). 어드민 노출 관리에서 끌어 정한다.
+     0026 전에는 select('*') 에 없어 undefined 로 온다 — 0 으로 읽힌다. */
+  sort_order?: number
   /* 가격 플랜 — 공개 화면에는 design_price ~ price_max 범위로 나간다.
      시작가는 디자이너가 보기 중에서 고르고(plans.ts),
      상한은 어드민이 직접 적는다(016_price_range.sql).

@@ -98,3 +98,50 @@ export async function reorderExploreFeatures(ids: string[]): Promise<Result> {
   refresh()
   return { ok: true }
 }
+
+/* ─────────── 탐색 전체 차례(0026_designer_sort_order.sql) ───────────
+
+   feature1 묶음과 다른 것이다 — 그쪽은 '맨 위에 크게 올릴 몇 명'이고,
+   이것은 그 아래 줄지어 서는 전체 디자이너의 차례다. */
+
+export async function reorderDesigners(ids: string[]): Promise<Result> {
+  const db = await guard()
+  if (ids.length === 0) return { ok: true }
+
+  /* 화면이 가진 목록과 DB 가 어긋나면 섣불리 쓰지 않는다 — 빠진 사람이
+     0번으로 몰려 차례가 뒤엉킨다(reorderExploreFeatures 와 같은 방침).
+     탐색에 서는 사람만 센다 — 숨긴 계정은 애초에 목록에 없다. */
+  const { data: all, error: readErr } = await db
+    .from('designers')
+    .select('id')
+    .eq('visible', true)
+    .eq('profile_public', true)
+
+  if (readErr) {
+    console.error('[explore] 디자이너 차례 변경 실패:', readErr.message)
+    return fail('순서 변경에 실패했습니다.')
+  }
+
+  const known = new Set((all ?? []).map((r) => r.id as string))
+  const clean = ids.filter((id) => known.has(id))
+  if (clean.length !== known.size) {
+    return fail('목록이 바뀌었습니다. 새로고침 후 다시 시도해 주세요.')
+  }
+
+  /* 받은 차례대로 0번부터 다시 매긴다 */
+  const results = await Promise.all(
+    clean.map((id, i) => db.from('designers').update({ sort_order: i }).eq('id', id)),
+  )
+
+  const failedOne = results.find((r) => r.error)
+  if (failedOne?.error) {
+    console.error('[explore] 디자이너 차례 변경 실패:', failedOne.error.message)
+    if (failedOne.error.message.includes('sort_order')) {
+      return fail('차례 칸이 아직 없습니다. 0026_designer_sort_order.sql 을 먼저 실행해 주세요.')
+    }
+    return fail('순서 변경에 실패했습니다.')
+  }
+
+  refresh()
+  return { ok: true }
+}

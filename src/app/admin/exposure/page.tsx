@@ -4,7 +4,11 @@ import { getAdminUser } from '@/lib/admin-auth'
 import { supabaseConfigured } from '@/lib/supabase-admin'
 import { listAllDesignersWithActivity } from '@/lib/designers-db'
 import { listFeatureIds } from '@/lib/explore-features'
-import { ExposureManager, type ExposureDesigner } from '@/components/admin/exposure-manager'
+import {
+  DesignerOrder,
+  ExposureManager,
+  type ExposureDesigner,
+} from '@/components/admin/exposure-manager'
 
 export const metadata: Metadata = {
   title: '디자이너 노출 관리',
@@ -36,6 +40,20 @@ export default async function ExposureAdminPage() {
     shown: d.visible && d.profile_public,
   }))
 
+  /* 탐색 차례를 정할 대상 — 실제로 탐색에 서는 사람만.
+     탐색 질의(listPublicDesigners)와 같은 차례로 세운다: 어드민이 정한
+     sort_order 가 먼저, 같으면 등록 역순. 그래야 여기서 보는 차례와
+     공개 화면의 차례가 어긋나지 않는다. 0026 전에는 sort_order 가
+     undefined 로 와 모두 0 으로 읽히고, 등록 역순만 남는다. */
+  const ordered: ExposureDesigner[] = designers
+    .filter((d) => d.visible && d.profile_public)
+    .sort(
+      (a, b) =>
+        (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+        Date.parse(b.created_at) - Date.parse(a.created_at),
+    )
+    .map((d) => all.find((x) => x.id === d.id)!)
+
   return (
     <main className="min-w-0 flex-1 px-5 py-6 md:px-8">
       <header className="mb-6">
@@ -53,6 +71,7 @@ export default async function ExposureAdminPage() {
       )}
 
       <ExposureManager designers={all} featureIds={featureIds} />
+      <DesignerOrder designers={ordered} />
     </main>
   )
 }

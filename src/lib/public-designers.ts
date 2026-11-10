@@ -249,16 +249,33 @@ export async function listPublicDesigners(): Promise<PublicDesignerCard[]> {
      지역 변수로 고정해 호출마다 non-null 단정을 붙이지 않는다. */
   const db = supabaseAdmin
 
-  const { data: rows, error } = await selectDesigners<PublicDesignerCard>((cols) =>
+  /* 어드민이 정한 차례가 먼저, 같으면 예전처럼 등록 역순(0026_designer_sort_order.sql).
+     0026 전 DB 에는 sort_order 가 없어 질의가 통째로 실패하므로, 그때는
+     등록 역순만으로 한 번 더 묻는다 — 차례 기능만 쉬고 탐색은 평소대로 뜬다. */
+  let { data: rows, error } = await selectDesigners<PublicDesignerCard>((cols) =>
     db
       .from('designers')
       .select(cols)
       .eq('visible', true)
       .eq('profile_public', true)
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
       .limit(200)
       .overrideTypes<PublicDesignerCard[]>(),
   )
+
+  if (error?.message.includes('sort_order')) {
+    ;({ data: rows, error } = await selectDesigners<PublicDesignerCard>((cols) =>
+      db
+        .from('designers')
+        .select(cols)
+        .eq('visible', true)
+        .eq('profile_public', true)
+        .order('created_at', { ascending: false })
+        .limit(200)
+        .overrideTypes<PublicDesignerCard[]>(),
+    ))
+  }
 
   if (error) {
     console.error('[public] 디자이너 목록 조회 실패:', error.message)
