@@ -28,14 +28,14 @@ export default function FaqPage() {
       <div className="mx-auto max-w-3xl px-5 py-12 md:px-8 md:py-16">
         <header className="border-b border-neutral-200 pb-8">
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">자주 묻는 질문</h1>
-          <p className="mt-2 text-sm text-neutral-500">
+          {/* <p className="mt-2 text-sm text-neutral-500">
             의뢰 전에 많이 묻는 것들을 모았습니다. 찾는 내용이 없으면 우하단 채팅으로
             물어보시거나{' '}
             <a href="mailto:manager@soom.it" className="text-violet-600 hover:underline">
               manager@soom.it
             </a>{' '}
             으로 보내 주세요.
-          </p>
+          </p> */}
         </header>
 
         <Suspense fallback={<FaqLoading />}>
