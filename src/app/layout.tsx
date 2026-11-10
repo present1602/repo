@@ -60,6 +60,17 @@ export const metadata: Metadata = {
     "디자인 의뢰",
     "로고 디자인",
     "디자인 에이전시",
+    /* 사무실이 홍대(마포구 서교동)에 있어 지역을 붙인 검색도 받는다.
+       걸어갈 거리의 동네만 적는다 — 아래 areaServed 와 같은 범위다. */
+    "홍대 디자인",
+    "홍대 웹개발",
+    "홍대 홈페이지 제작",
+    "홍대 디자인 에이전시",
+    "신촌 디자인",
+    "신촌 웹개발",
+    "합정 디자인",
+    "합정 웹개발",
+    "마포 디자인 에이전시",
   ],
   /* 같은 화면이 여러 주소로 색인되지 않게 기준 주소를 밝힌다.
      metadataBase 와 합쳐져 절대 URL 이 된다. */
@@ -98,11 +109,20 @@ export const metadata: Metadata = {
    무시하기로 한 칸이고, 다른 이름을 알아듣는 자리는 여기다. 그래서 같은
    목록을 양쪽에 둔다.
 
+   Organization 이 아니라 LocalBusiness 로 적는다 — 사무실이 실제로 있는
+   지역 업체다. 주소를 함께 주면 "홍대 디자인" 처럼 지역을 붙인 검색에서
+   이 사이트를 후보로 본다.
+
+   주소·전화·상호는 푸터(footer.tsx)에 적힌 것과 **반드시 같아야** 한다.
+   구글은 이 값을 비즈니스 프로필·다른 사이트의 표기와 대조하는데, 서로
+   다르면 같은 업체인지 확신하지 못해 지역 검색에서 밀린다. 한쪽을 고치면
+   다른 쪽도 같이 고친다.
+
    <script type="application/ld+json"> 는 실행되는 코드가 아니라 데이터다.
    값이 모두 이 파일에 적힌 고정 문자열이라 바깥 입력이 섞일 자리가 없다. */
 const ORG_JSON_LD = {
   "@context": "https://schema.org",
-  "@type": "Organization",
+  "@type": "LocalBusiness",
   name: "에이전시숨",
   alternateName: [
     "에이전시 숨",
@@ -117,6 +137,34 @@ const ORG_JSON_LD = {
   ],
   url: SITE_URL,
   description: DESCRIPTION,
+  /* 법인명 — 푸터의 '상호'와 같은 값이다 */
+  legalName: "밸런스",
+  telephone: "+82-2-6954-2567",
+  email: "manager@soom.it",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "와우산로 162-10 2층",
+    addressLocality: "마포구",
+    addressRegion: "서울",
+    addressCountry: "KR",
+  },
+  /* 사무실이 홍대입구(서교동)라 걸어갈 거리에 있는 동네들이다 —
+     지어낸 지역을 적지 않는다. 사실이 아닌 지역을 넣으면 그 지역 검색으로
+     들어온 사람이 바로 나가고, 구글은 그걸 "안 맞는 결과"로 학습한다. */
+  areaServed: [
+    { "@type": "Place", name: "홍대" },
+    { "@type": "Place", name: "신촌" },
+    { "@type": "Place", name: "합정" },
+    { "@type": "Place", name: "서울" },
+  ],
+  knowsAbout: [
+    "로고 디자인",
+    "브랜딩 디자인",
+    "상세페이지 디자인",
+    "웹 디자인",
+    "웹 개발",
+    "홈페이지 제작",
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -41,6 +41,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.6,
     },
+    /* 어드민에서 질문을 늘리면 내용이 바뀐다 — 약관보다 자주 손댄다 */
+    {
+      url: `${SITE_URL}/faq`,
+      changeFrequency: 'monthly',
+      priority: 0.5,
+    },
     {
       url: `${SITE_URL}/terms`,
       changeFrequency: 'yearly',

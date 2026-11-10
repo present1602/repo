@@ -519,7 +519,8 @@ export async function deleteSpecialty(id: string): Promise<Result> {
    켜 둔 것만 제목으로 보이고, 누르면 내용이 펼쳐진다. */
 
 function refreshFaqs() {
-  revalidatePath('/admin/settings')
+  /* 화면은 /admin/faq 로 따로 나와 있다 — 액션은 다른 설정과 같은 파일에 둔다 */
+  revalidatePath('/admin/faq')
   /* 공개 화면 어디에 붙여도 따라오게 레이아웃째 되살린다 */
   revalidatePath('/', 'layout')
 }

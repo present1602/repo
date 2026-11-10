@@ -12,11 +12,9 @@ import {
 } from '@/lib/site-settings'
 import { listAllSpecialties } from '@/lib/specialties'
 import { readBudgetRows } from '@/lib/specialty-budgets'
-import { listAllFaqs } from '@/lib/faqs'
 import { PlanCopyForm } from '@/components/admin/plan-copy-form'
 import { OptionTemplateManager } from '@/components/admin/option-template-manager'
 import { SpecialtyManager } from '@/components/admin/specialty-manager'
-import { FaqManager } from '@/components/admin/faq-manager'
 import { ScopePromptToggle, ShowDurationToggle } from '@/components/admin/scope-prompt-toggle'
 
 export const metadata: Metadata = {
@@ -26,12 +24,12 @@ export const metadata: Metadata = {
 
 export const instant = false
 
-/* 탭 — 주소의 ?tab= 으로 고른다. 저장 뒤 새로 그려도, 새로고침해도 같은 탭에 머문다 */
+/* 탭 — 주소의 ?tab= 으로 고른다. 저장 뒤 새로 그려도, 새로고침해도 같은 탭에 머문다.
+   FAQ 는 /admin/faq 로 따로 뺐다(왼쪽 메뉴) */
 const TABS = [
   { key: 'general', label: '기본 설정' },
   { key: 'plans', label: '가격 템플릿' },
   { key: 'options', label: '포함 항목 템플릿' },
-  { key: 'faq', label: 'FAQ' },
 ] as const
 type Tab = (typeof TABS)[number]['key']
 
@@ -48,15 +46,14 @@ export default async function AdminSettingsPage(props: PageProps<'/admin/setting
 
   /* 서로 기다릴 이유가 없다. 탭마다 필요한 것만 읽는다 —
      포함 항목 템플릿 탭도 프리미엄을 켠 플랜을 알아야 해서 플랜 문구를 함께 읽는다 */
-  const [copies, specialties, scopePrompt, showDuration, templates, exploreDesc, faqs, budgetRows] =
+  const [copies, specialties, scopePrompt, showDuration, templates, exploreDesc, budgetRows] =
     await Promise.all([
-      tab === 'general' || tab === 'faq' ? null : getPlanCopies(),
+      tab === 'general' ? null : getPlanCopies(),
       tab === 'general' ? listAllSpecialties() : null,
       tab === 'general' ? getScopePrompt() : null,
       tab === 'general' ? getShowDuration() : null,
       tab === 'options' ? listOptionTemplates() : null,
       tab === 'general' ? getExploreDesc() : null,
-      tab === 'faq' ? listAllFaqs() : null,
       /* 분야별 예산 구간(0022) — 분야 목록과 같은 탭에서만 쓴다 */
       tab === 'general' ? readBudgetRows() : null,
     ])
@@ -119,9 +116,6 @@ export default async function AdminSettingsPage(props: PageProps<'/admin/setting
 
         {/* 포함 항목 템플릿 — 디자이너가 플랜마다 골라 등록하는 문장 */}
         {tab === 'options' && <OptionTemplateManager templates={templates!} copies={copies!} />}
-
-        {/* FAQ — 공개 화면에서 제목을 누르면 내용이 펼쳐진다 */}
-        {tab === 'faq' && <FaqManager faqs={faqs!} />}
       </div>
     </main>
   )

@@ -8,8 +8,11 @@ import { ExploreLink } from '@/components/explore-gate'
 /* 사이트 공통 바.
 
    좌측 메뉴는 두지 않는다 — 홈으로 가는 길은 SOOM 로고가 맡고,
-   그 밖에 모든 화면에서 갈 곳은 탐색과 의뢰뿐이라 우측에 모았다.
-   메뉴가 다시 필요해지면 로고와 우측 묶음 사이에 nav 를 넣으면 된다. */
+   갈 곳은 모두 우측에 모았다. 메뉴가 더 늘면 로고와 우측 묶음 사이에
+   nav 를 넣는다.
+
+   차례는 탐색 → FAQ → 의뢰하기 다. 색을 채운 단추는 의뢰 하나뿐이라
+   오른쪽 끝에 둔다. */
 export function Navbar() {
   const [inquiry, setInquiry] = useState(false)
 
@@ -30,6 +33,14 @@ export function Navbar() {
             <ExploreLink className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900">
               탐색
             </ExploreLink>
+
+            {/* 의뢰 전에 묻는 것들 — 어드민 → FAQ 에서 적은 글을 그대로 보여준다 */}
+            <Link
+              href="/faq"
+              className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
+            >
+              FAQ
+            </Link>
 
             {/* 가장 하고 싶은 일 — 유일하게 색을 채운 버튼으로 둔다.
                 페이지를 옮기지 않고 그 자리에서 폼을 띄운다. */}
