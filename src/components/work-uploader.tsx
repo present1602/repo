@@ -35,6 +35,7 @@ import {
 } from '@/lib/crop'
 import { makeStackThumb, makeThumb } from '@/lib/make-thumb'
 import { youtubeId } from '@/lib/youtube'
+import { MAX_LINK_URL, workLinkUrl } from '@/lib/work-link'
 import { firstPageCrop, stackSize } from '@/lib/work-stack'
 import { DESIGNER_IMAGES_BUCKET, uploadSigned } from '@/lib/direct-upload'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
@@ -58,6 +59,7 @@ export function WorkUploader({
   disabledTitle,
   multiple = false,
   aiDefault,
+  linkAllowed = false,
   className,
   label = '작업 추가',
   successText,
@@ -69,6 +71,9 @@ export function WorkUploader({
   multiple?: boolean
   /* AI 활용 체크의 처음 상태 — 어드민은 켠 채로 시작한다(요청) */
   aiDefault: boolean
+  /* 이동 링크 칸을 보일지(0025_work_link.sql) — 어드민이 디자이너마다 켜 준
+     경우에만 참이다. 꺼져 있으면 칸 자체가 뜨지 않는다. 어드민 화면은 늘 참. */
+  linkAllowed?: boolean
   className: string
   label?: string
   /* 묶음을 다 올렸을 때 알릴 말 */
@@ -149,6 +154,9 @@ export function WorkUploader({
       form.set('client', o.client)
       /* 적었을 때만 보낸다 — 키가 없으면 서버가 "영상 칸을 다루지 않음"으로 읽는다 */
       if (o.videoUrl) form.set('videoUrl', o.videoUrl)
+      /* 이동 링크도 같다(0025) — 허용되지 않은 디자이너는 칸이 없어 늘 비어
+         있고, 키를 보내지 않으므로 서버가 "링크 칸을 다루지 않음"으로 읽는다 */
+      if (o.linkUrl) form.set('linkUrl', o.linkUrl)
       /* 답했다는 사실과 답 자체를 따로 보낸다 — 체크하지 않은 체크박스는
          브라우저가 전송하지 않아 '아니오'와 '묻지 않음'이 구분되지 않는다. */
       form.set('aiAnswered', '1')
@@ -277,6 +285,7 @@ export function WorkUploader({
           pending={pending}
           status={status}
           aiDefault={aiDefault}
+          linkAllowed={linkAllowed}
           onCancel={skip}
           onConfirm={(o) => uploadOne(current, o)}
         />
@@ -339,6 +348,9 @@ type UploadOpts = {
   thumbFile: File | null
   /* 작업 끝에 붙일 유튜브 주소 — 비었으면 영상 없음. 서버가 id 만 뽑아 담는다 */
   videoUrl: string
+  /* 작업에 붙일 이동 주소(0025) — 비었으면 링크 없음. 허용되지 않은
+     디자이너는 칸이 없어 늘 비어 있다 */
+  linkUrl: string
 }
 
 function UploadDialog({
@@ -348,6 +360,7 @@ function UploadDialog({
   pending,
   status,
   aiDefault,
+  linkAllowed,
   onCancel,
   onConfirm,
 }: {
@@ -357,6 +370,8 @@ function UploadDialog({
   pending: boolean
   status: string | null
   aiDefault: boolean
+  /* 이동 링크 칸을 보일지(0025_work_link.sql) */
+  linkAllowed: boolean
   onCancel: () => void
   onConfirm: (o: UploadOpts) => void
 }) {
@@ -380,6 +395,10 @@ function UploadDialog({
   /* 적었는데 읽지 못하는 주소인지 — 저장 버튼을 막고 테두리로 알린다.
      비어 있는 것은 "영상 없음"이라 잘못이 아니다. */
   const badVideo = videoUrl.trim() !== '' && youtubeId(videoUrl) == null
+  /* 작업에 붙일 이동 주소(0025_work_link.sql) — 어드민이 허용한 디자이너만
+     칸을 본다. 모양은 저장할 때 서버가 가린다(work-link.ts) — 여기서도 미리 비춘다 */
+  const [linkUrl, setLinkUrl] = useState('')
+  const badLink = linkUrl.trim() !== '' && workLinkUrl(linkUrl) == null
   const [aiUsed, setAiUsed] = useState(aiDefault)
   /* SOOM 의뢰 여부 — 해당할 때만 켜는 표시라 꺼진 채로 시작한다 */
   const [soomWork, setSoomWork] = useState(false)
@@ -577,6 +596,32 @@ function UploadDialog({
             </span>
           </label>
 
+          {/* 이동 링크(0025_work_link.sql) — 어드민이 허용한 디자이너에게만 보인다.
+              허용되지 않았으면 칸 자체가 없다(설명도 띄우지 않는다). */}
+          {linkAllowed && (
+            <label className="mt-3 block">
+              <span className="mb-1.5 block text-xs font-medium text-neutral-600">
+                웹사이트 주소 <span className="font-normal text-neutral-400">(선택)</span>
+              </span>
+              <input
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                disabled={pending}
+                inputMode="url"
+                maxLength={MAX_LINK_URL}
+                placeholder="https://example.com"
+                className={`h-9 w-full rounded-lg border px-3 text-sm outline-none ring-violet-500 focus:ring-2 ${
+                  badLink ? 'border-rose-400' : 'border-neutral-300'
+                }`}
+              />
+              <span className="mt-1 block text-xs text-neutral-400">
+                {badLink
+                  ? '주소를 확인해 주세요. 예: https://example.com'
+                  : "적어 두면 상세 화면에 '프로젝트 보기' 버튼이 뜹니다."}
+              </span>
+            </label>
+          )}
+
           <div className="mt-3 space-y-2">
             <Check
               checked={aiUsed}
@@ -730,13 +775,15 @@ function UploadDialog({
                 crop: (cropOn ? crop : null) ?? firstCrop,
                 thumbFile,
                 videoUrl: videoUrl.trim(),
+                /* 허용되지 않았으면 칸이 없어 늘 빈 값이다 — 서버도 다시 막는다 */
+                linkUrl: linkAllowed ? linkUrl.trim() : '',
               })
             }
             /* 크기를 못 읽었어도 올릴 수 있다 — 서버가 null 로 받아
                기존 규칙대로 자리를 잡는다. 읽는 중일 때만 잠깐 막는다.
                영상 주소를 잘못 적었으면 올리기 전에 막는다 — 그림을 다 올린 뒤
                서버가 거절하면 버킷에 쓰지 않는 파일이 남는다. */
-            disabled={pending || (size == null && !measureFailed) || badVideo}
+            disabled={pending || (size == null && !measureFailed) || badVideo || badLink}
             className="mt-4 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? (status ?? '올리는 중…') : '저장'}

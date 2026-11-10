@@ -35,10 +35,19 @@ const SCOPE_NOTE: Partial<Record<InquiryScope, string>> = {
   design_dev: '디자인 + 개발 의뢰',
 }
 
-/* 프리미엄이 있는 유형 표시 — 의뢰 폼·상세 패널이 같은 모양을 쓴다 */
-export function PremiumBadge() {
+/* 프리미엄이 있는 유형 표시 — 의뢰 폼·상세 패널이 같은 모양을 쓴다.
+
+   muted — 지금 고르지 않은 금액 옆에 붙을 때. 진한 보라로 두면 고르지 않은
+   줄이 고른 줄만큼 눈에 띄어 어느 쪽으로 의뢰되는지 가리기 어렵다. */
+export function PremiumBadge({ muted = false }: { muted?: boolean } = {}) {
   return (
-    <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">프리미엄</span>
+    <span
+      className={`rounded px-1 py-0 text-[10px] font-semibold leading-[1.4] ${
+        muted ? 'bg-neutral-400 text-white' : 'bg-violet-600 text-white'
+      }`}
+    >
+      프리미엄
+    </span>
   )
 }
 
@@ -57,7 +66,13 @@ function ExtraOption({
   onChange: (on: boolean) => void
 }) {
   return (
-    <label className="mt-3 ml-6 flex cursor-pointer items-start gap-2.5 rounded-md border border-violet-200 bg-white px-3 py-2.5">
+    /* 켠 것만 보라로 또렷하게, 끈 것은 회색 — 이 줄의 금액이 지금 의뢰 금액인지
+       한눈에 가린다. 끈 줄도 읽을 수는 있어야 하므로 너무 연하게 두지 않는다. */
+    <label
+      className={`mt-3 ml-6 flex cursor-pointer items-start gap-2.5 rounded-md border px-3 py-2.5 transition ${
+        on ? 'border-violet-300 bg-violet-50/70' : 'border-neutral-200 bg-white'
+      }`}
+    >
       <input
         type="checkbox"
         checked={on}
@@ -67,21 +82,38 @@ function ExtraOption({
       {/* 설명은 금액 아래까지 넓게 — 금액 옆 좁은 칸에 두면 좁은 화면에서 여러 줄로 길어진다 */}
       <span className="min-w-0 flex-1 text-sm">
         <span className="flex items-baseline justify-between gap-3">
-          <span className="font-medium">{title}</span>
-          <Price label={priceLabel} className="text-sm font-semibold text-violet-700" />
+          <span className={`font-medium ${on ? '' : 'text-neutral-500'}`}>{title}</span>
+          <Price
+            label={priceLabel}
+            className={`text-sm font-semibold ${on ? 'text-violet-700' : 'text-neutral-400'}`}
+          />
         </span>
-        {desc && <span className="mt-1 block text-xs leading-relaxed text-neutral-500">{desc}</span>}
+        {desc && (
+          <span
+            className={`mt-1 block text-xs leading-relaxed ${on ? 'text-neutral-500' : 'text-neutral-400'}`}
+          >
+            {desc}
+          </span>
+        )}
       </span>
     </label>
   )
 }
 
-/* 금액과 그 아래 'VAT 별도' — 폼에 나가는 금액은 모두 부가세 별도다 */
+/* 금액과 그 아래 'VAT 별도' — 폼에 나가는 금액은 모두 부가세 별도다.
+
+   금액을 흐려 둔 줄에서는 이 줄도 함께 흐려진다 — 금액보다 진하면
+   꺼 둔 줄의 'VAT 별도'가 되레 또렷해 보인다. */
 function Price({ label, className }: { label: string; className: string }) {
+  const muted = className.includes('text-neutral-400')
   return (
     <span className="shrink-0 text-right">
       <span className={`block ${className}`}>{label}</span>
-      <span className="block text-[11px] font-normal text-neutral-500">VAT 별도</span>
+      <span
+        className={`block text-[11px] font-normal ${muted ? 'text-neutral-400' : 'text-neutral-500'}`}
+      >
+        VAT 별도
+      </span>
     </span>
   )
 }
@@ -379,17 +411,29 @@ export function InquiryModal({
                                       </span>
                                     )}
                                   </span>
-                                  <Price label={o.priceLabel} className="text-sm font-semibold text-neutral-800" />
+                                  {/* 지금 얼마로 의뢰되는지 한눈에 — 고른 줄에서 덧붙인
+                                      옵션이 없을 때만 이 금액이 실제 금액이다(기본가격).
+                                      프리미엄·메인화면을 켜면 그쪽이 실제 금액이므로
+                                      여기는 흐려 둔다. 고르지 않은 줄도 흐리다. */}
+                                  <Price
+                                    label={o.priceLabel}
+                                    className={`text-sm font-semibold ${
+                                      checked && extra === 'none' ? 'text-violet-700' : 'text-neutral-400'
+                                    }`}
+                                  />
                                 </span>
                                 {o.desc && (
                                   <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
                                     {o.desc}
                                   </span>
                                 )}
-                                {/* 프리미엄이 있는 유형 — 고르기 전에도 뱃지와 금액을 보여준다 */}
-                                {o.premium && (
-                                  <span className="mt-2 flex items-center gap-1.5 text-xs text-violet-700">
-                                    <PremiumBadge />
+                                {/* 프리미엄이 있는 유형 — 고르기 전에도 뱃지와 금액을 보여준다.
+                                    고른 줄에서는 아래 체크박스(ExtraOption)가 같은 금액을
+                                    다시 보여주므로 숨긴다 — 같은 값이 두 번 보이면
+                                    어느 쪽이 지금 금액인지 가리기 어렵다. */}
+                                {o.premium && !checked && (
+                                  <span className="mt-2 flex items-center gap-1.5 text-xs text-neutral-400">
+                                    <PremiumBadge muted />
                                     {o.premium.priceLabel}
                                   </span>
                                 )}

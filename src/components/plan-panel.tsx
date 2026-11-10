@@ -198,12 +198,17 @@ export function PlanPanel({
                           {/* 미리보기는 카드를 낮게 — VAT 줄을 뺀다(아래 금액 상자에 있다) */}
                           {!preview && <span className="block text-[10px] text-neutral-400">VAT 별도</span>}
                         </span>
-                        {/* 프리미엄이 있는 유형 — 의뢰 폼과 같은 뱃지·금액 */}
+                        {/* 프리미엄이 있는 유형 — 의뢰 폼과 같은 뱃지·금액.
+                            고른 줄만 보라로 또렷하게 — 줄마다 보라 금액이 서면
+                            어디를 봐야 할지 시선이 흩어진다. 고르지 않은 줄은
+                            읽히는 진한 회색으로 둔다. */}
                         {e.premium && (
                           <span
-                            className={`flex basis-full items-center gap-1.5 text-violet-700 ${preview ? 'text-[11px]' : 'text-xs'}`}
+                            className={`flex basis-full items-center gap-1.5 ${
+                              on ? 'text-violet-700' : 'text-neutral-500'
+                            } ${preview ? 'text-[11px]' : 'text-xs'}`}
                           >
-                            <PremiumBadge />
+                            <PremiumBadge muted={!on} />
                             {e.premium.priceLabel}
                           </span>
                         )}

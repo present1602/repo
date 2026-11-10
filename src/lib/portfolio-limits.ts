@@ -85,6 +85,10 @@ export type WorkRow = {
   /* 작업 끝에 붙인 유튜브 영상 id(0019_work_video.sql). 그림 작업·PDF 작업
      모두 붙일 수 있다. 0019 전 DB 에서는 select('*') 에 없어 undefined 로 온다. */
   video_id?: string | null
+  /* 작업에 붙인 이동 주소(0025_work_link.sql) — 상세 모달 하단에 '웹사이트
+     보러 가기' 버튼으로 뜬다. 어드민이 허용한 디자이너만 붙일 수 있다
+     (designers.portfolio_link_allowed). 0025 전 DB 에서는 undefined 로 온다. */
+  link_url?: string | null
   width: number | null
   height: number | null
   title: string | null

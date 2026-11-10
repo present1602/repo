@@ -17,6 +17,7 @@ import {
   adminUpdateWorkCrop,
 } from '@/app/admin/designers/actions'
 import { youtubeId, youtubeWatchUrl } from '@/lib/youtube'
+import { MAX_LINK_URL, workLinkUrl } from '@/lib/work-link'
 import { Img } from '@/components/img'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
 import { StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
@@ -292,6 +293,8 @@ function AddWorkButton({
       disabledTitle={`최대 ${MAX_WORKS}개까지 올릴 수 있습니다`}
       multiple
       aiDefault
+      /* 허용 스위치를 쥔 쪽이 어드민이다 — 대신 올릴 때는 늘 링크를 붙일 수 있다 */
+      linkAllowed
       className="rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
       successText={(n) => `${n}개를 올렸습니다.`}
       onMessage={(m) => onNotice(m && { kind: m.ok ? 'ok' : 'error', text: m.text })}
@@ -324,6 +327,9 @@ export function WorkDialog({
      보여준다 — 비우고 저장하면 영상을 뗀다. */
   const [videoUrl, setVideoUrl] = useState(w.video_id ? youtubeWatchUrl(w.video_id) : '')
   const badVideo = videoUrl.trim() !== '' && youtubeId(videoUrl) == null
+  /* 이동 링크(0025_work_link.sql) — 허용 스위치를 쥔 쪽이 어드민이라 늘 보인다 */
+  const [linkUrl, setLinkUrl] = useState(w.link_url ?? '')
+  const badLink = linkUrl.trim() !== '' && workLinkUrl(linkUrl) == null
   const [pending, start] = useActionTransition()
   const router = useRouter()
 
@@ -359,7 +365,8 @@ export function WorkDialog({
     client !== (w.client ?? '') ||
     aiUsed !== w.ai_used ||
     soomWork !== (w.soom_work === true) ||
-    videoUrl.trim() !== (w.video_id ? youtubeWatchUrl(w.video_id) : '')
+    videoUrl.trim() !== (w.video_id ? youtubeWatchUrl(w.video_id) : '') ||
+    linkUrl.trim() !== (w.link_url ?? '')
 
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
   useEffect(() => {
@@ -430,6 +437,7 @@ export function WorkDialog({
           aiUsed,
           soomWork,
           videoUrl: videoUrl.trim(),
+          linkUrl: linkUrl.trim(),
         })
         if (!r.ok) {
           onNotice({ kind: 'error', text: r.error ?? '처리에 실패했습니다.' })
@@ -569,6 +577,29 @@ export function WorkDialog({
             </span>
           </label>
 
+          {/* 이동 링크(0025_work_link.sql) — 비우고 저장하면 떼진다.
+              어드민은 디자이너별 허용 스위치와 무관하게 붙이고 뗄 수 있다 */}
+          <label className="mt-3 block">
+            <span className="mb-1.5 block text-xs font-medium text-neutral-600">
+              웹사이트 주소 <span className="font-normal text-neutral-400">(선택)</span>
+            </span>
+            <input
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              inputMode="url"
+              maxLength={MAX_LINK_URL}
+              placeholder="https://example.com"
+              className={`h-9 w-full rounded-lg border px-3 text-sm outline-none ring-violet-500 focus:ring-2 ${
+                badLink ? 'border-rose-400' : 'border-neutral-300'
+              }`}
+            />
+            <span className="mt-1 block text-xs text-neutral-400">
+              {badLink
+                ? '주소를 확인해 주세요. 예: https://example.com'
+                : "상세 화면에 '프로젝트 보기' 버튼이 뜹니다."}
+            </span>
+          </label>
+
           {/* AI 사용 여부 — 공개 화면에는 켠 것만 표기된다 */}
           <div className="mt-3 flex items-center gap-1.5">
             <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
@@ -671,7 +702,7 @@ export function WorkDialog({
           {/* 잡은 썸네일 영역과 다른 칸을 함께 저장한다 */}
           <button
             onClick={save}
-            disabled={pending || (!dirty && !cropMode) || badVideo}
+            disabled={pending || (!dirty && !cropMode) || badVideo || badLink}
             className="mt-3 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? '저장 중…' : '저장'}

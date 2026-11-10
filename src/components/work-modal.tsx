@@ -300,6 +300,28 @@ export function WorkModal<W extends PublicWork>({
           {/* AI 뱃지 — 머리 줄의 '02 / 02' 바로 아래, 그림 칸 왼쪽 위(머리 줄과 같은 왼쪽 여백).
               그림이 넘어가도 자리를 지키게 트랙 밖에 둔다 */}
           {w.ai_used && <AiBadge place="absolute left-5 top-3 z-20" />}
+
+          {/* 프로젝트 보기(0025_work_link.sql) — 링크를 붙인 작업에만 뜬다.
+
+              그림 칸 안에 두되 트랙 밖에 둔다(AI 뱃지와 같은 자리) — 그림을
+              확대하거나 내려 봐도, 옆으로 넘겨도 바닥 가운데 제자리를 지킨다.
+              모바일에서는 설명 시트가 덮는 만큼(sheetH) 위로 올려 가리지 않게 한다.
+
+              바깥 사이트로 나가므로 새 탭에서 연다 — 보던 작업을 닫지 않는다.
+              남의 사이트에 원래 창을 넘겨주지 않는다(noopener). */}
+          {w.link_url && (
+            <a
+              href={w.link_url}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              /* 그림을 톡 치면 시트가 접힌다 — 버튼 누름이 거기까지 번지지 않게 */
+              onClick={(e) => e.stopPropagation()}
+              style={{ bottom: sheetH + 20 }}
+              className="absolute left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border border-violet-600 bg-transparent px-7 py-1.5 text-sm font-semibold text-violet-700 shadow-sm backdrop-blur-sm transition hover:bg-violet-600 hover:text-white md:px-9 md:py-2 md:text-base"
+            >
+              프로젝트 보기 ↗
+            </a>
+          )}
           <div
             className={`flex h-full ${jump ? '' : 'transition-transform duration-[280ms] ease-out'}`}
             style={{

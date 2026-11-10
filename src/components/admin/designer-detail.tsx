@@ -31,6 +31,7 @@ import {
   updateDesigner,
   setDesignerVisible,
   setDesignerProfilePublic,
+  setPortfolioLinkAllowed,
   resetPassword,
   deleteDesigner,
   setDesignerPrices,
@@ -158,7 +159,19 @@ export function DesignerDetail({
           >
             프로필 {d.profile_public ? '노출' : '숨김'}
           </span>
+          {/* 포트폴리오 링크 허용(0025_work_link.sql) — 켜 준 사람만 스튜디오에서
+              링크 칸을 본다. 켜져 있을 때만 뱃지를 띄운다(기본이 꺼짐이라,
+              꺼진 뱃지를 늘 달면 줄만 길어진다) */}
+          {d.portfolio_link_allowed && (
+            <span
+              className="rounded bg-violet-100 px-2 py-1 text-[11px] font-medium text-violet-800"
+              title="이 디자이너는 포트폴리오에 이동 링크를 붙일 수 있습니다"
+            >
+              링크 허용
+            </span>
+          )}
           <ProfilePublicButton designer={d} onNotice={setNotice} />
+          <LinkAllowedButton designer={d} onNotice={setNotice} />
           <VisibleButton designer={d} onNotice={setNotice} />
         </div>
       </header>
@@ -1105,6 +1118,45 @@ function ProfilePublicButton({
       className={ghostButton}
     >
       {pending ? '…' : d.profile_public ? '프로필 숨기기' : '프로필 노출하기'}
+    </button>
+  )
+}
+
+/* 포트폴리오에 이동 링크를 붙일 수 있게 할지(0025_work_link.sql).
+
+   기본은 꺼짐이다 — 켜 줘야 스튜디오 업로드 창에 링크 칸이 뜬다.
+   끄더라도 이미 붙여 둔 링크는 그대로 둔다(액션 주석 참고). */
+function LinkAllowedButton({
+  designer: d,
+  onNotice,
+}: {
+  designer: AdminDesigner
+  onNotice: (n: Notice) => void
+}) {
+  const [pending, start] = useActionTransition()
+  const router = useRouter()
+
+  const on = d.portfolio_link_allowed ?? false
+
+  return (
+    <button
+      onClick={() => {
+        onNotice(null)
+        start(async () => {
+          const r = await setPortfolioLinkAllowed(d.id, !on)
+          if (!r.ok) return onNotice({ kind: 'error', text: r.error })
+          router.refresh()
+        })
+      }}
+      disabled={pending}
+      title={
+        on
+          ? '이 디자이너의 포트폴리오 링크 칸을 숨깁니다. 이미 붙은 링크는 그대로 남습니다.'
+          : '이 디자이너가 포트폴리오에 이동 링크를 붙일 수 있게 합니다.'
+      }
+      className={ghostButton}
+    >
+      {pending ? '…' : on ? '링크 허용 끄기' : '링크 허용하기'}
     </button>
   )
 }

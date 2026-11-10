@@ -9,6 +9,7 @@ import { sendTempPassword } from '@/lib/designer-mail'
 import { displayName } from '@/lib/display-name'
 import { putImage, signImageUpload, claimImage, signPageUploads, claimPages } from '@/lib/upload'
 import { BAD_VIDEO, readVideoId, youtubeId } from '@/lib/youtube'
+import { BAD_LINK, readLinkUrl, workLinkUrl } from '@/lib/work-link'
 import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
 import { PRICE_SCOPES, PRICE_TIERS, type PriceScope, type PriceTier } from '@/lib/specialty-shape'
 import {
@@ -244,6 +245,34 @@ export async function setDesignerVisible(id: string, visible: boolean): Promise<
   const { error } = await db.from('designers').update({ visible }).eq('id', id)
   if (error) {
     console.error('[designers] 노출 변경 실패:', error.message)
+    return fail('변경에 실패했습니다.')
+  }
+
+  refresh(id)
+  return { ok: true }
+}
+
+/* 포트폴리오 이동 링크 허용(0025_work_link.sql).
+
+   켜 준 디자이너만 스튜디오 업로드 창에서 링크 칸을 본다 — 꺼져 있으면
+   칸 자체가 뜨지 않고, 서버 액션도 거절한다. 기본은 꺼짐이다.
+
+   끄더라도 이미 붙은 링크는 지우지 않는다 — 어느 작업에 붙어 있었는지
+   모르는 채로 사라지면 되돌릴 수 없다. 공개 화면에서 내리려면 그 작업의
+   링크를 비우거나 작업을 숨긴다. */
+export async function setPortfolioLinkAllowed(id: string, allowed: boolean): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db
+    .from('designers')
+    .update({ portfolio_link_allowed: allowed })
+    .eq('id', id)
+
+  if (error) {
+    console.error('[designers] 링크 허용 변경 실패:', error.message)
+    if (error.message.includes('portfolio_link_allowed')) {
+      return fail('링크 허용 칸이 없습니다. 0025_work_link.sql 마이그레이션을 실행해 주세요.')
+    }
     return fail('변경에 실패했습니다.')
   }
 
@@ -811,6 +840,12 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
   const video = readVideoId(form)
   if (video === false) return fail(BAD_VIDEO)
 
+  /* 이동 링크(0025_work_link.sql) — 허용 스위치를 쥔 쪽이 어드민이므로
+     여기서는 허용 여부를 묻지 않는다. 디자이너에게 허용되지 않은 계정이어도
+     어드민이 대신 올리면서 링크를 붙일 수 있다. */
+  const link = readLinkUrl(form)
+  if (link === false) return fail(BAD_LINK)
+
   if (!imageUrl) return fail('이미지를 선택해 주세요.')
 
   /* 상한은 DB 트리거가 최종 방어하지만, 업로드를 먼저 하면
@@ -877,6 +912,8 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
       ...(pages && pages.length > 0 ? { pages } : {}),
       /* 0019 전 DB 에서도 같다 — 영상을 붙였을 때만 싣는다 */
       ...(video ? { video_id: video } : {}),
+      /* 0025 전 DB 에서도 같다 — 링크를 붙였을 때만 싣는다 */
+      ...(link ? { link_url: link } : {}),
       ...readCrop(form),
       row_span: rowSpan,
       sort_order: sortOrder,
@@ -891,6 +928,9 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
     }
     if (error?.message.includes('video_id')) {
       return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
+    }
+    if (error?.message.includes('link_url')) {
+      return fail('링크 저장 칸이 없습니다. 0025_work_link.sql 마이그레이션을 실행해 주세요.')
     }
     /* 트리거가 막은 경우 메시지를 그대로 보여준다 */
     return fail(error?.message.includes('최대') ? error.message : '등록에 실패했습니다.')
@@ -916,6 +956,9 @@ export type AdminWorkInput = {
      넘어오지 않으면(undefined) 지금 붙어 있는 것을 그대로 둔다 — 스튜디오
      쪽(WorkInput)과 같은 규칙이다. */
   videoUrl?: string
+  /* 작업에 붙일 이동 주소(0025_work_link.sql) — 영상과 같은 규칙.
+     어드민은 허용 스위치와 무관하게 붙이고 뗄 수 있다. */
+  linkUrl?: string
 }
 
 export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
@@ -946,12 +989,26 @@ export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
     }
   }
 
+  /* 이동 링크도 같다(0025) */
+  if (input.linkUrl != null) {
+    const trimmed = input.linkUrl.trim()
+    if (!trimmed) patch.link_url = null
+    else {
+      const url = workLinkUrl(trimmed)
+      if (!url) return fail(BAD_LINK)
+      patch.link_url = url
+    }
+  }
+
   const { error } = await db.from('designer_works').update(patch).eq('id', input.id)
 
   if (error) {
     console.error('[works] 어드민 수정 실패:', error.message)
     if (error.message.includes('video_id')) {
       return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
+    }
+    if (error.message.includes('link_url')) {
+      return fail('링크 저장 칸이 없습니다. 0025_work_link.sql 마이그레이션을 실행해 주세요.')
     }
     return fail('수정에 실패했습니다.')
   }

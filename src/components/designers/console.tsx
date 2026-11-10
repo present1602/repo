@@ -112,7 +112,10 @@ export function DesignerConsole({
             {tab === 'profile' && (
               <ProfileForm designer={designer} works={works} onGoSettings={() => setTab('settings')} />
             )}
-            {tab === 'portfolio' && <PortfolioManager works={works} />}
+            {tab === 'portfolio' && (
+              /* 이동 링크 칸은 어드민이 켜 준 사람에게만 보인다(0025_work_link.sql) */
+              <PortfolioManager works={works} linkAllowed={designer.portfolio_link_allowed ?? false} />
+            )}
             {tab === 'settings' && (
               <SettingsPanel
                 designer={designer}

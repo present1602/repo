@@ -30,6 +30,8 @@ import {
   slotOpenFor,
 } from '@/lib/plan-options-db'
 import { BAD_VIDEO, readVideoId, youtubeId } from '@/lib/youtube'
+import { BAD_LINK, LINK_NOT_ALLOWED, readLinkUrl, workLinkUrl } from '@/lib/work-link'
+import { getLinkAllowed } from '@/lib/designers-db'
 import { SCOPES, type Scope } from '@/lib/scopes'
 import { listCategoryMetas } from '@/lib/specialties'
 import { MAX_TAGS } from '@/lib/specialty-shape'
@@ -448,6 +450,13 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   const video = readVideoId(form)
   if (video === false) return fail(BAD_VIDEO)
 
+  /* 이동 링크(0025_work_link.sql) — 어드민이 켜 준 디자이너만 붙일 수 있다.
+     화면에서 칸을 숨기는 것과 막는 것은 다른 일이다: 액션은 누구나 부를 수
+     있으므로 여기서 허용 여부를 다시 묻는다. */
+  const link = readLinkUrl(form)
+  if (link === false) return fail(BAD_LINK)
+  if (link && !(await getLinkAllowed(id))) return fail(LINK_NOT_ALLOWED)
+
   if (!imageUrl) return fail('이미지를 선택해 주세요.')
   if (description.length > MAX_DESCRIPTION) {
     return fail(`설명은 ${MAX_DESCRIPTION}자 이내로 입력해 주세요.`)
@@ -514,6 +523,8 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
       ...(pages && pages.length > 0 ? { pages } : {}),
       /* 0019 전 DB 에서도 같다 — 영상을 붙였을 때만 싣는다 */
       ...(video ? { video_id: video } : {}),
+      /* 0025 전 DB 에서도 같다 — 링크를 붙였을 때만 싣는다 */
+      ...(link ? { link_url: link } : {}),
       row_span: rowSpan,
       sort_order: sortOrder,
       /* 올리기 창에서 정보를 다 적고 노출 여부도 고른다(work-uploader.tsx).
@@ -531,6 +542,9 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
     }
     if (error?.message.includes('video_id')) {
       return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
+    }
+    if (error?.message.includes('link_url')) {
+      return fail('링크 저장 칸이 없습니다. 0025_work_link.sql 마이그레이션을 실행해 주세요.')
     }
     /* 트리거가 막은 경우 메시지를 그대로 보여준다 */
     return fail(error?.message.includes('최대') ? error.message : '등록에 실패했습니다.')
@@ -558,6 +572,10 @@ export type WorkInput = {
      넘어오지 않으면(undefined) 지금 붙어 있는 것을 그대로 둔다 — 영상 칸이
      없는 화면에서 저장해도 사라지지 않게. */
   videoUrl?: string
+  /* 작업에 붙일 이동 주소(0025_work_link.sql). 영상과 같은 규칙 —
+     빈 문자열이면 떼고, 넘어오지 않으면 붙어 있는 것을 그대로 둔다.
+     허용되지 않은 디자이너의 화면에는 칸이 없어 넘어오지 않는다. */
+  linkUrl?: string
 }
 
 export async function updateWork(input: WorkInput): Promise<Result> {
@@ -593,6 +611,19 @@ export async function updateWork(input: WorkInput): Promise<Result> {
     }
   }
 
+  /* 이동 링크도 같다(0025). 붙이려 할 때만 허용 여부를 묻는다 —
+     떼는 것은 허용이 꺼진 뒤에도 할 수 있어야 한다(이미 붙은 것을 치우는 길). */
+  if (input.linkUrl != null) {
+    const trimmed = input.linkUrl.trim()
+    if (!trimmed) patch.link_url = null
+    else {
+      const url = workLinkUrl(trimmed)
+      if (!url) return fail(BAD_LINK)
+      if (!(await getLinkAllowed(id))) return fail(LINK_NOT_ALLOWED)
+      patch.link_url = url
+    }
+  }
+
   /* designer_id 조건을 함께 걸어 남의 작업을 고치지 못하게 한다 */
   const { error } = await db
     .from('designer_works')
@@ -604,6 +635,9 @@ export async function updateWork(input: WorkInput): Promise<Result> {
     console.error('[works] 수정 실패:', error.message)
     if (error.message.includes('video_id')) {
       return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
+    }
+    if (error.message.includes('link_url')) {
+      return fail('링크 저장 칸이 없습니다. 0025_work_link.sql 마이그레이션을 실행해 주세요.')
     }
     return fail('수정에 실패했습니다.')
   }

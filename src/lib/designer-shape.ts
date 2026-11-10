@@ -32,6 +32,10 @@ export type DesignerRow = {
   /* 디자이너 본인이 정하는 공개 여부 — false면 탐색 화면에서만 숨는다.
      visible 과 섞지 않는다(004_designer_activity.sql 주석 참고). */
   profile_public: boolean
+  /* 포트폴리오에 이동 링크를 붙일 수 있는지 — 어드민만 켜고 끈다
+     (0025_work_link.sql). 꺼져 있으면 스튜디오에 링크 칸이 뜨지 않는다.
+     0025 전에는 select('*') 에 없어 undefined 로 온다 — 꺼짐으로 읽힌다. */
+  portfolio_link_allowed?: boolean
   /* 가격 플랜 — 공개 화면에는 design_price ~ price_max 범위로 나간다.
      시작가는 디자이너가 보기 중에서 고르고(plans.ts),
      상한은 어드민이 직접 적는다(016_price_range.sql).
@@ -82,6 +86,9 @@ export type PublicWork = {
   /* 작업 끝에 붙인 유튜브 영상 id(0019_work_video.sql) — 모달이 마지막 장
      아래에 이어 붙여 보여 준다. 0019 전 DB 에서는 오지 않는다. */
   video_id?: string | null
+  /* 작업에 붙인 이동 주소(0025_work_link.sql) — 모달 하단 가운데에
+     '프로젝트 보기' 버튼으로 뜬다. 0025 전 DB 에서는 오지 않는다. */
+  link_url?: string | null
   width: number | null
   height: number | null
   title: string | null

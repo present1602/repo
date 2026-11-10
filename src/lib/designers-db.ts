@@ -200,6 +200,30 @@ export async function getDesignerById(id: string): Promise<DesignerRow | null> {
   return (data as DesignerRow) ?? null
 }
 
+/* 이 디자이너가 포트폴리오에 이동 링크를 붙일 수 있는지(0025_work_link.sql).
+
+   어드민이 켜 준 경우에만 참이다. 읽지 못하면 거짓 — 0025 전 DB 에서는 칸이
+   없으므로, 링크 기능만 쉬고 나머지 화면은 평소대로 돈다(getChatPublic 과
+   같은 방침). 기본을 거짓으로 두면 모르는 사이에 열리는 일이 없다. */
+export async function getLinkAllowed(designerId: string): Promise<boolean> {
+  if (!supabaseAdmin) return false
+
+  const { data, error } = await supabaseAdmin
+    .from('designers')
+    .select('portfolio_link_allowed')
+    .eq('id', designerId)
+    .maybeSingle()
+
+  if (error) {
+    /* 0025 전에는 칸이 없다 — 조용히 꺼진 것으로 둔다 */
+    if (!error.message.includes('portfolio_link_allowed')) {
+      console.error('[designers] 링크 허용 조회 실패:', error.message)
+    }
+    return false
+  }
+  return (data?.portfolio_link_allowed as boolean | undefined) ?? false
+}
+
 export async function getDesignerByEmail(email: string): Promise<DesignerRow | null> {
   if (!supabaseAdmin) return null
 

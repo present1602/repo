@@ -22,6 +22,7 @@ import {
   reorderWorks,
 } from '@/app/studio/actions'
 import { youtubeId, youtubeWatchUrl } from '@/lib/youtube'
+import { MAX_LINK_URL, workLinkUrl } from '@/lib/work-link'
 import { Img } from '@/components/img'
 import { WorkThumb } from '@/components/work-thumb'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
@@ -42,7 +43,14 @@ import { firstPageCrop, stackOfWork } from '@/lib/work-stack'
 import { WorkUploader } from '@/components/work-uploader'
 import { Flash } from '@/components/flash'
 
-export function PortfolioManager({ works }: { works: WorkRow[] }) {
+export function PortfolioManager({
+  works,
+  linkAllowed = false,
+}: {
+  works: WorkRow[]
+  /* 어드민이 켜 준 경우에만 이동 링크 칸이 뜬다(0025_work_link.sql) */
+  linkAllowed?: boolean
+}) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   /* 편집 레이어로 열어 둔 작업. 목록이 새로 와도(저장 후 refresh) 같은
      id 로 다시 찾으므로 방금 고친 값이 레이어에 바로 반영된다. */
@@ -86,7 +94,7 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
         </div>
 
         {/* 추가는 모드와 상관없이 늘 보인다 — 편집을 켜야 찾을 수 있으면 첫 작업을 못 올린다 */}
-        <AddButton disabled={full} onMessage={setMsg} />
+        <AddButton disabled={full} linkAllowed={linkAllowed} onMessage={setMsg} />
       </div>
 
       {works.length === 0 ? (
@@ -130,6 +138,7 @@ export function PortfolioManager({ works }: { works: WorkRow[] }) {
       {openWork && (
         <WorkEditDialog
           work={openWork}
+          linkAllowed={linkAllowed}
           onClose={() => setEditing(null)}
           onMessage={setMsg}
         />
@@ -305,9 +314,11 @@ function EditList({
    장마다 이미지로 바꿔 올린다. AI 활용은 꺼진 채로 시작한다 — 본인이 답한다. */
 function AddButton({
   disabled,
+  linkAllowed,
   onMessage,
 }: {
   disabled: boolean
+  linkAllowed: boolean
   onMessage: (m: { ok: boolean; text: string } | null) => void
 }) {
   return (
@@ -318,6 +329,7 @@ function AddButton({
         actions={{ prepareUpload: prepareWorkUpload, preparePages: prepareWorkPages, addWork }}
         disabled={disabled}
         aiDefault={false}
+        linkAllowed={linkAllowed}
         className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
         successText={() => '작업을 올렸습니다.'}
         onMessage={onMessage}
@@ -399,10 +411,13 @@ function WorkCard({
    레이어로 옮기면 결과를 볼 수 없다. 컬럼과 공개 화면 동작은 그대로 둔다. */
 function WorkEditDialog({
   work: w,
+  linkAllowed,
   onClose,
   onMessage,
 }: {
   work: WorkRow
+  /* 이동 링크 칸을 보일지(0025_work_link.sql). 이미 붙어 있으면 꺼져 있어도 보인다 */
+  linkAllowed: boolean
   onClose: () => void
   onMessage: (m: { ok: boolean; text: string } | null) => void
 }) {
@@ -418,6 +433,13 @@ function WorkEditDialog({
      보여준다 — 비우고 저장하면 영상을 뗀다. */
   const [videoUrl, setVideoUrl] = useState(w.video_id ? youtubeWatchUrl(w.video_id) : '')
   const badVideo = videoUrl.trim() !== '' && youtubeId(videoUrl) == null
+  /* 이동 링크(0025). 비우고 저장하면 뗀다.
+
+     허용이 꺼져 있어도 이미 붙어 있으면 칸을 보여 준다 — 그래야 뗄 수 있다.
+     붙이는 것만 허용에 걸린다(서버도 같은 기준으로 막는다). */
+  const [linkUrl, setLinkUrl] = useState(w.link_url ?? '')
+  const badLink = linkUrl.trim() !== '' && workLinkUrl(linkUrl) == null
+  const showLink = linkAllowed || Boolean(w.link_url)
   const [pending, start] = useActionTransition()
   const router = useRouter()
 
@@ -457,7 +479,8 @@ function WorkEditDialog({
     client !== (w.client ?? '') ||
     aiUsed !== w.ai_used ||
     soomWork !== (w.soom_work === true) ||
-    videoUrl.trim() !== (w.video_id ? youtubeWatchUrl(w.video_id) : '')
+    videoUrl.trim() !== (w.video_id ? youtubeWatchUrl(w.video_id) : '') ||
+    linkUrl.trim() !== (w.link_url ?? '')
 
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
   useEffect(() => {
@@ -555,6 +578,8 @@ function WorkEditDialog({
           aiUsed,
           soomWork,
           videoUrl: videoUrl.trim(),
+          /* 칸이 없는 화면에서는 보내지 않는다 — 붙여 둔 링크가 조용히 사라지지 않게 */
+          ...(showLink ? { linkUrl: linkUrl.trim() } : {}),
         })
         if (!r.ok) {
           onMessage({ ok: false, text: r.error ?? '처리에 실패했습니다.' })
@@ -694,6 +719,33 @@ function WorkEditDialog({
             </span>
           </label>
 
+          {/* 이동 링크(0025_work_link.sql) — 비우고 저장하면 떼진다.
+              허용이 꺼진 뒤에도 이미 붙은 링크는 뗄 수 있게 칸을 남긴다 */}
+          {showLink && (
+            <label className="mt-3 block">
+              <span className="mb-1.5 block text-xs font-medium text-neutral-600">
+                웹사이트 주소 <span className="font-normal text-neutral-400">(선택)</span>
+              </span>
+              <input
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                inputMode="url"
+                maxLength={MAX_LINK_URL}
+                placeholder="https://example.com"
+                className={`h-9 w-full rounded-lg border px-3 text-sm outline-none ring-violet-500 focus:ring-2 ${
+                  badLink ? 'border-rose-400' : 'border-neutral-300'
+                }`}
+              />
+              <span className="mt-1 block text-xs text-neutral-400">
+                {badLink
+                  ? '주소를 확인해 주세요. 예: https://example.com'
+                  : !linkAllowed
+                    ? '링크 허용이 꺼져 있습니다. 비우고 저장하면 뗄 수 있습니다.'
+                    : "상세 화면에 '프로젝트 보기' 버튼이 뜹니다."}
+              </span>
+            </label>
+          )}
+
           {/* AI 사용 여부 — 공개 화면에는 켠 것만 표기된다 */}
           <div className="mt-3 flex items-center gap-1.5">
             <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
@@ -829,7 +881,7 @@ function WorkEditDialog({
           {/* 썸네일(잡은 영역·고른 파일)과 다른 칸을 함께 저장한다 */}
           <button
             onClick={save}
-            disabled={pending || (!dirty && !thumbDirty) || badVideo}
+            disabled={pending || (!dirty && !thumbDirty) || badVideo || badLink}
             className="mt-4 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
           >
             {pending ? '저장 중…' : '저장'}
