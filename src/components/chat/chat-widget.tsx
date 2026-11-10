@@ -136,6 +136,22 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
     if (open) inputRef.current?.focus()
   }, [open])
 
+  /* 처음으로 되돌린다 — 잘못 고른 길을 버리고 다시 고를 수 있게.
+
+     대화 묶음(sessionId)도 새로 뗀다. 같은 묶음으로 두면 서버가 세는
+     주고받기 횟수가 이어져, 되돌릴수록 쓸 수 있는 횟수가 줄어든다.
+
+     적던 글은 지우지 않는다 — 되돌리기는 고른 길을 무르는 것이지 적어 둔
+     말을 뺏는 것이 아니다. */
+  const reset = () => {
+    setLines([])
+    setOptions(intents)
+    setPicked(false)
+    setStreaming(null)
+    sessionId.current = ''
+    inputRef.current?.focus()
+  }
+
   if (HIDDEN.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null
 
   /* 주고받은 횟수 — 서버도 세지만 누르기 전에 막아 준다 */
@@ -273,13 +289,18 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden className="size-6">
             <path d="M21 12a8 8 0 0 1-8 8H8l-4 3v-4.5A8 8 0 0 1 13 4a8 8 0 0 1 8 8Z" />
           </svg>
-          {/* 공개 전이라는 표시 — 글자를 뺐으니 점으로 남긴다(뜻은 aria-label 에) */}
-          {adminOnly && (
-            <span
-              aria-hidden
-              className="absolute right-0.5 top-0.5 size-3 rounded-full bg-amber-400 ring-2 ring-white"
-            />
-          )}
+          {/* 우상단 점 — 장식이다. 알림이 와 있는 것처럼 보여 눈이 먼저 간다.
+
+              공개 여부와 상관없이 늘 같은 색으로 둔다. 전에는 '어드민에게만
+              보임' 표시였지만, 그러면 공개한 뒤에는 사라져 버린다. 지금 어느
+              쪽인지는 aria-label 과 패널 머리글이 글로 말한다 — 점 하나에
+              뜻을 기대지 않는다.
+
+              보라 계열은 단추 바탕에 묻혀 얼룩처럼 보인다. 주황이라야 또렷하다. */}
+          <span
+            aria-hidden
+            className="absolute right-0.5 top-0.5 size-3 rounded-full bg-amber-400 ring-2 ring-white"
+          />
         </button>
       )}
 
@@ -295,11 +316,31 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
               S
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">무엇이든 물어보세요</p>
+              <p className="truncate text-sm font-semibold">숨봇에게 물어보세요</p>
               <p className="truncate text-[11px] text-neutral-500">
                 {adminOnly ? '공개 전 — 어드민에게만 보입니다' : '의뢰 전 궁금한 점을 답해 드립니다'}
               </p>
             </div>
+
+            {/* 처음으로 — 고른 길을 무르고 다시 고르게 한다.
+                아직 아무것도 고르지 않았으면 할 일이 없으므로 감춘다. */}
+            {lines.length > 0 && (
+              <button
+                type="button"
+                onClick={reset}
+                disabled={sending}
+                title="처음부터 다시"
+                className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 disabled:opacity-40"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-3.5">
+                  {/* 원형 화살표 — 한 바퀴 돌아 처음으로 */}
+                  <path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                초기화
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setOpen(false)}
