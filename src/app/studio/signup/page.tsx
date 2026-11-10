@@ -6,7 +6,7 @@ import { DesignerSignupForm } from '@/components/designers/signup-form'
 import { isInviteLocked } from './actions'
 
 export const metadata: Metadata = {
-  title: '초대 디자이너 회원가입 · SOOM',
+  title: '초대 디자이너 회원가입',
   robots: { index: false, follow: false },
 }
 

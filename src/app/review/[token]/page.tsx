@@ -4,7 +4,7 @@ import { checkReviewToken } from '@/lib/reviews-db'
 import { ReviewForm } from '@/components/review-form'
 
 export const metadata: Metadata = {
-  title: '후기 남기기 · SOOM',
+  title: '후기 남기기',
   /* 링크를 받은 사람만 여는 화면이다 — 검색에 걸릴 이유가 없다 */
   robots: { index: false, follow: false },
 }

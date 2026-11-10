@@ -7,7 +7,7 @@ import { listAllDesigners } from '@/lib/designers-db'
 import { ReviewAdmin } from '@/components/admin/review-admin'
 
 export const metadata: Metadata = {
-  title: '후기 · SOOM',
+  title: '후기',
   robots: { index: false, follow: false },
 }
 

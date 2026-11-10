@@ -24,7 +24,7 @@ import { LogoutButton } from '@/components/designers/logout-button'
 import { DesignerConsole } from '@/components/designers/console'
 
 export const metadata: Metadata = {
-  title: '내 관리 페이지 · SOOM',
+  title: '내 관리 페이지',
   robots: { index: false, follow: false },
 }
 

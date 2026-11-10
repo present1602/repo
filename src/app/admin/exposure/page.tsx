@@ -7,7 +7,7 @@ import { listFeatureIds } from '@/lib/explore-features'
 import { ExposureManager, type ExposureDesigner } from '@/components/admin/exposure-manager'
 
 export const metadata: Metadata = {
-  title: '디자이너 노출 관리 · SOOM',
+  title: '디자이너 노출 관리',
   robots: { index: false, follow: false },
 }
 

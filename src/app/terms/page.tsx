@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: '이용약관 · SOOM',
+  title: '이용약관',
   description: 'SOOM 서비스 이용약관, 개인정보 처리방침, 환불 정책.',
 }
 

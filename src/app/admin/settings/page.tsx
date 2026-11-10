@@ -20,7 +20,7 @@ import { FaqManager } from '@/components/admin/faq-manager'
 import { ScopePromptToggle, ShowDurationToggle } from '@/components/admin/scope-prompt-toggle'
 
 export const metadata: Metadata = {
-  title: '설정 · SOOM',
+  title: '설정',
   robots: { index: false, follow: false },
 }
 

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { DesignerApplyForm } from '@/components/designers/apply-form'
 
 export const metadata: Metadata = {
-  title: '디자이너 신청 · SOOM',
+  title: '디자이너 신청',
   description: 'SOOM 디자이너 그룹 신청',
   /* 제안서와 같이 링크를 받은 사람만 온다 */
   robots: { index: false, follow: false },

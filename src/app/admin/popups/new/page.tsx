@@ -5,7 +5,7 @@ import { getAdminUser } from '@/lib/admin-auth'
 import { PopupForm } from '@/components/admin/popup-form'
 
 export const metadata: Metadata = {
-  title: '팝업 추가 · SOOM',
+  title: '팝업 추가',
   robots: { index: false, follow: false },
 }
 

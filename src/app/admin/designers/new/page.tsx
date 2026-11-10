@@ -6,7 +6,7 @@ import { listSpecialtyOptions } from '@/lib/specialties'
 import { DesignerCreateForm } from '@/components/admin/designer-create-form'
 
 export const metadata: Metadata = {
-  title: '디자이너 추가 · SOOM',
+  title: '디자이너 추가',
   robots: { index: false, follow: false },
 }
 

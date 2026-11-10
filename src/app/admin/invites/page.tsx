@@ -6,7 +6,7 @@ import { listInvites } from '@/lib/invites-db'
 import { InviteManager } from '@/components/admin/invite-manager'
 
 export const metadata: Metadata = {
-  title: '초대코드 · SOOM',
+  title: '초대코드',
   robots: { index: false, follow: false },
 }
 

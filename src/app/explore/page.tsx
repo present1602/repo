@@ -9,7 +9,7 @@ import { designerChoices } from '@/lib/inquiry-choices'
 import { hiddenScopes } from '@/lib/plans'
 
 export const metadata: Metadata = {
-  title: '탐색 · SOOM',
+  title: '탐색',
 }
 
 /* 목록은 캐시하지 않는다 — 디자이너가 프로필을 공개·비공개로 바꾸거나

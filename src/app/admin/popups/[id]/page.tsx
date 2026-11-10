@@ -6,7 +6,7 @@ import { getPopup } from '@/lib/popups-db'
 import { PopupForm } from '@/components/admin/popup-form'
 
 export const metadata: Metadata = {
-  title: '팝업 수정 · SOOM',
+  title: '팝업 수정',
   robots: { index: false, follow: false },
 }
 

@@ -5,7 +5,7 @@ import { getDesignerUser } from '@/lib/designer-auth'
 import { DesignerLoginForm } from '@/components/designers/login-form'
 
 export const metadata: Metadata = {
-  title: '디자이너 로그인 · SOOM',
+  title: '디자이너 로그인',
   robots: { index: false, follow: false },
 }
 

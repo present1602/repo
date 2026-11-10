@@ -7,7 +7,7 @@ import { listPopups } from '@/lib/popups-db'
 import { PopupList } from '@/components/admin/popup-list'
 
 export const metadata: Metadata = {
-  title: '팝업 · SOOM',
+  title: '팝업',
   robots: { index: false, follow: false },
 }
 

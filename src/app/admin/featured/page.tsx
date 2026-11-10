@@ -7,7 +7,7 @@ import { listFeaturedWorks } from '@/lib/designers-db'
 import { FeaturedList } from '@/components/admin/featured-list'
 
 export const metadata: Metadata = {
-  title: '메인 노출 · SOOM',
+  title: '메인 노출',
   robots: { index: false, follow: false },
 }
 

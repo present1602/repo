@@ -6,7 +6,7 @@ import { listWorksPage } from '@/lib/designers-db'
 import { WorksGrid } from '@/components/admin/works-grid'
 
 export const metadata: Metadata = {
-  title: '포트폴리오 · SOOM',
+  title: '포트폴리오',
   robots: { index: false, follow: false },
 }
 

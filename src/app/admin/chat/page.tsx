@@ -11,7 +11,7 @@ import { ChatLogList } from '@/components/admin/chat-log-list'
 import { ChatPublicToggle } from '@/components/admin/chat-public-toggle'
 
 export const metadata: Metadata = {
-  title: '챗봇 · SOOM',
+  title: '챗봇',
   robots: { index: false, follow: false },
 }
 

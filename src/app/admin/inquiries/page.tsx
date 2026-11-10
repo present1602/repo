@@ -7,7 +7,7 @@ import { listAllDesigners } from '@/lib/designers-db'
 import { InquiryList } from '@/components/admin/inquiry-list'
 
 export const metadata: Metadata = {
-  title: '문의 · SOOM',
+  title: '문의',
   robots: { index: false, follow: false },
 }
 

@@ -8,7 +8,7 @@ import { HtmlClass } from '@/components/html-class'
 import { Half, Label, Rule, Spread, pad } from '@/components/proposal/spread-bits'
 
 export const metadata: Metadata = {
-  title: '디자이너 제안서 · SOOM',
+  title: '디자이너 제안서',
   description: '클라이언트의 리스크를 낮추고 소액 의뢰가 큰 의뢰로 이어질 수 있게 연결해드립니다.',
   /* 모집 자료라 링크를 받은 사람만 본다 — 검색에 걸릴 이유가 없다 */
   robots: { index: false, follow: false },
