@@ -395,6 +395,14 @@ export function WorkDialog({
     setCropMode(true)
   }
 
+  /* 영역 지정 취소 — 잡던 영역을 버리고 저장된 영역으로 되돌린다.
+     cropMode 만 끄면 잡다 만 영역이 남아 '저장'이 켜진 채로 있는다. */
+  const cancelCropMode = () => {
+    setCrop(cropOf(w))
+    setRatio(null)
+    setCropMode(false)
+  }
+
   /* 저장 — 영역을 잡고 있으면 썸네일을 먼저 저장하고, 다른 칸이 바뀌었으면 이어서 저장한다 */
   const save = () => {
     onNotice(null)
@@ -480,27 +488,42 @@ export function WorkDialog({
         {/* 이미지 — 원본을 크게 본다. 썸네일을 편집할 때는 이 위에서 영역을 잡는다.
             PDF 작업은 첫 장 아래로 나머지 장을 이어 붙여 내려 보며 확인하고,
             영역도 그 이어진 그림 어디에서나 잡는다. */}
-        <ZoomArea
-          handle={zoomRef}
-          ratio={w.width && w.height ? w.width / w.height : null}
-          naturalWidth={w.width}
-          fit={hasPages ? 'width' : 'contain'}
-          className="flex-1"
-        >
-          {cropMode && crop ? (
-            <CropEditor
-              src={w.image_url}
-              pages={stack ? w.pages! : undefined}
-              crop={crop}
-              onChange={setCrop}
-              lockedRatio={ratio == null ? null : ratioValue(ratio)}
-              imgRatio={imgRatio}
-            />
-          ) : (
-            /* 전체 크기가 저장되기 전에 올라간 PDF(stack 없음)는 보기만 이어 붙인다 */
-            <StackView src={w.image_url} pages={hasPages ? w.pages : null} alt={w.title ?? ''} />
+        {/* relative — 영역 지정 취소 버튼을 이 칸 바닥 가운데에 띄운다 */}
+        <div className="relative flex min-h-0 flex-1">
+          <ZoomArea
+            handle={zoomRef}
+            ratio={w.width && w.height ? w.width / w.height : null}
+            naturalWidth={w.width}
+            fit={hasPages ? 'width' : 'contain'}
+            className="flex-1"
+          >
+            {cropMode && crop ? (
+              <CropEditor
+                src={w.image_url}
+                pages={stack ? w.pages! : undefined}
+                crop={crop}
+                onChange={setCrop}
+                lockedRatio={ratio == null ? null : ratioValue(ratio)}
+                imgRatio={imgRatio}
+              />
+            ) : (
+              /* 전체 크기가 저장되기 전에 올라간 PDF(stack 없음)는 보기만 이어 붙인다 */
+              <StackView src={w.image_url} pages={hasPages ? w.pages : null} alt={w.title ?? ''} />
+            )}
+          </ZoomArea>
+
+          {/* 영역을 잡는 중에만 — 빠져나갈 길이 없으면 잡다 만 영역을 안고
+              저장하거나 창을 닫는 수밖에 없다(Esc 도 이때는 닫지 않는다) */}
+          {cropMode && (
+            <button
+              type="button"
+              onClick={cancelCropMode}
+              className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-neutral-300 bg-white/90 px-3.5 py-1.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur-sm transition hover:bg-neutral-100 hover:text-neutral-900"
+            >
+              영역지정 취소
+            </button>
           )}
-        </ZoomArea>
+        </div>
 
         {/* 편집 */}
         <div className="flex w-full shrink-0 flex-col overflow-y-auto border-t border-neutral-200 p-5 md:w-80 md:border-l md:border-t-0">

@@ -686,13 +686,20 @@ function ZoomImage({
 
   /* 길쭉한 그림은 너비에 맞춰 잘리게 두고, 나머지는 칸 안에 통째로 넣는다.
      영상은 빼고 그림만으로 잰다 — 영상 칸 크기가 fit 에서 나오므로,
-     fit 이 영상까지 보고 정해지면 둘이 서로 물고 돈다. */
+     fit 이 영상까지 보고 정해지면 둘이 서로 물고 돈다.
+
+     1 을 넘기지 않는다 — 칸보다 작은 그림을 늘리면 원래 없던 화소를 만들어
+     흐려진다. 작은 그림은 제 크기 그대로 가운데에 두고 양옆·위아래에 흰
+     여백을 남긴다. 확대(zoom)는 보는 사람이 직접 고르는 것이라 그대로 둔다. */
   const tall = imagesOnly ? imagesOnly.h / imagesOnly.w > TALL_RATIO : false
   const fit =
     boxSize && imagesOnly
-      ? tall
-        ? boxSize.w / imagesOnly.w
-        : Math.min(boxSize.w / imagesOnly.w, boxSize.h / imagesOnly.h)
+      ? Math.min(
+          1,
+          tall
+            ? boxSize.w / imagesOnly.w
+            : Math.min(boxSize.w / imagesOnly.w, boxSize.h / imagesOnly.h),
+        )
       : null
 
   /* 영상 칸 — 맨 끝까지 내리면 칸(보이는 영역) 하나를 영상 칸이 꽉 채운다.
