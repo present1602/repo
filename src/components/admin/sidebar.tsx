@@ -17,6 +17,7 @@ const menu = [
   { href: '/admin/popups', label: '팝업' },
   { href: '/admin/chat', label: '문의 챗봇' },
   { href: '/admin/faq', label: 'FAQ' },
+  { href: '/admin/guide', label: '설정 가이드' },
   { href: '/admin/settings', label: '설정' },
 ]
 
