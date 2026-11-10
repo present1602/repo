@@ -3,7 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { getAdminUser } from '@/lib/admin-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { MAX_KNOWLEDGE_BODY, MAX_KNOWLEDGE_TITLE } from '@/lib/chat-shape'
+import {
+  MAX_INTENT_INTRO,
+  MAX_INTENT_LABEL,
+  MAX_KNOWLEDGE_BODY,
+  MAX_KNOWLEDGE_TITLE,
+} from '@/lib/chat-shape'
 
 /* 챗봇 지식 카드와 대화 기록(0023_chat.sql).
 
@@ -182,6 +187,145 @@ export async function resolveLog(logId: string, resolved = true): Promise<Result
 
   const { error } = await db.from('chat_logs').update({ resolved }).eq('id', logId)
   if (error) return dbFail(error.message, '목록에서 내리기')
+
+  refresh()
+  return { ok: true }
+}
+
+/* ─────────── 시작 메뉴 ───────────
+
+   챗봇을 열면 깔리는 단추(0027_chat_intents.sql). 지식 카드와 짜임은 같고
+   다른 것은 하나다: 단추가 단추를 품는다(parent_id). 그래서 더할 때 어느
+   단추 아래인지 받고, 차례도 같은 부모 안에서만 매긴다. */
+
+function intentFail(message: string, what: string) {
+  console.error(`[chat] ${what} 실패:`, message)
+  if (/chat_intents/i.test(message)) {
+    return fail('시작 메뉴 표가 아직 없습니다. 0027_chat_intents.sql 을 실행해 주세요.')
+  }
+  return fail(`${what}에 실패했습니다.`)
+}
+
+/* 적은 글을 다듬고 길이를 본다 — DB check 제약과 같은 값 */
+function cleanIntent(label: string, intro: string): { label: string; intro: string } | string {
+  const l = label.trim()
+  if (!l) return '단추에 적을 말을 입력해 주세요.'
+  if (l.length > MAX_INTENT_LABEL) {
+    return `단추 글자는 ${MAX_INTENT_LABEL}자 이내로 입력해 주세요.`
+  }
+  if (intro.length > MAX_INTENT_INTRO) {
+    return `소개 멘트는 ${MAX_INTENT_INTRO}자 이내로 입력해 주세요.`
+  }
+  return { label: l, intro }
+}
+
+/* 같은 부모 안에서 맨 뒤에 붙을 차례 */
+async function nextIntentOrder(
+  db: NonNullable<typeof supabaseAdmin>,
+  parentId: string | null,
+): Promise<number> {
+  let q = db.from('chat_intents').select('sort_order')
+  /* is(null) 과 eq 는 다른 질의다 — 섞으면 첫 단계와 자식이 한 묶음이 된다 */
+  q = parentId == null ? q.is('parent_id', null) : q.eq('parent_id', parentId)
+
+  const { data } = await q.order('sort_order', { ascending: false }).limit(1).maybeSingle()
+  return ((data?.sort_order as number | undefined) ?? -1) + 1
+}
+
+export async function addIntent(
+  parentId: string | null,
+  label: string,
+  intro: string,
+): Promise<Result> {
+  const db = await guard()
+
+  const ok = cleanIntent(label, intro)
+  if (typeof ok === 'string') return fail(ok)
+
+  const { error } = await db.from('chat_intents').insert({
+    parent_id: parentId,
+    label: ok.label,
+    intro: ok.intro,
+    sort_order: await nextIntentOrder(db, parentId),
+  })
+
+  if (error) return intentFail(error.message, '단추 추가')
+
+  refresh()
+  return { ok: true }
+}
+
+export async function updateIntent(id: string, label: string, intro: string): Promise<Result> {
+  const db = await guard()
+
+  const ok = cleanIntent(label, intro)
+  if (typeof ok === 'string') return fail(ok)
+
+  const { error } = await db
+    .from('chat_intents')
+    .update({ label: ok.label, intro: ok.intro, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) return intentFail(error.message, '단추 저장')
+
+  refresh()
+  return { ok: true }
+}
+
+export async function setIntentEnabled(id: string, enabled: boolean): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db
+    .from('chat_intents')
+    .update({ enabled, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) return intentFail(error.message, '단추 켜고 끄기')
+
+  refresh()
+  return { ok: true }
+}
+
+/* 차례 — 한 부모 안에서만 다시 매긴다.
+
+   받은 목록이 그 부모의 자식 전부와 맞는지 본다. 어긋나면 쓰지 않는다 —
+   빠진 줄이 0번으로 몰려 차례가 뒤엉킨다(reorderKnowledge 와 같은 방침). */
+export async function reorderIntents(parentId: string | null, ids: string[]): Promise<Result> {
+  const db = await guard()
+
+  if (ids.length === 0) return { ok: true }
+
+  let q = db.from('chat_intents').select('id')
+  q = parentId == null ? q.is('parent_id', null) : q.eq('parent_id', parentId)
+
+  const { data: all, error: readErr } = await q
+  if (readErr) return intentFail(readErr.message, '차례 저장')
+
+  const known = new Set((all ?? []).map((r) => r.id as string))
+  const list = ids.filter((id) => known.has(id))
+
+  if (list.length !== known.size) {
+    return fail('목록이 바뀌었습니다. 새로고침 후 다시 시도해 주세요.')
+  }
+
+  const results = await Promise.all(
+    list.map((id, i) => db.from('chat_intents').update({ sort_order: i }).eq('id', id)),
+  )
+
+  const failed = results.find((r) => r.error)
+  if (failed?.error) return intentFail(failed.error.message, '차례 저장')
+
+  refresh()
+  return { ok: true }
+}
+
+/* 지우면 아래 단계도 함께 지워진다(0027 의 on delete cascade).
+   화면에서 그 사실을 먼저 알린 뒤 부른다. */
+export async function deleteIntent(id: string): Promise<Result> {
+  const db = await guard()
+
+  const { error } = await db.from('chat_intents').delete().eq('id', id)
+  if (error) return intentFail(error.message, '단추 삭제')
 
   refresh()
   return { ok: true }

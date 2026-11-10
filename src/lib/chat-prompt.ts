@@ -1,5 +1,6 @@
 import 'server-only'
 import { listEnabledKnowledge } from './chat-knowledge'
+import { intentFacts } from './chat-intents'
 import { listVisibleFaqs } from './faqs'
 import { listCategoryMetas, listExploreSpecialties } from './specialties'
 import { getBudgetsByCategory } from './specialty-budgets'
@@ -167,9 +168,15 @@ const RULES = `당신은 디자인 의뢰 중개 플랫폼 'soom(숨)' 의 문�
 /* 캐시에 올릴 지식 덩이 — 요청마다 같아야 캐시가 맞는다.
    어드민이 지식을 고치면 글자가 달라져 캐시가 새로 만들어진다(의도한 동작). */
 export async function buildChatSystem(): Promise<string> {
-  const [site, faq, extra] = await Promise.all([siteFacts(), faqFacts(), knowledgeFacts()])
+  const [site, intents, faq, extra] = await Promise.all([
+    siteFacts(),
+    /* 시작 메뉴의 단추와 소개 멘트 — 단추를 누르지 않고 글로 물어도 답하게 */
+    intentFacts(),
+    faqFacts(),
+    knowledgeFacts(),
+  ])
 
-  const facts = [site, faq, extra].filter(Boolean).join('\n\n')
+  const facts = [site, intents, faq, extra].filter(Boolean).join('\n\n')
 
   return [
     RULES,

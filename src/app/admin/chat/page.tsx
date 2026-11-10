@@ -5,8 +5,10 @@ import { getAdminUser } from '@/lib/admin-auth'
 import { supabaseConfigured } from '@/lib/supabase-admin'
 import { getChatPublic } from '@/lib/site-settings'
 import { listAllKnowledge, listChatLogs } from '@/lib/chat-knowledge'
+import { getAllIntentTree } from '@/lib/chat-intents'
 import { chatKnowledgeStats } from '@/lib/chat-prompt'
 import { KnowledgeManager } from '@/components/admin/knowledge-manager'
+import { IntentManager } from '@/components/admin/intent-manager'
 import { ChatLogList } from '@/components/admin/chat-log-list'
 import { ChatPublicToggle } from '@/components/admin/chat-public-toggle'
 
@@ -21,6 +23,7 @@ export const instant = false
 const TABS = [
   { key: 'todo', label: '답변 필요' },
   { key: 'knowledge', label: '지식' },
+  { key: 'intents', label: '시작 메뉴' },
   { key: 'logs', label: '전체 대화' },
 ] as const
 type Tab = (typeof TABS)[number]['key']
@@ -41,10 +44,11 @@ export default async function AdminChatPage(props: PageProps<'/admin/chat'>) {
   const tab: Tab = isTab(rawTab) ? rawTab : 'todo'
 
   /* 탭마다 필요한 것만 읽는다 — 머리글의 스위치와 지식 수는 어느 탭에서나 쓴다 */
-  const [isPublic, stats, knowledge, logs] = await Promise.all([
+  const [isPublic, stats, knowledge, intents, logs] = await Promise.all([
     getChatPublic(),
     chatKnowledgeStats(),
     tab === 'knowledge' ? listAllKnowledge() : null,
+    tab === 'intents' ? getAllIntentTree() : null,
     tab === 'todo'
       ? listChatLogs({ todoOnly: true })
       : tab === 'logs'
@@ -105,6 +109,9 @@ export default async function AdminChatPage(props: PageProps<'/admin/chat'>) {
 
         {/* 지식 — 어드민이 늘려 가는 카드 */}
         {tab === 'knowledge' && <KnowledgeManager knowledge={knowledge!} />}
+
+        {/* 시작 메뉴 — 챗봇을 열면 깔리는 단추와 그 소개 멘트 */}
+        {tab === 'intents' && <IntentManager tree={intents!} />}
 
         {/* 전체 대화 — 무엇을 묻는지 읽는 자리 */}
         {tab === 'logs' && <ChatLogList logs={logs!} todoOnly={false} />}

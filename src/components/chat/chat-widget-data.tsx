@@ -1,5 +1,6 @@
 import { getChatPublic } from '@/lib/site-settings'
 import { getAdminUser } from '@/lib/admin-auth'
+import { getIntentTree } from '@/lib/chat-intents'
 import { ChatWidget } from './chat-widget'
 
 /* 챗봇을 누구에게 보일지 정하는 자리.
@@ -17,8 +18,10 @@ export async function ChatWidgetData() {
   if (!isPublic) {
     const admin = await getAdminUser()
     if (!admin) return null
-    return <ChatWidget adminOnly />
+    return <ChatWidget adminOnly intents={await getIntentTree()} />
   }
 
-  return <ChatWidget adminOnly={false} />
+  /* 시작 메뉴 — 비어 있으면(마이그레이션 전이거나 다 꺼 뒀으면) 단추 없이
+     열리고 평소처럼 적어서 물으면 된다 */
+  return <ChatWidget adminOnly={false} intents={await getIntentTree()} />
 }

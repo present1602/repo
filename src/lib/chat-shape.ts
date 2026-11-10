@@ -35,6 +35,52 @@ export type ChatLog = {
 export const MAX_KNOWLEDGE_TITLE = 200
 export const MAX_KNOWLEDGE_BODY = 8000
 
+/* ─────────── 시작 메뉴 ───────────
+
+   챗봇을 열면 깔리는 단추 하나(0027_chat_intents.sql). 누르면 intro 가 뜨고,
+   아래 단계가 있으면 다음 단추가 이어진다. */
+export type ChatIntent = {
+  id: string
+  /* 비어 있으면 첫 단계 */
+  parent_id: string | null
+  /* 단추에 적히는 말 */
+  label: string
+  /* 누른 뒤 띄우는 소개 멘트. 비우면 멘트 없이 다음 단계로 넘어간다 */
+  intro: string
+  sort_order: number
+  /* 끄면 손님에게 안 보인다. 어드민 목록에는 남는다 */
+  enabled: boolean
+}
+
+/* 화면에 그리기 좋게 자식을 품은 꼴 — 서버에서 한 번 엮어 내려보낸다 */
+export type ChatIntentNode = ChatIntent & { children: ChatIntentNode[] }
+
+/* 0027 의 check 제약과 같은 길이 — 함께 고쳐야 한다 */
+export const MAX_INTENT_LABEL = 40
+export const MAX_INTENT_INTRO = 2000
+
+/* 평평한 목록을 부모-자식으로 엮는다.
+
+   서버와 어드민 화면이 같은 규칙으로 엮어야 차례가 어긋나지 않으므로 한곳에 둔다.
+   부모가 목록에 없는 줄(부모가 꺼져 있을 때)은 버린다 — 꺼진 가지의 자식이
+   첫 단계로 올라오면 안 된다. */
+export function buildIntentTree(rows: ChatIntent[]): ChatIntentNode[] {
+  const byId = new Map<string, ChatIntentNode>()
+  for (const r of rows) byId.set(r.id, { ...r, children: [] })
+
+  const roots: ChatIntentNode[] = []
+  for (const node of byId.values()) {
+    if (node.parent_id == null) {
+      roots.push(node)
+      continue
+    }
+    byId.get(node.parent_id)?.children.push(node)
+  }
+
+  /* 들어온 차례(sort_order, created_at)가 이미 맞으므로 다시 정렬하지 않는다 */
+  return roots
+}
+
 /* ─────────── 대화 한계 ───────────
 
    로그인 없이 누구나 치는 입구다(공개로 켠 뒤). 상한을 서버에서 센다 —
