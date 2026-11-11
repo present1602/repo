@@ -444,7 +444,10 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
                     }}
                     rows={1}
                     placeholder="예: 로고만 따로 의뢰할 수 있나요?"
-                    className="max-h-28 min-w-0 flex-1 resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none ring-violet-500 placeholder:text-neutral-400 focus:ring-2"
+                    /* 모바일은 16px — iOS 는 16px 보다 작은 입력칸을 누르면 화면을
+                       저절로 확대해, 챗봇 창이 커지며 오른쪽이 잘려 보인다.
+                       넓은 화면(sm 이상)은 예전 크기(14px) 그대로 둔다. */
+                    className="max-h-28 min-w-0 flex-1 resize-none rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none ring-violet-500 placeholder:text-neutral-400 focus:ring-2 sm:text-sm"
                   />
                   <button
                     type="button"
