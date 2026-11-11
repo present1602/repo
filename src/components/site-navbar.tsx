@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { Navbar } from './navbar'
 import { StudioNavbar } from './studio-navbar'
+import { type SiteMenus } from '@/lib/site-menu-shape'
 
 /* 사이트 바를 붙일지 말지 정한다(site-footer.tsx 와 같은 방침).
 
@@ -18,11 +19,11 @@ const HIDDEN = ['/admin', '/designers/proposal']
 
 const under = (pathname: string, p: string) => pathname === p || pathname.startsWith(`${p}/`)
 
-export function SiteNavbar() {
+export function SiteNavbar({ menus }: { menus: SiteMenus }) {
   const pathname = usePathname() ?? ''
 
   if (HIDDEN.some((p) => under(pathname, p))) return null
   if (under(pathname, '/studio')) return <StudioNavbar />
 
-  return <Navbar />
+  return <Navbar menus={menus} />
 }

@@ -15,6 +15,7 @@ const menu = [
   { href: '/admin/featured', label: '메인 노출' },
   { href: '/admin/exposure', label: '디자이너 노출 관리' },
   { href: '/admin/popups', label: '팝업' },
+  { href: '/admin/menus', label: '메뉴관리' },
   { href: '/admin/chat', label: '문의 챗봇' },
   { href: '/admin/faq', label: 'FAQ' },
   { href: '/admin/guide', label: '설정 가이드' },

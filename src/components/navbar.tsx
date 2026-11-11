@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { InquiryModal } from '@/components/inquiry/inquiry-modal'
 import { ExploreLink } from '@/components/explore-gate'
+import { SITE_MENU_ITEMS, type SiteMenus } from '@/lib/site-menu-shape'
 
 /* 사이트 공통 바.
 
@@ -13,13 +14,13 @@ import { ExploreLink } from '@/components/explore-gate'
 
    차례는 소개 → 탐색 → FAQ → 의뢰하기 다. 색을 채운 단추는 의뢰 하나뿐이라
    오른쪽 끝에 둔다. */
-export function Navbar() {
+export function Navbar({ menus }: { menus: SiteMenus }) {
   const [inquiry, setInquiry] = useState(false)
 
   return (
     <>
       <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 md:px-8">
+        <div className="mx-auto flex min-h-14 max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 md:px-8">
           {/* 글자에 보라→파랑 그라데이션을 입힌다 — 배경을 글자 모양으로 잘라 낸다 */}
           <Link
             href="/"
@@ -28,27 +29,15 @@ export function Navbar() {
             SOOM
           </Link>
 
-          <div className="ml-auto flex items-center gap-5">
-            {/* 누가·어떻게 만드는지 — 처음 온 손님이 가장 먼저 볼 곳이라 맨 앞에 둔다 */}
-            <Link
-              href="/about"
-              className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
-            >
-              소개
-            </Link>
-
-            {/* 공개 전에는 탐색 대신 지원 안내를 띄운다(explore-gate.tsx) */}
-            <ExploreLink className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900">
-              탐색
-            </ExploreLink>
-
-            {/* 의뢰 전에 묻는 것들 — 어드민 → FAQ 에서 적은 글을 그대로 보여준다 */}
-            <Link
-              href="/faq"
-              className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
-            >
-              FAQ
-            </Link>
+          <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2 sm:gap-x-5">
+            {SITE_MENU_ITEMS.filter(({ key }) => menus[key].visible).map(({ key, href }) => {
+              const className = 'break-all text-sm font-medium text-neutral-600 transition hover:text-neutral-900'
+              return key === 'explore' ? (
+                <ExploreLink key={key} className={className}>{menus[key].name}</ExploreLink>
+              ) : (
+                <Link key={key} href={href} className={className}>{menus[key].name}</Link>
+              )
+            })}
 
             {/* 가장 하고 싶은 일 — 유일하게 색을 채운 버튼으로 둔다.
                 페이지를 옮기지 않고 그 자리에서 폼을 띄운다. */}
