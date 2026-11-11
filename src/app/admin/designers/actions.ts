@@ -7,7 +7,16 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { generateTempPassword, hashPassword } from '@/lib/password'
 import { sendTempPassword } from '@/lib/designer-mail'
 import { displayName } from '@/lib/display-name'
-import { putImage, signImageUpload, claimImage, signPageUploads, claimPages } from '@/lib/upload'
+import {
+  putImage,
+  signImageUpload,
+  claimImage,
+  signPageUploads,
+  claimPages,
+  signVideoUpload,
+  claimVideoPath,
+  removeVideoFile,
+} from '@/lib/upload'
 import { BAD_VIDEO, readVideoId, youtubeId } from '@/lib/youtube'
 import { BAD_LINK, readLinkUrl, workLinkUrl } from '@/lib/work-link'
 import { SCOPES, SCOPE_LABELS, type Scope } from '@/lib/scopes'
@@ -815,6 +824,16 @@ export async function adminPrepareWorkPages(
   return signPageUploads(`works/${designerId}`, files)
 }
 
+/* 작업 끝에 붙일 영상 파일 — 본인용(prepareVideoUpload)과 같다. 올리기는
+   '저장'을 누른 뒤에 한다(work-uploader.tsx) */
+export async function adminPrepareVideoUpload(
+  name: string,
+  size: number,
+): Promise<{ ok: true; path: string; token: string } | { ok: false; error: string }> {
+  await guard()
+  return signVideoUpload(name, size)
+}
+
 export async function adminAddWork(form: FormData): Promise<Result<{ id: string }>> {
   const db = await guard()
 
@@ -839,6 +858,12 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
   /* 작업 끝에 붙일 유튜브 영상 — 주소를 받아 id 만 저장한다(youtube.ts) */
   const video = readVideoId(form)
   if (video === false) return fail(BAD_VIDEO)
+
+  /* 올린 영상 파일(0028_work_video_upload.sql) — 유튜브의 대안. 둘 다
+     왔으면 유튜브를 앞세운다(studio/actions.ts 의 addWork 와 같은 방침) */
+  const videoPathRaw = String(form.get('videoPath') ?? '')
+  const videoPath = video ? null : videoPathRaw ? claimVideoPath(videoPathRaw) : null
+  if (videoPathRaw && !videoPath) return fail('영상 파일을 찾을 수 없습니다. 다시 올려 주세요.')
 
   /* 이동 링크(0025_work_link.sql) — 허용 스위치를 쥔 쪽이 어드민이므로
      여기서는 허용 여부를 묻지 않는다. 디자이너에게 허용되지 않은 계정이어도
@@ -912,6 +937,8 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
       ...(pages && pages.length > 0 ? { pages } : {}),
       /* 0019 전 DB 에서도 같다 — 영상을 붙였을 때만 싣는다 */
       ...(video ? { video_id: video } : {}),
+      /* 0028 전 DB 에서도 같다 — 올린 영상이 있을 때만 싣는다 */
+      ...(videoPath ? { video_file_path: videoPath } : {}),
       /* 0025 전 DB 에서도 같다 — 링크를 붙였을 때만 싣는다 */
       ...(link ? { link_url: link } : {}),
       ...readCrop(form),
@@ -928,6 +955,9 @@ export async function adminAddWork(form: FormData): Promise<Result<{ id: string 
     }
     if (error?.message.includes('video_id')) {
       return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
+    }
+    if (error?.message.includes('video_file_path')) {
+      return fail('영상 파일 저장 칸이 없습니다. 0028_work_video_upload.sql 마이그레이션을 실행해 주세요.')
     }
     if (error?.message.includes('link_url')) {
       return fail('링크 저장 칸이 없습니다. 0025_work_link.sql 마이그레이션을 실행해 주세요.')
@@ -956,6 +986,9 @@ export type AdminWorkInput = {
      넘어오지 않으면(undefined) 지금 붙어 있는 것을 그대로 둔다 — 스튜디오
      쪽(WorkInput)과 같은 규칙이다. */
   videoUrl?: string
+  /* 작업 끝에 붙일 올린 영상(0028_work_video_upload.sql). videoUrl 과
+     배타적이다 — 스튜디오 쪽(WorkInput)과 같은 규칙이다. */
+  videoPath?: string
   /* 작업에 붙일 이동 주소(0025_work_link.sql) — 영상과 같은 규칙.
      어드민은 허용 스위치와 무관하게 붙이고 뗄 수 있다. */
   linkUrl?: string
@@ -986,6 +1019,20 @@ export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
       const vid = youtubeId(trimmed)
       if (!vid) return fail(BAD_VIDEO)
       patch.video_id = vid
+      patch.video_file_path = null
+    }
+  }
+
+  /* 올린 영상 파일도 같다 — videoUrl 과 배타적이다(studio/actions.ts 의
+     updateWork 와 같은 방침) */
+  if (input.videoPath != null && input.videoUrl == null) {
+    const trimmed = input.videoPath.trim()
+    if (!trimmed) patch.video_file_path = null
+    else {
+      const path = claimVideoPath(trimmed)
+      if (!path) return fail('영상 파일을 찾을 수 없습니다. 다시 올려 주세요.')
+      patch.video_file_path = path
+      patch.video_id = null
     }
   }
 
@@ -1000,6 +1047,18 @@ export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
     }
   }
 
+  /* 영상 파일을 떼거나 바꾸면 버킷에서도 치운다 — studio/actions.ts 의
+     updateWork 와 같은 방침 */
+  let oldVideoPath: string | null = null
+  if ('video_file_path' in patch) {
+    const { data: before } = await db
+      .from('designer_works')
+      .select('video_file_path')
+      .eq('id', input.id)
+      .maybeSingle()
+    oldVideoPath = (before?.video_file_path as string | null) ?? null
+  }
+
   const { error } = await db.from('designer_works').update(patch).eq('id', input.id)
 
   if (error) {
@@ -1007,10 +1066,17 @@ export async function adminUpdateWork(input: AdminWorkInput): Promise<Result> {
     if (error.message.includes('video_id')) {
       return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
     }
+    if (error.message.includes('video_file_path')) {
+      return fail('영상 파일 저장 칸이 없습니다. 0028_work_video_upload.sql 마이그레이션을 실행해 주세요.')
+    }
     if (error.message.includes('link_url')) {
       return fail('링크 저장 칸이 없습니다. 0025_work_link.sql 마이그레이션을 실행해 주세요.')
     }
     return fail('수정에 실패했습니다.')
+  }
+
+  if (oldVideoPath && oldVideoPath !== patch.video_file_path) {
+    await removeVideoFile(oldVideoPath)
   }
 
   refresh(input.designerId)

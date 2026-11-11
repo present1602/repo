@@ -36,6 +36,8 @@ import {
 import { makeStackThumb, makeThumb } from '@/lib/make-thumb'
 import { youtubeId } from '@/lib/youtube'
 import { MAX_LINK_URL, workLinkUrl } from '@/lib/work-link'
+import { MAX_VIDEO_MB, VIDEO_ACCEPT, WORK_VIDEOS_BUCKET, checkVideoFile } from '@/lib/video-upload'
+import { WarnToast } from '@/components/warn-toast'
 import { firstPageCrop, stackSize } from '@/lib/work-stack'
 import { DESIGNER_IMAGES_BUCKET, uploadSigned } from '@/lib/direct-upload'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
@@ -47,6 +49,9 @@ type SignedMany = { ok: true; uploads: { path: string; token: string }[] } | { o
 export type WorkUploaderActions = {
   prepareUpload: (name: string, size: number) => Promise<Signed>
   preparePages: (files: { name: string; size: number }[]) => Promise<SignedMany>
+  /* 작업 끝에 붙일 영상 파일 — 고른 순간이 아니라 '저장'을 누를 때 올린다
+     (video-upload.ts) */
+  prepareVideo: (name: string, size: number) => Promise<Signed>
   addWork: (form: FormData) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
@@ -121,6 +126,9 @@ export function WorkUploader({
       const pagePrep = prep.ok
         ? await actions.preparePages(pages.map((p) => ({ name: p.file.name, size: p.file.size })))
         : prep
+      /* 영상 파일 — 고른 순간이 아니라 지금(저장을 눌렀을 때) 올린다.
+         이미지와 버킷이 다르다(work-videos, video-upload.ts) */
+      const videoPrep = o.videoFile ? await actions.prepareVideo(o.videoFile.name, o.videoFile.size) : null
 
       /* 썸네일 — 따로 고른 이미지가 있으면 그것을 통째로 줄이고, 아니면 올릴
          그림에서 영역만큼 자른다. PDF 는 이어 붙인 장 어디서든 자른다(영역이
@@ -135,14 +143,17 @@ export function WorkUploader({
               o.crop,
             )
           : makeThumb(file, o.crop)
-      const [sent, thumb, pagesSent] =
+      const [sent, thumb, pagesSent, videoSent] =
         prep.ok && pagePrep.ok
           ? await Promise.all([
               uploadSigned(DESIGNER_IMAGES_BUCKET, prep, file),
               o.thumbFile ? makeThumb(o.thumbFile, null) : makeOwnThumb(),
               uploadAll(pages.map((p, i) => () => uploadSigned(DESIGNER_IMAGES_BUCKET, pagePrep.uploads[i], p.file))),
+              videoPrep?.ok && o.videoFile
+                ? uploadSigned(WORK_VIDEOS_BUCKET, videoPrep, o.videoFile)
+                : true,
             ])
-          : [false, null, false]
+          : [false, null, false, false]
 
       const form = new FormData()
       if (prep.ok) form.set('imagePath', prep.path)
@@ -154,6 +165,7 @@ export function WorkUploader({
       form.set('client', o.client)
       /* 적었을 때만 보낸다 — 키가 없으면 서버가 "영상 칸을 다루지 않음"으로 읽는다 */
       if (o.videoUrl) form.set('videoUrl', o.videoUrl)
+      if (videoPrep?.ok) form.set('videoPath', videoPrep.path)
       /* 이동 링크도 같다(0025) — 허용되지 않은 디자이너는 칸이 없어 늘 비어
          있고, 키를 보내지 않으므로 서버가 "링크 칸을 다루지 않음"으로 읽는다 */
       if (o.linkUrl) form.set('linkUrl', o.linkUrl)
@@ -175,9 +187,11 @@ export function WorkUploader({
         ? prep
         : !pagePrep.ok
           ? pagePrep
-          : !sent || !pagesSent
-            ? { ok: false as const, error: '파일을 올리지 못했습니다. 잠시 후 다시 시도해 주세요.' }
-            : await actions.addWork(form)
+          : videoPrep && !videoPrep.ok
+            ? videoPrep
+            : !sent || !pagesSent || !videoSent
+              ? { ok: false as const, error: '파일을 올리지 못했습니다. 잠시 후 다시 시도해 주세요.' }
+              : await actions.addWork(form)
       setStatus(null)
 
       const nextFailed = r.ok ? failed : [...failed, total > 1 ? `${name}: ${r.error}` : r.error]
@@ -346,8 +360,12 @@ type UploadOpts = {
   crop: Crop | null
   /* 썸네일로 따로 고른 이미지 — 있으면 영역 대신 이것을 줄여 쓴다 */
   thumbFile: File | null
-  /* 작업 끝에 붙일 유튜브 주소 — 비었으면 영상 없음. 서버가 id 만 뽑아 담는다 */
+  /* 작업 끝에 붙일 유튜브 주소 — 비었으면 영상 없음. 서버가 id 만 뽑아 담는다.
+     videoFile 과 배타적이다(work-uploader.tsx 의 탭 — 하나만 고른다) */
   videoUrl: string
+  /* 작업 끝에 붙일 영상 파일(0028_work_video_upload.sql) — videoUrl 대신
+     고를 수 있는 쪽. 고른 순간이 아니라 '저장'을 누를 때 올라간다. */
+  videoFile: File | null
   /* 작업에 붙일 이동 주소(0025) — 비었으면 링크 없음. 허용되지 않은
      디자이너는 칸이 없어 늘 비어 있다 */
   linkUrl: string
@@ -389,12 +407,19 @@ function UploadDialog({
 
   const [description, setDescription] = useState('')
   const [client, setClient] = useState('')
-  /* 작업 끝에 붙일 유튜브 주소 — 적어 두면 상세에서 마지막 장 아래로 이어진다.
-     모양은 저장할 때 서버가 가린다(youtube.ts) — 여기서도 미리 비춰 준다. */
+  /* 작업 끝에 붙일 영상 — 유튜브 주소 또는 올린 파일 중 하나만 고른다.
+     상세에서 마지막 장 아래로 이어진다. 유튜브는 모양만 저장할 때
+     서버가 가린다(youtube.ts) — 여기서도 미리 비춰 준다. 파일은 고른
+     순간이 아니라 '저장'을 누를 때 올라간다(work-uploader.tsx 의 방침). */
+  const [videoSource, setVideoSource] = useState<'youtube' | 'file'>('youtube')
   const [videoUrl, setVideoUrl] = useState('')
+  const [videoFile, setVideoFile] = useState<File | null>(null)
+  /* 고른 파일을 거절한 까닭 — 토스트로 띄운다. 같은 문구라도 다시 뜨게 매번 새 객체로 */
+  const [videoFileError, setVideoFileError] = useState<{ text: string } | null>(null)
+  const videoFileRef = useRef<HTMLInputElement>(null)
   /* 적었는데 읽지 못하는 주소인지 — 저장 버튼을 막고 테두리로 알린다.
      비어 있는 것은 "영상 없음"이라 잘못이 아니다. */
-  const badVideo = videoUrl.trim() !== '' && youtubeId(videoUrl) == null
+  const badVideo = videoSource === 'youtube' && videoUrl.trim() !== '' && youtubeId(videoUrl) == null
   /* 작업에 붙일 이동 주소(0025_work_link.sql) — 어드민이 허용한 디자이너만
      칸을 본다. 모양은 저장할 때 서버가 가린다(work-link.ts) — 여기서도 미리 비춘다 */
   const [linkUrl, setLinkUrl] = useState('')
@@ -597,28 +622,109 @@ function UploadDialog({
             />
           </label>
 
-          {/* 유튜브 영상 — 상세에서 그림(PDF 면 마지막 장) 아래로 이어 붙는다.
-              주소를 그대로 붙여넣으면 되고, 저장할 때 영상 id 만 담는다. */}
-          <label className="mt-3 block">
+          {/* 영상 — 상세에서 그림(PDF 면 마지막 장) 아래로 이어 붙는다.
+              유튜브 주소를 붙여넣거나, 영상 파일을 직접 골라 올린다 — 둘 중
+              하나만 쓴다. 파일은 고른 순간이 아니라 '저장'을 누를 때 올라간다. */}
+          <div className="mt-3">
             <span className="mb-1.5 block text-xs font-medium text-neutral-600">
-              유튜브 영상 <span className="font-normal text-neutral-400">(선택)</span>
+              영상 <span className="font-normal text-neutral-400">(선택)</span>
             </span>
-            <input
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              disabled={pending}
-              inputMode="url"
-              placeholder="https://youtu.be/..."
-              className={`h-9 w-full rounded-lg border px-3 text-sm outline-none ring-violet-500 focus:ring-2 ${
-                badVideo ? 'border-rose-400' : 'border-neutral-300'
-              }`}
-            />
-            <span className="mt-1 block text-xs text-neutral-400">
-              {badVideo
-                ? '유튜브 주소를 확인해 주세요.'
-                : '적어 두면 작업 맨 끝에서 영상이 재생됩니다.'}
-            </span>
-          </label>
+            <div className="mb-1.5 flex gap-1 rounded-lg bg-neutral-100 p-0.5 text-xs font-medium">
+              {(
+                [
+                  ['youtube', '유튜브 주소'],
+                  ['file', '영상 파일 첨부'],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={pending}
+                  onClick={() => setVideoSource(key)}
+                  className={`flex-1 rounded-md py-1.5 transition ${
+                    videoSource === key ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {videoSource === 'youtube' ? (
+              <>
+                <input
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  disabled={pending}
+                  inputMode="url"
+                  placeholder="https://youtu.be/..."
+                  className={`h-9 w-full rounded-lg border px-3 text-sm outline-none ring-violet-500 focus:ring-2 ${
+                    badVideo ? 'border-rose-400' : 'border-neutral-300'
+                  }`}
+                />
+                <span className="mt-1 block text-xs text-neutral-400">
+                  {badVideo
+                    ? '유튜브 주소를 확인해 주세요.'
+                    : '적어 두면 작업 맨 끝에서 영상이 재생됩니다.'}
+                </span>
+              </>
+            ) : (
+              <>
+                {videoFile ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-neutral-300 px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate">{videoFile.name}</span>
+                    <span className="shrink-0 text-xs text-neutral-400">
+                      {(videoFile.size / 1024 / 1024).toFixed(1)}MB
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVideoFile(null)
+                        setVideoFileError(null)
+                      }}
+                      disabled={pending}
+                      className="shrink-0 text-xs font-medium text-red-600 hover:underline"
+                    >
+                      빼기
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => videoFileRef.current?.click()}
+                    disabled={pending}
+                    className="h-9 w-full rounded-lg border border-dashed border-neutral-300 text-sm text-neutral-500 transition hover:border-violet-400 hover:text-violet-700 disabled:opacity-50"
+                  >
+                    + 영상 파일 선택
+                  </button>
+                )}
+                <input
+                  ref={videoFileRef}
+                  type="file"
+                  accept={VIDEO_ACCEPT}
+                  hidden
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null
+                    e.target.value = ''
+                    if (!f) return
+                    const bad = checkVideoFile(f)
+                    if (bad) {
+                      setVideoFileError({ text: bad })
+                      return
+                    }
+                    setVideoFileError(null)
+                    setVideoFile(f)
+                  }}
+                />
+                <span className="mt-1 block text-xs text-neutral-400">
+                  MP4·MOV·WebM · <b className="font-medium text-neutral-600">{MAX_VIDEO_MB}MB 이하</b> — 올린
+                  영상이 작업 맨 끝에서 재생됩니다.
+                </span>
+                {/* 고른 파일을 거절하면 다이얼로그 위에 토스트로 알린다(warn-toast.tsx) */}
+                <WarnToast msg={videoFileError} onDone={() => setVideoFileError(null)} />
+              </>
+            )}
+          </div>
 
           {/* 이동 링크(0025_work_link.sql) — 어드민이 허용한 디자이너에게만 보인다.
               허용되지 않았으면 칸 자체가 없다(설명도 띄우지 않는다). */}
@@ -798,7 +904,8 @@ function UploadDialog({
                    저장한다 — 목록·카드가 그 비율로 자리를 잡는다(work-stack.ts) */
                 crop: (cropOn ? crop : null) ?? firstCrop,
                 thumbFile,
-                videoUrl: videoUrl.trim(),
+                videoUrl: videoSource === 'youtube' ? videoUrl.trim() : '',
+                videoFile: videoSource === 'file' ? videoFile : null,
                 /* 허용되지 않았으면 칸이 없어 늘 빈 값이다 — 서버도 다시 막는다 */
                 linkUrl: linkAllowed ? linkUrl.trim() : '',
               })

@@ -170,6 +170,16 @@ export function defaultScope(keys: InquiryScope[]): InquiryScope | null {
   return keys.length === 1 ? keys[0] : null
 }
 
+/* 탐색에서 고른 의뢰유형(디자인만·디자인 + 개발)에 맞는 줄만 남긴다 — 탐색에서 들어온 상세·의뢰 폼.
+   메인 시안은 남은 본계약 줄에 붙는 옵션이라 함께 둔다(splitSample 이 붙일 줄이 없으면 뺀다).
+   범위가 하나로 정해진 분야(랜딩·로고)는 고른 범위가 없어도 그대로 둔다 — 비우면 그 분야를 의뢰할 길이 없다 */
+export function onlyScope(choices: CategoryChoice[], scope: 'design' | 'design_dev'): CategoryChoice[] {
+  return choices.map((c) => {
+    if (!c.options.some((o) => o.key === scope)) return c
+    return { ...c, options: c.options.filter((o) => o.key === scope || o.key === 'sample') }
+  })
+}
+
 /* 분야가 허용하는 범위 — 메인 시안은 그 분야가 허용할 때 맨 앞 */
 export function scopesOf(meta: Pick<CategoryMeta, 'scope_mode' | 'allow_sample'>): InquiryScope[] {
   const base: InquiryScope[] =

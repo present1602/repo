@@ -4,7 +4,16 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { signIn, destroySession, changePassword, getDesignerUser } from '@/lib/designer-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { putImage, signImageUpload, claimImage, signPageUploads, claimPages } from '@/lib/upload'
+import {
+  putImage,
+  signImageUpload,
+  claimImage,
+  signPageUploads,
+  claimPages,
+  signVideoUpload,
+  claimVideoPath,
+  removeVideoFile,
+} from '@/lib/upload'
 import {
   type WorkRow,
   MAX_WORKS,
@@ -449,6 +458,17 @@ export async function prepareWorkPages(
   return signPageUploads(`works/${id}`, files)
 }
 
+/* 작업 끝에 붙일 영상 파일 — 업로드 주소만 미리 받는다. 올리기 자체는
+   '저장'을 누른 뒤에 한다(work-uploader.tsx) — 고른 순간 바로 올리면,
+   올리다 다른 칸을 고치고 취소했을 때 버킷에 안 쓰는 영상이 남는다. */
+export async function prepareVideoUpload(
+  name: string,
+  size: number,
+): Promise<{ ok: true; path: string; token: string } | { ok: false; error: string }> {
+  await guard()
+  return signVideoUpload(name, size)
+}
+
 export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   const { db, id } = await guard()
 
@@ -467,6 +487,13 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
   /* 작업 끝에 붙일 유튜브 영상 — 주소를 받아 id 만 저장한다(youtube.ts) */
   const video = readVideoId(form)
   if (video === false) return fail(BAD_VIDEO)
+
+  /* 올린 영상 파일(0028_work_video_upload.sql) — 유튜브의 대안.
+     둘 다 왔으면 유튜브를 앞세운다(화면이 라디오로 하나만 고르게 하지만,
+     액션은 누구나 부를 수 있으므로 여기서도 하나만 남긴다). */
+  const videoPathRaw = String(form.get('videoPath') ?? '')
+  const videoPath = video ? null : videoPathRaw ? claimVideoPath(videoPathRaw) : null
+  if (videoPathRaw && !videoPath) return fail('영상 파일을 찾을 수 없습니다. 다시 올려 주세요.')
 
   /* 이동 링크(0025_work_link.sql) — 어드민이 켜 준 디자이너만 붙일 수 있다.
      화면에서 칸을 숨기는 것과 막는 것은 다른 일이다: 액션은 누구나 부를 수
@@ -541,6 +568,8 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
       ...(pages && pages.length > 0 ? { pages } : {}),
       /* 0019 전 DB 에서도 같다 — 영상을 붙였을 때만 싣는다 */
       ...(video ? { video_id: video } : {}),
+      /* 0028 전 DB 에서도 같다 — 올린 영상이 있을 때만 싣는다 */
+      ...(videoPath ? { video_file_path: videoPath } : {}),
       /* 0025 전 DB 에서도 같다 — 링크를 붙였을 때만 싣는다 */
       ...(link ? { link_url: link } : {}),
       row_span: rowSpan,
@@ -560,6 +589,9 @@ export async function addWork(form: FormData): Promise<Result<{ id: string }>> {
     }
     if (error?.message.includes('video_id')) {
       return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
+    }
+    if (error?.message.includes('video_file_path')) {
+      return fail('영상 파일 저장 칸이 없습니다. 0028_work_video_upload.sql 마이그레이션을 실행해 주세요.')
     }
     if (error?.message.includes('link_url')) {
       return fail('링크 저장 칸이 없습니다. 0025_work_link.sql 마이그레이션을 실행해 주세요.')
@@ -590,6 +622,10 @@ export type WorkInput = {
      넘어오지 않으면(undefined) 지금 붙어 있는 것을 그대로 둔다 — 영상 칸이
      없는 화면에서 저장해도 사라지지 않게. */
   videoUrl?: string
+  /* 작업 끝에 붙일 올린 영상(0028_work_video_upload.sql). videoUrl 과 같은
+     규칙이고, 둘은 서로 배타적이다 — 둘 다 넘어오면 videoUrl 을 앞세운다
+     (화면은 라디오로 하나만 고르지만, 액션은 그 전제를 다시 확인한다). */
+  videoPath?: string
   /* 작업에 붙일 이동 주소(0025_work_link.sql). 영상과 같은 규칙 —
      빈 문자열이면 떼고, 넘어오지 않으면 붙어 있는 것을 그대로 둔다.
      허용되지 않은 디자이너의 화면에는 칸이 없어 넘어오지 않는다. */
@@ -626,6 +662,23 @@ export async function updateWork(input: WorkInput): Promise<Result> {
       const vid = youtubeId(trimmed)
       if (!vid) return fail(BAD_VIDEO)
       patch.video_id = vid
+      /* 유튜브를 새로 걸면 올려 둔 영상 파일은 뗀다 — 한 작업에 영상
+         소스는 하나뿐이다(0028 의 제약과 같은 전제) */
+      patch.video_file_path = null
+    }
+  }
+
+  /* 올린 영상 파일 — videoUrl 과 배타적이다. 둘 다 왔으면 위에서 이미
+     video_id 를 정했으므로 여기서는 손대지 않는다(유튜브가 이긴다). */
+  if (input.videoPath != null && input.videoUrl == null) {
+    const trimmed = input.videoPath.trim()
+    if (!trimmed) patch.video_file_path = null
+    else {
+      const path = claimVideoPath(trimmed)
+      if (!path) return fail('영상 파일을 찾을 수 없습니다. 다시 올려 주세요.')
+      patch.video_file_path = path
+      /* 올린 파일을 새로 걸면 유튜브는 뗀다 */
+      patch.video_id = null
     }
   }
 
@@ -642,6 +695,19 @@ export async function updateWork(input: WorkInput): Promise<Result> {
     }
   }
 
+  /* 영상 파일을 떼거나 바꾸면 버킷에서도 치운다 — 저장 전에 지금 붙어
+     있는 경로를 먼저 읽어 둔다. video_file_path 를 건드릴 때만 묻는다 */
+  let oldVideoPath: string | null = null
+  if ('video_file_path' in patch) {
+    const { data: before } = await db
+      .from('designer_works')
+      .select('video_file_path')
+      .eq('id', input.id)
+      .eq('designer_id', id)
+      .maybeSingle()
+    oldVideoPath = (before?.video_file_path as string | null) ?? null
+  }
+
   /* designer_id 조건을 함께 걸어 남의 작업을 고치지 못하게 한다 */
   const { error } = await db
     .from('designer_works')
@@ -654,10 +720,19 @@ export async function updateWork(input: WorkInput): Promise<Result> {
     if (error.message.includes('video_id')) {
       return fail('영상 저장 칸이 없습니다. 0019_work_video.sql 마이그레이션을 실행해 주세요.')
     }
+    if (error.message.includes('video_file_path')) {
+      return fail('영상 파일 저장 칸이 없습니다. 0028_work_video_upload.sql 마이그레이션을 실행해 주세요.')
+    }
     if (error.message.includes('link_url')) {
       return fail('링크 저장 칸이 없습니다. 0025_work_link.sql 마이그레이션을 실행해 주세요.')
     }
     return fail('수정에 실패했습니다.')
+  }
+
+  /* 바뀐 뒤에도 안 쓰게 된 예전 파일만 치운다 — 저장이 끝난 뒤라 실패해도
+     저장을 되돌리지 않는다(removeVideoFile 과 같은 방침) */
+  if (oldVideoPath && oldVideoPath !== patch.video_file_path) {
+    await removeVideoFile(oldVideoPath)
   }
 
   refresh(id)

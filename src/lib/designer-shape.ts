@@ -90,6 +90,9 @@ export type PublicWork = {
   /* 작업 끝에 붙인 유튜브 영상 id(0019_work_video.sql) — 모달이 마지막 장
      아래에 이어 붙여 보여 준다. 0019 전 DB 에서는 오지 않는다. */
   video_id?: string | null
+  /* 작업 끝에 붙인 올린 영상의 저장 경로(0028_work_video_upload.sql).
+     video_id 의 대안 — 둘 중 하나만 채워진다. 0028 전 DB 에서는 오지 않는다. */
+  video_file_path?: string | null
   /* 작업에 붙인 이동 주소(0025_work_link.sql) — 모달 하단 가운데에
      '프로젝트 보기' 버튼으로 뜬다. 0025 전 DB 에서는 오지 않는다. */
   link_url?: string | null

@@ -24,14 +24,22 @@ export async function generateMetadata(props: PageProps<'/designers/[id]'>) {
 export default function DesignerDetailPage(props: PageProps<'/designers/[id]'>) {
   return (
     <Suspense fallback={<DetailSkeleton />}>
-      <DetailContent params={props.params} />
+      <DetailContent params={props.params} searchParams={props.searchParams} />
     </Suspense>
   )
 }
 
-async function DetailContent({ params }: { params: PageProps<'/designers/[id]'>['params'] }) {
-  const { id } = await params
+async function DetailContent({
+  params,
+  searchParams,
+}: {
+  params: PageProps<'/designers/[id]'>['params']
+  searchParams: PageProps<'/designers/[id]'>['searchParams']
+}) {
+  const [{ id }, sp] = await Promise.all([params, searchParams])
   const d = await getPublicDesigner(id)
   if (!d) notFound()
-  return <DesignerView d={d} />
+  /* 탐색 카드에서 들어오면 거기서 고른 의뢰유형만(designer-list.tsx) — 모르는 값은 모두 보여준다 */
+  const scope = sp.scope === 'design' || sp.scope === 'design_dev' ? sp.scope : undefined
+  return <DesignerView d={d} scope={scope} />
 }

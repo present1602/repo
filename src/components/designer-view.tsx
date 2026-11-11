@@ -9,7 +9,7 @@ import {
   getShowDuration,
   listOptionTemplates,
 } from '@/lib/site-settings'
-import { designerChoices } from '@/lib/inquiry-choices'
+import { designerChoices, onlyScope } from '@/lib/inquiry-choices'
 import { panelEntries } from '@/lib/panel-entries'
 import { listCategoryMetas } from '@/lib/specialties'
 import { Img } from '@/components/img'
@@ -25,10 +25,14 @@ import { ExploreLink } from '@/components/explore-gate'
 export async function DesignerView({
   d,
   preview = false,
+  scope,
 }: {
   d: PublicDesignerDetail
   /* 어드민 미리보기 — 초대 링크로 들어온 표시(RefCapture)를 남기지 않는다 */
   preview?: boolean
+  /* 탐색에서 고른 의뢰유형 — 탐색 카드에서 들어왔을 때만 온다(?scope=).
+     초대 링크·포트폴리오·주소를 직접 친 경우에는 없어서 유형을 모두 보여준다 */
+  scope?: 'design' | 'design_dev'
 }) {
   const id = d.id
   /* 플랜 문구·프리미엄·기간은 서로 기다릴 필요가 없어 동시에 받는다 */
@@ -47,7 +51,8 @@ export async function DesignerView({
   const name = displayNameOf(d)
 
   /* 의뢰 패널 — 스튜디오 미리보기와 같은 계산(panel-entries.ts) */
-  const choices = designerChoices(d, metas, { copies, premiums })
+  const all = designerChoices(d, metas, { copies, premiums })
+  const choices = scope ? onlyScope(all, scope) : all
   const entries = panelEntries({
     choices,
     metas,

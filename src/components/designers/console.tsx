@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import type { AdminDesigner } from '@/lib/designer-shape'
 import type { WorkRow } from '@/lib/portfolio-limits'
 import type { PlanCopies } from '@/lib/plans'
@@ -63,6 +64,16 @@ export function DesignerConsole({
           <TabButton on={tab === 'settings'} onClick={() => setTab('settings')}>
             설정
           </TabButton>
+          {/* 탭이 아니라 별도 화면(/studio/guide)이라 링크다 — 글·그림뿐인
+              안내라 프로필·포트폴리오·설정과 값을 주고받지 않는다. 그 화면을
+              고칠 때 이 콘솔을, 이 콘솔을 고칠 때 그 화면을 건드리지 않게
+              한 줄로만 잇는다. */}
+          <Link
+            href="/studio/guide"
+            className="rounded-md px-2.5 py-2 text-left text-sm font-medium text-neutral-600 transition hover:bg-neutral-100"
+          >
+            설정 가이드
+          </Link>
         </nav>
 
         {/* mt-auto 로 남은 공간을 밀어내 맨 아래에 붙인다 */}
@@ -106,6 +117,12 @@ export function DesignerConsole({
             <MobileTab on={tab === 'settings'} onClick={() => setTab('settings')}>
               설정
             </MobileTab>
+            <Link
+              href="/studio/guide"
+              className="-mb-px shrink-0 border-b-2 border-transparent px-3 py-2.5 text-sm font-medium text-neutral-500 transition hover:text-neutral-900"
+            >
+              설정 가이드
+            </Link>
           </nav>
 
           <div className="mt-6 md:mt-8">

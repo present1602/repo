@@ -5,11 +5,23 @@ import Link from 'next/link'
 import type { PublicWork } from '@/lib/designer-shape'
 import type { WorkPage } from '@/lib/portfolio-limits'
 import { DEFAULT_RATIO, embedUrl, playerCommand, youtubeRatioProbe } from '@/lib/youtube'
+import { videoFileUrl } from '@/lib/video-upload'
 import { AiBadge } from './work-thumb'
 
 /* 좌우로 미끄러지는 시간(ms). 트랙에 거는 CSS 전환과 같은 값이어야
    끝나는 순간에 맞춰 자리를 정리할 수 있다. */
 const SLIDE_MS = 280
+
+/* 작업 끝에 붙는 영상 — 유튜브(0019) 또는 올린 파일(0028) 중 하나.
+   둘을 하나의 값으로 가려 ZoomImage 아래에서는 "영상이 있는지"만 보고,
+   재생 방식(iframe vs <video>)은 렌더할 때만 가른다. */
+type WorkVideo = { kind: 'youtube'; id: string } | { kind: 'file'; url: string }
+
+function videoOf(w: Pick<PublicWork, 'video_id' | 'video_file_path'>): WorkVideo | null {
+  if (w.video_id) return { kind: 'youtube', id: w.video_id }
+  if (w.video_file_path) return { kind: 'file', url: videoFileUrl(w.video_file_path) }
+  return null
+}
 
 export function WorkModal<W extends PublicWork>({
   works,
@@ -317,7 +329,9 @@ export function WorkModal<W extends PublicWork>({
               /* 그림을 톡 치면 시트가 접힌다 — 버튼 누름이 거기까지 번지지 않게 */
               onClick={(e) => e.stopPropagation()}
               style={{ bottom: sheetH + 20 }}
-              className="absolute left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border border-violet-600 bg-transparent px-7 py-1.5 text-sm font-semibold text-violet-700 shadow-sm backdrop-blur-sm transition hover:bg-violet-600 hover:text-white md:px-9 md:py-2 md:text-base"
+              /* 처음부터 색을 채운다 — 테두리만 두면 그림 위에서 묻힌다.
+                 그림 색이 무엇이든 떠 보이게 그림자를 함께 둔다. */
+              className="absolute left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-violet-600 px-7 py-1.5 text-sm font-semibold text-white shadow-lg transition hover:bg-violet-700 md:px-9 md:py-2 md:text-base"
             >
               프로젝트 보기 ↗
             </a>
@@ -352,7 +366,7 @@ export function WorkModal<W extends PublicWork>({
                       pages={item.pages}
                       /* 영상은 가운데 칸에만 건다 — 양옆까지 걸면 보이지도 않는
                          유튜브 플레이어가 셋 떠서 느려진다 */
-                      videoId={off === 0 ? item.video_id : null}
+                      video={off === 0 ? videoOf(item) : null}
                       alt={item.title ?? ''}
                       active={off === 0}
                       onSwipe={
@@ -583,7 +597,7 @@ const TALL_RATIO = 1.6
 function ZoomImage({
   src,
   pages,
-  videoId,
+  video,
   alt,
   active,
   onSwipe,
@@ -594,8 +608,8 @@ function ZoomImage({
   src: string
   /* PDF 작업의 둘째 장부터 — 첫 장(src) 아래로 이어 붙여 한 장처럼 키우고 내려 본다 */
   pages?: WorkPage[] | null
-  /* 맨 끝에 붙은 유튜브 영상(0019_work_video.sql) — 그림 아래로 이어 붙인다 */
-  videoId?: string | null
+  /* 맨 끝에 붙은 영상(0019·0028) — 그림 아래로 이어 붙인다 */
+  video?: WorkVideo | null
   alt: string
   /* 트랙 가운데 칸인지 — 양옆은 미리 깔아 둔 그림이라 조작을 받지 않는다 */
   active?: boolean
@@ -617,17 +631,23 @@ function ZoomImage({
      너비에 맞춰 늘이거나 줄인 높이로 더한다 */
   /* 영상의 가로세로 비 — 세로 영상(쇼츠)이면 1 보다 작다. 알아내기 전에는
      16:9 로 둔다(youtube.ts). 비율을 모른 채 자리를 비워 두면 영상이 뜨는
-     순간 아래 내용이 밀린다. */
+     순간 아래 내용이 밀린다.
+
+     유튜브는 썸네일 그림 한 장으로 알아낸다(youtubeRatioProbe) — API 키
+     없이 가능한 방법이다. 올린 파일은 그 영상 자체의 메타데이터
+     (videoWidth·videoHeight)를 읽는다 — onLoadedMetadata 로 재생 전에
+     이미 알 수 있다. */
   const [videoRatio, setVideoRatio] = useState(DEFAULT_RATIO)
+  const videoKey = video ? (video.kind === 'youtube' ? video.id : video.url) : null
   /* 다른 영상으로 바뀌면 비율을 되돌린다 — 남겨 두면 앞 영상의 비율로 한 번
      그린 뒤 고쳐진다. 아래 seenSrc 와 같은 "렌더 중 상태 조정" 패턴이다. */
-  const [seenVideo, setSeenVideo] = useState(videoId)
-  if (seenVideo !== videoId) {
-    setSeenVideo(videoId)
+  const [seenVideo, setSeenVideo] = useState(videoKey)
+  if (seenVideo !== videoKey) {
+    setSeenVideo(videoKey)
     setVideoRatio(DEFAULT_RATIO)
   }
   useEffect(() => {
-    if (!videoId) return
+    if (!video || video.kind !== 'youtube') return
     let alive = true
     const probe = new Image()
     probe.onload = () => {
@@ -636,11 +656,11 @@ function ZoomImage({
       }
     }
     /* 못 받아도 그냥 16:9 로 둔다 — 영상 자체는 뜬다 */
-    probe.src = youtubeRatioProbe(videoId)
+    probe.src = youtubeRatioProbe(video.id)
     return () => {
       alive = false
     }
-  }, [videoId])
+  }, [video])
 
   /* 그림만 이어 붙인 크기 — 영상을 더하기 전. 맞춤 배율(fit)을 이것으로
      잡아야 영상 칸 계산과 서로 물고 돌지 않는다. */
@@ -713,15 +733,15 @@ function ZoomImage({
      단위는 그림과 같은 "원래 크기" — 화면 픽셀(boxSize)을 fit 으로 나눈다.
      그래야 확대(zoom)·붙잡기 계산이 그림과 한 단위로 돈다. */
   const videoBox = useMemo(() => {
-    if (!videoId || !boxSize || !fit) return null
+    if (!video || !boxSize || !fit) return null
     const slot = { w: boxSize.w / fit, h: boxSize.h / fit }
     /* 칸 안에 통째로 — 칸이 영상보다 납작하면 높이에, 아니면 너비에 맞춘다 */
-    const video =
+    const box =
       slot.w / slot.h > videoRatio
         ? { w: slot.h * videoRatio, h: slot.h }
         : { w: slot.w, h: slot.w / videoRatio }
-    return { slot, video }
-  }, [videoId, boxSize, fit, videoRatio])
+    return { slot, video: box }
+  }, [video, boxSize, fit, videoRatio])
 
   /* 그림 칸 높이 — 영상이 있으면 적어도 칸 하나만큼. 그림이 짧아도 첫 화면은
      그림만(가운데에), 다음 화면은 영상만 보이게 나눈다 */
@@ -746,23 +766,33 @@ function ZoomImage({
      받아진 뒤(onLoad)에도 그 자리에 있으면 다시 보낸다. 가운데 칸에서만, 배율 1 에서만
      (키우면 플레이어를 걷는다). */
   const frameRef = useRef<HTMLIFrameElement>(null)
+  const fileVideoRef = useRef<HTMLVideoElement>(null)
   const slotRef = useRef<HTMLDivElement>(null)
   const inView = useRef(false)
-  const hasSlot = Boolean(videoId && videoBox && fit && first)
+  const hasSlot = Boolean(video && videoBox && fit && first)
+  /* 재생·멈춤을 재생 방식과 상관없이 한 곳에서 건다 — 유튜브는 postMessage
+     (playerCommand), 올린 파일은 <video> 엘리먼트를 직접 부른다. */
+  const playVideo = () => {
+    if (video?.kind === 'youtube') playerCommand(frameRef.current, 'playVideo')
+    else fileVideoRef.current?.play().catch(() => {})
+  }
+  const pauseVideo = () => {
+    if (video?.kind === 'youtube') playerCommand(frameRef.current, 'pauseVideo')
+    else fileVideoRef.current?.pause()
+  }
   useEffect(() => {
     const slot = slotRef.current
     const box = boxRef.current
     /* 영상·배율이 바뀌면 이 effect 가 다시 돌아 새 플레이어를 잡는다 */
-    const frame = frameRef.current
     if (!active || !hasSlot || zoom !== 1 || !slot || !box) return
     const io = new IntersectionObserver(
       ([e]) => {
         if (!inView.current && e.intersectionRatio >= 0.85) {
           inView.current = true
-          playerCommand(frame, 'playVideo')
+          playVideo()
         } else if (inView.current && e.intersectionRatio < 0.5) {
           inView.current = false
-          playerCommand(frame, 'pauseVideo')
+          pauseVideo()
         }
       },
       { root: box, threshold: [0, 0.5, 0.85, 1] },
@@ -770,13 +800,15 @@ function ZoomImage({
     io.observe(slot)
     return () => {
       io.disconnect()
-      if (inView.current) playerCommand(frame, 'pauseVideo')
+      if (inView.current) pauseVideo()
       inView.current = false
     }
-  }, [active, hasSlot, zoom, videoId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- playVideo·pauseVideo 는 video 가 바뀔 때만 실제로 바뀐다
+  }, [active, hasSlot, zoom, video])
 
-  /* 플레이어가 받아진 뒤 — 이미 영상 칸에 와 있으면 재생. 플레이어 안쪽 준비가
-     조금 늦을 수 있어 한 번 더 보낸다(두 번 받아도 재생은 한 번이다) */
+  /* 유튜브 플레이어가 받아진 뒤 — 이미 영상 칸에 와 있으면 재생. 플레이어
+     안쪽 준비가 조금 늦을 수 있어 한 번 더 보낸다(두 번 받아도 재생은 한 번이다).
+     올린 파일은 <video> 자체가 바로 재생 가능하므로 이 늦장 보정이 필요 없다. */
   const onFrameLoad = () => {
     if (!inView.current) return
     for (const ms of [300, 1200]) {
@@ -1181,7 +1213,7 @@ function ZoomImage({
         }}
         /* 영상이 있으면 끝 근처에서 손을 뗄 때 영상 칸에 붙는다(proximity — 멀면 그대로 둔다).
            키운 동안은 끈다 — 배율을 바꾸며 맞춘 스크롤을 끌어가지 않게 */
-        className={`absolute inset-0 overflow-auto ${videoId && zoom === 1 ? 'snap-y snap-proximity' : ''} ${
+        className={`absolute inset-0 overflow-auto ${video && zoom === 1 ? 'snap-y snap-proximity' : ''} ${
           pannable ? (dragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''
         }`}
       >
@@ -1250,7 +1282,7 @@ function ZoomImage({
                 반대로 영상을 누르려다 스와이프로 작업이 넘어가기도 한다.
                 확대는 PDF 글자를 읽으려고 쓰는 기능이라 영상에는 쓸 일이
                 없으므로, 배율 1 에서만 재생할 수 있게 둔다. */}
-            {fit && first && videoId && videoBox && (
+            {fit && first && video && videoBox && (
               <div
                 ref={slotRef}
                 style={{ width: videoBox.slot.w * fit * zoom, height: videoBox.slot.h * fit * zoom }}
@@ -1260,11 +1292,15 @@ function ZoomImage({
                   style={{ width: videoBox.video.w * fit * zoom, height: videoBox.video.h * fit * zoom }}
                   className="relative bg-neutral-900"
                 >
-                  {zoom === 1 ? (
+                  {zoom !== 1 ? (
+                    <p className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-white/70">
+                      영상은 원래 크기에서 재생됩니다
+                    </p>
+                  ) : video.kind === 'youtube' ? (
                     <iframe
                       ref={frameRef}
                       onLoad={onFrameLoad}
-                      src={embedUrl(videoId, window.location.origin)}
+                      src={embedUrl(video.id, window.location.origin)}
                       title={alt || '작업 영상'}
                       loading="lazy"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
@@ -1273,9 +1309,27 @@ function ZoomImage({
                       className="absolute inset-0 size-full border-0"
                     />
                   ) : (
-                    <p className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-white/70">
-                      영상은 원래 크기에서 재생됩니다
-                    </p>
+                    /* 올린 영상 파일(0028) — 직접 재생하므로 늦게 받아지는 iframe
+                       과 달리 onLoad 보정이 필요 없다. 소리 없이 시작한다
+                       (muted — 유튜브와 같은 이유: 브라우저가 소리 나는 자동
+                       재생을 막는다). controls 를 둬 보는 사람이 직접 켤 수
+                       있다. */
+                    <video
+                      ref={fileVideoRef}
+                      src={video.url}
+                      playsInline
+                      muted
+                      loop
+                      controls
+                      preload="metadata"
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget
+                        if (v.videoWidth > 0 && v.videoHeight > 0) {
+                          setVideoRatio(v.videoWidth / v.videoHeight)
+                        }
+                      }}
+                      className="absolute inset-0 size-full object-contain"
+                    />
                   )}
                 </div>
               </div>

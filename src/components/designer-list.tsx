@@ -9,7 +9,7 @@ import { WorkModal } from './work-modal'
 import { AiBadge } from './work-thumb'
 import { ScopePrompt } from './scope-prompt'
 import { InquiryButton } from './inquiry/inquiry-button'
-import type { CategoryChoice, InquiryScope } from '@/lib/inquiry-choices'
+import { onlyScope, type CategoryChoice } from '@/lib/inquiry-choices'
 import { isSearchable, searchHint } from '@/lib/search-term'
 import { CARD_THUMBS } from '@/lib/portfolio-limits'
 import { cropOf } from '@/lib/crop'
@@ -20,14 +20,11 @@ const SPOTLIGHT_MAX = CARD_THUMBS
 import { SCOPES, SCOPE_LABELS, acceptsScope, type Scope } from '@/lib/scopes'
 import type { SpecialtyScopeMode } from '@/lib/specialty-shape'
 
-/* 제목 옆 의뢰 범위 필터 — 의뢰 폼에서 그 범위를 고를 수 있는 디자이너로 거른다.
-   폼과 같은 선택지(designerChoices)를 보므로 탐색에 남은 디자이너는 폼에서도 그 범위가 열린다 */
-const REACHES = [
-  { key: 'all', label: '전체', scope: null },
-  { key: 'design', label: '디자인', scope: 'design' },
-  { key: 'design_dev', label: '디자인 + 개발', scope: 'design_dev' },
-] as const satisfies readonly { key: string; label: string; scope: InquiryScope | null }[]
-type Reach = (typeof REACHES)[number]['key']
+/* 들어올 때 묻는 의뢰유형 — 프로젝트 의뢰·디자인 의뢰 둘만. 고른 것은 의뢰 폼의 범위
+   (디자인 + 개발·디자인만)로 옮겨, 카드의 의뢰 폼과 상세 패널에 그 범위의 금액만 보인다 */
+const PROMPT_SCOPES = ['with_dev', 'full_design'] as const satisfies readonly Scope[]
+type PromptScope = (typeof PROMPT_SCOPES)[number]
+const FORM_SCOPE = { with_dev: 'design_dev', full_design: 'design' } as const
 
 export function DesignerList({
   designers,
@@ -103,46 +100,42 @@ export function DesignerList({
 
   /* 들어오자마자 어떤 의뢰인지 묻고, 그 유형을 받는 디자이너만 남긴다.
      null 이면 거르지 않는다 — 고르지 않고 닫은 경우다. */
-  const [scope, setScope] = useState<Scope | null>(null)
+  const [scope, setScope] = useState<PromptScope | null>(null)
   const [asked, setAsked] = useState(false)
+  const formScope = scope ? FORM_SCOPE[scope] : null
 
-  /* 의뢰유형까지 거른 목록 — 사이드바의 분야별 숫자도 이것으로 센다.
-     전체에서 세면 아래 목록과 숫자가 어긋난다(유형을 고르면 2명인데 '전체 51'). */
-  const shown = useMemo(
-    () =>
-      designers.filter((d) => {
-        /* 받을 유형을 모두 끈 디자이너는 거르지 않을 때도 뺀다 — 탐색에는
-           나오지 않고 프로필 링크로만 열리게 하려고 끈 것이다(plan-form.tsx) */
-        if (!visibleScopes.some((s) => acceptsScope(d, s))) return false
-        return !scope || acceptsScope(d, scope)
-      }),
-    [designers, scope, visibleScopes],
-  )
-
-  /* 의뢰 범위 필터 — 전체 또는 '고객이 선택'(choice) 분야에서만 보인다.
-     디자인만·디자인 + 개발로 정해 둔 분야에서는 숨기고 거르지 않는다. 고른 값은
-     남겨 두어 choice 분야로 돌아오면 그대로 걸린다. */
-  const [reach, setReach] = useState<Reach>('all')
-  const showReach = !tag || (scopeModes[tag] ?? 'choice') === 'choice'
-  const reachScope = showReach ? REACHES.find((r) => r.key === reach)!.scope : null
-
-  /* 이 디자이너의 의뢰 폼에 그 범위가 있는지 — 분야를 골랐으면 그 분야 안에서만 본다.
-     선택지가 없으면(어드민 미리보기) 예전 스위치로 본다 */
+  /* 이 디자이너의 의뢰 폼에 고른 범위가 있는지 — t 를 주면 그 분야 안에서만 본다.
+     디자인만·디자인 + 개발로 정해 둔 분야(랜딩·로고)는 거르지 않는다 — 고른 범위가
+     없는 분야라 거르면 늘 비어 보인다. 선택지가 없으면(어드민 미리보기) 거르지 않는다 */
   const offersScope = useCallback(
-    (d: PublicDesignerCard, s: InquiryScope) => {
+    (d: PublicDesignerCard, t: string | null) => {
+      if (!formScope) return true
+      if (t && (scopeModes[t] ?? 'choice') !== 'choice') return true
       const mine = choices?.[d.id]
-      if (!mine) return acceptsScope(d, s === 'design_dev' ? 'with_dev' : 'full_design')
-      return mine.some((c) => (!tag || c.name === tag) && c.options.some((o) => o.key === s))
+      if (!mine) return true
+      return mine.some((c) => (!t || c.name === t) && c.options.some((o) => o.key === formScope))
     },
-    [choices, tag],
+    [choices, formScope, scopeModes],
   )
+
+  /* 받을 유형을 모두 끈 디자이너는 뺀다 — 탐색에는 나오지 않고 프로필 링크로만
+     열리게 하려고 끈 것이다(plan-form.tsx) */
+  const shown = useMemo(
+    () => designers.filter((d) => visibleScopes.some((s) => acceptsScope(d, s))),
+    [designers, visibleScopes],
+  )
+
+  /* 사이드바의 분야별 숫자 — 아래 목록과 같은 거르기로 센다.
+     전체에서 세면 아래 목록과 숫자가 어긋난다(유형을 고르면 2명인데 '전체 51'). */
+  const countOf = (t: string | null) =>
+    shown.filter((d) => (!t || d.tags.includes(t)) && offersScope(d, t)).length
 
   const list = useMemo(() => {
     const needle = searching ? term.toLowerCase() : ''
     const byEmail = emailHits.q === term ? emailHits.ids : null
     const hit = shown.filter((d) => {
       if (tag && !d.tags.includes(tag)) return false
-      if (reachScope && !offersScope(d, reachScope)) return false
+      if (!offersScope(d, tag)) return false
       if (!needle) return true
       /* 이름·한 줄 소개·분야까지 함께 본다. 이름이 비어 있는 계정도 있으므로
          표시명으로 맞춘다 — 화면에 보이는 글자로 검색되는 게 자연스럽다.
@@ -156,7 +149,15 @@ export function DesignerList({
       .filter((d) => featureRank.has(d.id))
       .sort((a, b) => featureRank.get(a.id)! - featureRank.get(b.id)!)
     return [...up, ...hit.filter((d) => !featureRank.has(d.id))]
-  }, [shown, tag, reachScope, offersScope, term, searching, emailHits, featureRank])
+  }, [shown, tag, offersScope, term, searching, emailHits, featureRank])
+
+  /* 카드의 의뢰 폼·상세 링크에 고른 범위를 싣는다 — 상세 패널도 그 범위의 금액만 보인다.
+     탐색 밖(포트폴리오·초대 링크·주소 직접 입력)에서 들어오면 ?scope 가 없어 모두 보인다 */
+  const hrefOf = (id: string) => `/designers/${id}${formScope ? `?scope=${formScope}` : ''}`
+  const choicesOf = (id: string) => {
+    const mine = choices?.[id]
+    return mine && formScope ? onlyScope(mine, formScope) : mine
+  }
 
   /* 썸네일 다이얼로그는 목록 순서대로 디자이너들의 작업을 한 줄로 잇는다 —
      한 사람의 끝에서 넘기면 그 사람의 처음이 아니라 다음 디자이너의 첫 작업이 나온다.
@@ -181,19 +182,13 @@ export function DesignerList({
     window.scrollTo({ top: 0, behavior: 'instant' })
   }
 
-  /* 의뢰 범위도 목록을 통째로 바꾼다 — 분야와 같이 맨 위로 */
-  const pickReach = (r: Reach) => {
-    setReach(r)
-    window.scrollTo({ top: 0, behavior: 'instant' })
-  }
-
   return (
     <div className="flex min-h-full bg-neutral-100 text-neutral-900">
       <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white p-6 lg:block">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">전문 분야</p>
         <ul className="mt-3 space-y-0.5 text-sm">
           {[null, ...allTags].map((t) => {
-            const n = t ? shown.filter((d) => d.tags.includes(t)).length : shown.length
+            const n = countOf(t)
             return (
               <li key={t ?? 'all'}>
                 <button
@@ -226,30 +221,6 @@ export function DesignerList({
                 <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
                   {tag ?? 'Designers'}
                 </h1>
-                {showReach && (
-                  <div
-                    role="radiogroup"
-                    aria-label="의뢰 범위"
-                    className="inline-flex self-center rounded-full bg-neutral-200/70 p-0.5 text-xs"
-                  >
-                    {REACHES.map((r) => (
-                      <button
-                        key={r.key}
-                        type="button"
-                        role="radio"
-                        aria-checked={reach === r.key}
-                        onClick={() => pickReach(r.key)}
-                        className={`rounded-full px-2.5 py-1 transition ${
-                          reach === r.key
-                            ? 'bg-white font-semibold text-violet-700 shadow-sm'
-                            : 'text-neutral-600 hover:text-neutral-900'
-                        }`}
-                      >
-                        {r.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
                 {/* 고른 유형을 제목 옆에 늘 보이게 — 왜 목록이 짧은지 모르면
                     디자이너가 없는 줄 알고 되돌아간다. '모르겠어요'로 닫았으면
                     '전체'로 띄운다 — 유형을 고르는 자리가 있다는 걸 알려야 한다.
@@ -322,14 +293,16 @@ export function DesignerList({
               <DesignerCard
                 key={d.id}
                 designer={d}
-                choices={choices?.[d.id]}
+                href={hrefOf(d.id)}
+                choices={choicesOf(d.id)}
                 onOpenWork={(i) => setOpenAt(starts.get(d.id)! + i)}
               />
             ) : (
               <DesignerSpotlight
                 key={d.id}
                 designer={d}
-                choices={choices?.[d.id]}
+                href={hrefOf(d.id)}
+                choices={choicesOf(d.id)}
                 onOpenWork={(i) => setOpenAt(starts.get(d.id)! + i)}
               />
             ),
@@ -352,7 +325,7 @@ export function DesignerList({
           setIndex={setOpenAt}
           onClose={() => setOpenAt(null)}
           nameOf={(w) => displayNameOf(w.designer)}
-          hrefOf={(w) => `/designers/${w.designer.id}`}
+          hrefOf={(w) => hrefOf(w.designer.id)}
           counterOf={(w) => [w.nth, w.of]}
           loop={false}
         />
@@ -362,9 +335,10 @@ export function DesignerList({
       {scopePrompt && !asked && (
         <ScopePrompt
           current={scope}
-          scopes={visibleScopes}
+          scopes={PROMPT_SCOPES.filter((s) => visibleScopes.includes(s))}
           onPick={(s) => {
-            setScope(s)
+            setScope(s as PromptScope)
+            window.scrollTo({ top: 0, behavior: 'instant' })
             setAsked(true)
           }}
           /* 다시 열어 '모르겠어요'를 누르면 고른 유형도 푼다 — 전체 보기 버튼을
@@ -382,17 +356,19 @@ export function DesignerList({
 /* 목록 한 줄 — 어드민이 고른 상단 노출(feature1) 디자이너에 쓴다 */
 function DesignerCard({
   designer: d,
+  href,
   choices,
   onOpenWork,
 }: {
   designer: PublicDesignerCard
+  /* 상세로 가는 길 — 탐색에서 고른 의뢰유형을 싣는다 */
+  href: string
   /* 의뢰 폼의 분야·범위·금액 — 없으면 폼이 일반 선택지를 받아 온다 */
   choices?: CategoryChoice[]
   /* 넘겨 주면 다이얼로그를 목록이 띄운다 — 다음 디자이너까지 이어 넘기려면
      모달이 카드 하나보다 위에 있어야 한다. 없으면 카드가 띄운다. */
   onOpenWork?: (i: number) => void
 }) {
-  const href = `/designers/${d.id}`
   const name = displayNameOf(d)
 
   /* 썸네일 줄에는 CARD_THUMBS 장만 늘어놓고 남은 장수를 "+N개" 로 알린다 */
@@ -519,14 +495,15 @@ function DesignerCard({
    그보다 많으면 끝에 "+N" 을 두어 프로필에서 마저 보게 한다. */
 function DesignerSpotlight({
   designer: d,
+  href,
   choices,
   onOpenWork,
 }: {
   designer: PublicDesignerCard
+  href: string
   choices?: CategoryChoice[]
   onOpenWork: (i: number) => void
 }) {
-  const href = `/designers/${d.id}`
   const name = displayNameOf(d)
   const [cur, setCur] = useState(0)
   const works = d.works.slice(0, SPOTLIGHT_MAX)

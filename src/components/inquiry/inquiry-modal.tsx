@@ -29,6 +29,18 @@ function colsFor(n: number): string {
   return 'grid-cols-2 sm:grid-cols-3'
 }
 
+/* 일반 선택지 — 한 번 받아 두고 다시 열 때는 기다리지 않는다.
+   실패하면 비워 두어 다음에 열 때 다시 받는다 */
+type GeneralChoices = Awaited<ReturnType<typeof getGeneralInquiryChoices>>
+let generalChoices: Promise<GeneralChoices> | null = null
+function loadGeneralChoices(): Promise<GeneralChoices> {
+  generalChoices ??= getGeneralInquiryChoices().catch((e) => {
+    generalChoices = null
+    throw e
+  })
+  return generalChoices
+}
+
 /* 범위 이름 옆 짧은 풀이 — 플랜 이름(어드민 설정)만으로는 개발이 들어가는지 알기 어렵다 */
 const SCOPE_NOTE: Partial<Record<InquiryScope, string>> = {
   design: '디자인만 의뢰',
@@ -169,7 +181,7 @@ export function InquiryModal({
   useEffect(() => {
     if (given) return
     let alive = true
-    getGeneralInquiryChoices()
+    loadGeneralChoices()
       .then((r) => {
         if (!alive) return
         setFetched(r.choices)
@@ -314,6 +326,12 @@ export function InquiryModal({
           body="영업일 기준 1~3일 내 입력하신 이메일로 답변드립니다."
           onClose={onClose}
         />
+      ) : choices == null ? (
+        /* 선택지가 오기 전에는 폼을 그리지 않는다 — 입력칸만 먼저 뜨고 분야가 뒤늦게
+           위에 끼어들면 칸이 아래로 밀려, 누르려던 자리가 바뀐다 */
+        <div className="flex min-h-80 items-center justify-center px-6 py-7 text-sm text-neutral-400">
+          의뢰 양식을 불러오는 중…
+        </div>
       ) : (
         <form onSubmit={send} className="px-6 py-7 md:px-10 md:py-8">
           {/* 사람에게는 보이지 않는 칸 — 채워져 오면 봇으로 본다.
@@ -329,194 +347,190 @@ export function InquiryModal({
           />
 
           {/* 의뢰 유형 — 견적도 여기서 갈린다 */}
-          {choices == null ? (
-            <p className="mt-6 text-sm text-neutral-400">의뢰 유형을 불러오는 중…</p>
-          ) : (
-            cats.length > 0 && (
-              <div className="mt-6 space-y-5">
-                {cat && <input type="hidden" name="category" value={cat.name} />}
-                {/* 간편 의뢰는 범위를 보내지 않는다 — 서버도 분야만 맞춰 본다 */}
-                {/* 메인 시안을 덧붙이면 접수 유형은 메인 시안, 염두에 둔 본계약은 mainScope 로 함께 */}
-                {!simple && cat && option && (
-                  <input type="hidden" name="scope" value={withSample ? 'sample' : option.key} />
-                )}
-                {!simple && cat && option && withSample && (
-                  <input type="hidden" name="mainScope" value={option.key} />
-                )}
+          {cats.length > 0 && (
+            <div className="mt-6 space-y-5">
+              {cat && <input type="hidden" name="category" value={cat.name} />}
+              {/* 간편 의뢰는 범위를 보내지 않는다 — 서버도 분야만 맞춰 본다 */}
+              {/* 메인 시안을 덧붙이면 접수 유형은 메인 시안, 염두에 둔 본계약은 mainScope 로 함께 */}
+              {!simple && cat && option && (
+                <input type="hidden" name="scope" value={withSample ? 'sample' : option.key} />
+              )}
+              {!simple && cat && option && withSample && (
+                <input type="hidden" name="mainScope" value={option.key} />
+              )}
 
-                {/* 1차 — 분야. 하나뿐이면 고를 게 없으므로 묻지 않는다 */}
-                {cats.length > 1 && (
-                  <fieldset>
-                    <legend className="mb-2 text-xs font-medium text-neutral-700">
-                      어떤 분야인가요? <span className="text-red-600">*</span>
-                    </legend>
-                    <div className={`grid gap-2 ${catCols}`}>
-                      {cats.map((c) => (
-                        <label
-                          key={c.name}
-                          className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm font-medium transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50 has-[:checked]:text-violet-700"
+              {/* 1차 — 분야. 하나뿐이면 고를 게 없으므로 묻지 않는다 */}
+              {cats.length > 1 && (
+                <fieldset>
+                  <legend className="mb-2 text-xs font-medium text-neutral-700">
+                    어떤 분야인가요? <span className="text-red-600">*</span>
+                  </legend>
+                  <div className={`grid gap-2 ${catCols}`}>
+                    {cats.map((c) => (
+                      <label
+                        key={c.name}
+                        className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm font-medium transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50 has-[:checked]:text-violet-700"
+                      >
+                        <input
+                          required
+                          type="radio"
+                          name="inquiryCategory"
+                          value={c.name}
+                          checked={c.name === cat?.name}
+                          onChange={() => pickCat(c.name)}
+                          className="shrink-0 accent-violet-600"
+                        />
+                        <span className="min-w-0 break-keep">{c.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+
+              {/* 2차 — 그 분야가 받는 범위. 분야를 골라야 열린다.
+                  간편 의뢰에서는 묻지 않고 아래 예산 범위로 대신한다 */}
+              {!simple && cat && (
+                <fieldset>
+                  <legend className="mb-2 text-xs font-medium text-neutral-700">
+                    {cats.length > 1 ? `${cat.name} — ` : ''}어떻게 의뢰할까요?{' '}
+                    <span className="text-red-600">*</span>
+                  </legend>
+                  <div className="space-y-2">
+                    {main.map((o) => {
+                      const checked = o.key === option?.key
+                      /* 테두리는 라디오 상태로 칠한다 — 안의 프리미엄 체크박스가 has-[:checked] 에 걸리지 않게 */
+                      return (
+                        <div
+                          key={o.key}
+                          className={`rounded-lg border p-3 transition ${
+                            checked ? 'border-violet-600 bg-violet-50' : 'border-neutral-300 bg-white hover:bg-neutral-50'
+                          }`}
                         >
-                          <input
-                            required
-                            type="radio"
-                            name="inquiryCategory"
-                            value={c.name}
-                            checked={c.name === cat?.name}
-                            onChange={() => pickCat(c.name)}
-                            className="shrink-0 accent-violet-600"
-                          />
-                          <span className="min-w-0 break-keep">{c.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
-
-                {/* 2차 — 그 분야가 받는 범위. 분야를 골라야 열린다.
-                    간편 의뢰에서는 묻지 않고 아래 예산 범위로 대신한다 */}
-                {!simple && cat && (
-                  <fieldset>
-                    <legend className="mb-2 text-xs font-medium text-neutral-700">
-                      {cats.length > 1 ? `${cat.name} — ` : ''}어떻게 의뢰할까요?{' '}
-                      <span className="text-red-600">*</span>
-                    </legend>
-                    <div className="space-y-2">
-                      {main.map((o) => {
-                        const checked = o.key === option?.key
-                        /* 테두리는 라디오 상태로 칠한다 — 안의 프리미엄 체크박스가 has-[:checked] 에 걸리지 않게 */
-                        return (
-                          <div
-                            key={o.key}
-                            className={`rounded-lg border p-3 transition ${
-                              checked ? 'border-violet-600 bg-violet-50' : 'border-neutral-300 bg-white hover:bg-neutral-50'
-                            }`}
-                          >
-                            <label className="flex cursor-pointer items-start gap-2.5">
-                              <input
-                                required
-                                type="radio"
-                                name="inquiryScope"
-                                value={o.key}
-                                checked={checked}
-                                onChange={() => pickScope(o.key)}
-                                className="mt-0.5 shrink-0 accent-violet-600"
-                              />
-                              <span className="min-w-0 flex-1">
-                                <span className="flex items-baseline justify-between gap-3">
-                                  <span className="text-sm font-medium">
-                                    {o.label}
-                                    {SCOPE_NOTE[o.key] && !o.label.includes(SCOPE_NOTE[o.key]!) && (
-                                      <span className="ml-1.5 text-xs font-normal text-neutral-500">
-                                        {SCOPE_NOTE[o.key]}
-                                      </span>
-                                    )}
-                                  </span>
-                                  {/* 지금 얼마로 의뢰되는지 한눈에 — 고른 줄에서 덧붙인
-                                      옵션이 없을 때만 이 금액이 실제 금액이다(기본가격).
-                                      프리미엄·메인화면을 켜면 그쪽이 실제 금액이므로
-                                      여기는 흐려 둔다. 고르지 않은 줄도 흐리다. */}
-                                  <Price
-                                    label={o.priceLabel}
-                                    className={`text-sm font-semibold ${
-                                      checked && extra === 'none' ? 'text-violet-700' : 'text-neutral-400'
-                                    }`}
-                                  />
+                          <label className="flex cursor-pointer items-start gap-2.5">
+                            <input
+                              required
+                              type="radio"
+                              name="inquiryScope"
+                              value={o.key}
+                              checked={checked}
+                              onChange={() => pickScope(o.key)}
+                              className="mt-0.5 shrink-0 accent-violet-600"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-baseline justify-between gap-3">
+                                <span className="text-sm font-medium">
+                                  {o.label}
+                                  {SCOPE_NOTE[o.key] && !o.label.includes(SCOPE_NOTE[o.key]!) && (
+                                    <span className="ml-1.5 text-xs font-normal text-neutral-500">
+                                      {SCOPE_NOTE[o.key]}
+                                    </span>
+                                  )}
                                 </span>
-                                {o.desc && (
-                                  <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
-                                    {o.desc}
-                                  </span>
-                                )}
-                                {/* 프리미엄이 있는 유형 — 고르기 전에도 뱃지와 금액을 보여준다.
-                                    고른 줄에서는 아래 체크박스(ExtraOption)가 같은 금액을
-                                    다시 보여주므로 숨긴다 — 같은 값이 두 번 보이면
-                                    어느 쪽이 지금 금액인지 가리기 어렵다. */}
-                                {o.premium && !checked && (
-                                  <span className="mt-2 flex items-center gap-1.5 text-xs text-neutral-400">
-                                    <PremiumBadge muted />
-                                    {o.premium.priceLabel}
-                                  </span>
-                                )}
-                                {/* 메인 시안을 받는 분야 — 고르면 아래에서 덧붙일 수 있다고 미리 알린다 */}
-                                {sample && o.sampleOk && !checked && (
-                                  <span className="mt-1.5 block text-xs font-medium text-violet-600">
-                                    메인화면 먼저 의뢰 가능
-                                  </span>
-                                )}
+                                {/* 지금 얼마로 의뢰되는지 한눈에 — 고른 줄에서 덧붙인
+                                    옵션이 없을 때만 이 금액이 실제 금액이다(기본가격).
+                                    프리미엄·메인화면을 켜면 그쪽이 실제 금액이므로
+                                    여기는 흐려 둔다. 고르지 않은 줄도 흐리다. */}
+                                <Price
+                                  label={o.priceLabel}
+                                  className={`text-sm font-semibold ${
+                                    checked && extra === 'none' ? 'text-violet-700' : 'text-neutral-400'
+                                  }`}
+                                />
                               </span>
-                            </label>
+                              {o.desc && (
+                                <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
+                                  {o.desc}
+                                </span>
+                              )}
+                              {/* 프리미엄이 있는 유형 — 고르기 전에도 뱃지와 금액을 보여준다.
+                                  고른 줄에서는 아래 체크박스(ExtraOption)가 같은 금액을
+                                  다시 보여주므로 숨긴다 — 같은 값이 두 번 보이면
+                                  어느 쪽이 지금 금액인지 가리기 어렵다. */}
+                              {o.premium && !checked && (
+                                <span className="mt-2 flex items-center gap-1.5 text-xs text-neutral-400">
+                                  <PremiumBadge muted />
+                                  {o.premium.priceLabel}
+                                </span>
+                              )}
+                              {/* 메인 시안을 받는 분야 — 고르면 아래에서 덧붙일 수 있다고 미리 알린다 */}
+                              {sample && o.sampleOk && !checked && (
+                                <span className="mt-1.5 block text-xs font-medium text-violet-600">
+                                  메인화면 먼저 의뢰 가능
+                                </span>
+                              )}
+                            </span>
+                          </label>
 
-                            {/* 고른 유형 안에서만 — 라디오 label 바깥에 두어 누름이 라디오로 번지지 않게.
-                                둘은 함께 고르지 않는다(하나를 켜면 다른 하나는 꺼진다) */}
-                            {checked && sample && o.sampleOk && (
-                              <ExtraOption
-                                title="메인화면 먼저 의뢰"
-                                desc={sample.desc}
-                                priceLabel={sample.priceLabel}
-                                on={extra === 'sample'}
-                                onChange={(on) => setExtra(on ? 'sample' : 'none')}
-                              />
-                            )}
-                            {checked && o.premium && (
-                              <ExtraOption
-                                title="프리미엄으로 의뢰"
-                                desc={o.premium.name}
-                                priceLabel={o.premium.priceLabel}
-                                on={extra === 'premium'}
-                                onChange={(on) => setExtra(on ? 'premium' : 'none')}
-                              />
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </fieldset>
-                )}
+                          {/* 고른 유형 안에서만 — 라디오 label 바깥에 두어 누름이 라디오로 번지지 않게.
+                              둘은 함께 고르지 않는다(하나를 켜면 다른 하나는 꺼진다) */}
+                          {checked && sample && o.sampleOk && (
+                            <ExtraOption
+                              title="메인화면 먼저 의뢰"
+                              desc={sample.desc}
+                              priceLabel={sample.priceLabel}
+                              on={extra === 'sample'}
+                              onChange={(on) => setExtra(on ? 'sample' : 'none')}
+                            />
+                          )}
+                          {checked && o.premium && (
+                            <ExtraOption
+                              title="프리미엄으로 의뢰"
+                              desc={o.premium.name}
+                              priceLabel={o.premium.priceLabel}
+                              on={extra === 'premium'}
+                              onChange={(on) => setExtra(on ? 'premium' : 'none')}
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </fieldset>
+              )}
 
-                {/* 프리미엄을 고를 수 있던 범위일 때만 보낸다 — 아니면 서버가 null 로 둔다.
-                    간편 의뢰는 범위를 안 골랐으므로 단계도 정해지지 않는다 */}
-                {!simple && option?.premium && !withSample && (
-                  <input type="hidden" name="planTier" value={withPremium ? 'premium' : 'basic'} />
-                )}
+              {/* 프리미엄을 고를 수 있던 범위일 때만 보낸다 — 아니면 서버가 null 로 둔다.
+                  간편 의뢰는 범위를 안 골랐으므로 단계도 정해지지 않는다 */}
+              {!simple && option?.premium && !withSample && (
+                <input type="hidden" name="planTier" value={withPremium ? 'premium' : 'basic'} />
+              )}
 
-                {/* 예산 범위 — 간편 의뢰에서 2차 범위 대신 묻는다.
-                    구간은 분야마다 다르고(어드민 설정), 구간을 두지 않은 분야는
-                    이 자리를 아예 띄우지 않는다. 선택사항이라 비워 두고 보낼 수 있다 */}
-                {simple && budgetList.length > 0 && (
-                  <fieldset>
-                    <legend className="mb-2 text-xs font-medium text-neutral-700">
-                      예산 범위 <span className="font-normal text-neutral-500">(선택)</span>
-                    </legend>
-                    <div className={`grid gap-2 ${budgetCols}`}>
-                      {budgetList.map((b) => (
-                        <label
-                          key={b.id}
-                          className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50 has-[:checked]:font-medium has-[:checked]:text-violet-700"
-                        >
-                          <input
-                            type="radio"
-                            name="budget"
-                            value={b.label}
-                            checked={budget === b.label}
-                            /* 고른 것을 다시 누르면 선택을 푼다 — 라디오는 되돌릴 길이
-                               없어서, 잘못 눌렀을 때 '선택 안 함'으로 못 돌아간다 */
-                            onClick={() => budget === b.label && setBudget(null)}
-                            onChange={() => setBudget(b.label)}
-                            className="shrink-0 accent-violet-600"
-                          />
-                          <span className="min-w-0 break-keep">{b.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-[11px] text-neutral-500">
-                      {budget
-                        ? '다시 누르면 선택이 해제됩니다.'
-                        : '아직 정하지 않으셨다면 비워 두셔도 됩니다.'}
-                    </p>
-                  </fieldset>
-                )}
-              </div>
-            )
+              {/* 예산 범위 — 간편 의뢰에서 2차 범위 대신 묻는다.
+                  구간은 분야마다 다르고(어드민 설정), 구간을 두지 않은 분야는
+                  이 자리를 아예 띄우지 않는다. 선택사항이라 비워 두고 보낼 수 있다 */}
+              {simple && budgetList.length > 0 && (
+                <fieldset>
+                  <legend className="mb-2 text-xs font-medium text-neutral-700">
+                    예산 범위 <span className="font-normal text-neutral-500">(선택)</span>
+                  </legend>
+                  <div className={`grid gap-2 ${budgetCols}`}>
+                    {budgetList.map((b) => (
+                      <label
+                        key={b.id}
+                        className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm transition hover:bg-neutral-50 has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50 has-[:checked]:font-medium has-[:checked]:text-violet-700"
+                      >
+                        <input
+                          type="radio"
+                          name="budget"
+                          value={b.label}
+                          checked={budget === b.label}
+                          /* 고른 것을 다시 누르면 선택을 푼다 — 라디오는 되돌릴 길이
+                             없어서, 잘못 눌렀을 때 '선택 안 함'으로 못 돌아간다 */
+                          onClick={() => budget === b.label && setBudget(null)}
+                          onChange={() => setBudget(b.label)}
+                          className="shrink-0 accent-violet-600"
+                        />
+                        <span className="min-w-0 break-keep">{b.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[11px] text-neutral-500">
+                    {budget
+                      ? '다시 누르면 선택이 해제됩니다.'
+                      : '아직 정하지 않으셨다면 비워 두셔도 됩니다.'}
+                  </p>
+                </fieldset>
+              )}
+            </div>
           )}
 
           <div className="mt-6 grid gap-6 md:grid-cols-2 md:gap-7">

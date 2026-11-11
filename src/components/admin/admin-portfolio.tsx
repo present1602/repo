@@ -10,6 +10,7 @@ import {
   adminAddWork,
   adminPrepareWorkUpload,
   adminPrepareWorkPages,
+  adminPrepareVideoUpload,
   adminUpdateWork,
   adminSetWorkVisible,
   adminDeleteWork,
@@ -18,6 +19,9 @@ import {
 } from '@/app/admin/designers/actions'
 import { youtubeId, youtubeWatchUrl } from '@/lib/youtube'
 import { MAX_LINK_URL, workLinkUrl } from '@/lib/work-link'
+import { MAX_VIDEO_MB, VIDEO_ACCEPT, WORK_VIDEOS_BUCKET, checkVideoFile } from '@/lib/video-upload'
+import { WarnToast } from '@/components/warn-toast'
+import { uploadSigned } from '@/lib/direct-upload'
 import { Img } from '@/components/img'
 import { CropEditor, CropPreview } from '@/components/admin/crop-editor'
 import { StackView, ZoomArea, type ZoomAreaHandle } from '@/components/zoom-area'
@@ -284,6 +288,7 @@ function AddWorkButton({
       actions={{
         prepareUpload: (name, size) => adminPrepareWorkUpload(designerId, name, size),
         preparePages: (files) => adminPrepareWorkPages(designerId, files),
+        prepareVideo: (name, size) => adminPrepareVideoUpload(name, size),
         addWork: (form) => {
           form.set('designerId', designerId)
           return adminAddWork(form)
@@ -323,10 +328,18 @@ export function WorkDialog({
   const [aiUsed, setAiUsed] = useState(w.ai_used === true)
   /* 020 전 DB 에서는 undefined 로 온다 — 꺼짐으로 본다 */
   const [soomWork, setSoomWork] = useState(w.soom_work === true)
-  /* 맨 끝에 붙은 유튜브 영상(0019). 저장해 둔 것은 id 뿐이라 주소로 되돌려
-     보여준다 — 비우고 저장하면 영상을 뗀다. */
+  /* 맨 끝에 붙은 영상 — 유튜브(0019) 또는 올린 파일(0028) 중 하나.
+     저장해 둔 유튜브는 id 뿐이라 주소로 되돌려 보여준다 — 비우고 저장하면
+     영상을 뗀다. 올린 파일은 고른 순간이 아니라 '저장'을 누를 때 올라간다. */
+  const initialVideoSource = w.video_file_path ? 'file' : 'youtube'
+  const [videoSource, setVideoSource] = useState<'youtube' | 'file'>(initialVideoSource)
   const [videoUrl, setVideoUrl] = useState(w.video_id ? youtubeWatchUrl(w.video_id) : '')
-  const badVideo = videoUrl.trim() !== '' && youtubeId(videoUrl) == null
+  const badVideo = videoSource === 'youtube' && videoUrl.trim() !== '' && youtubeId(videoUrl) == null
+  const [videoFile, setVideoFile] = useState<File | null>(null)
+  /* 고른 파일을 거절한 까닭 — 토스트로 띄운다. 같은 문구라도 다시 뜨게 매번 새 객체로 */
+  const [videoFileError, setVideoFileError] = useState<{ text: string } | null>(null)
+  const [videoFileRemoved, setVideoFileRemoved] = useState(false)
+  const videoFileRef = useRef<HTMLInputElement>(null)
   /* 이동 링크(0025_work_link.sql) — 허용 스위치를 쥔 쪽이 어드민이라 늘 보인다 */
   const [linkUrl, setLinkUrl] = useState(w.link_url ?? '')
   const badLink = linkUrl.trim() !== '' && workLinkUrl(linkUrl) == null
@@ -366,6 +379,9 @@ export function WorkDialog({
     aiUsed !== w.ai_used ||
     soomWork !== (w.soom_work === true) ||
     videoUrl.trim() !== (w.video_id ? youtubeWatchUrl(w.video_id) : '') ||
+    videoFile != null ||
+    videoFileRemoved ||
+    videoSource !== initialVideoSource ||
     linkUrl.trim() !== (w.link_url ?? '')
 
   /* Esc 로 닫고, 열려 있는 동안 뒤쪽 목록이 스크롤되지 않게 한다 */
@@ -435,6 +451,26 @@ export function WorkDialog({
         setRatio(null)
       }
 
+      /* 새로 고른 영상 파일은 여기서 올린다 — 고른 순간이 아니라 저장할 때 */
+      let videoPath: string | undefined
+      if (videoSource === 'file') {
+        if (videoFile) {
+          const prep = await adminPrepareVideoUpload(videoFile.name, videoFile.size)
+          if (!prep.ok) {
+            onNotice({ kind: 'error', text: prep.error })
+            return
+          }
+          const sent = await uploadSigned(WORK_VIDEOS_BUCKET, prep, videoFile)
+          if (!sent) {
+            onNotice({ kind: 'error', text: '영상을 올리지 못했습니다. 잠시 후 다시 시도해 주세요.' })
+            return
+          }
+          videoPath = prep.path
+        } else if (videoFileRemoved) {
+          videoPath = ''
+        }
+      }
+
       if (dirty) {
         const r = await adminUpdateWork({
           id: w.id,
@@ -444,7 +480,8 @@ export function WorkDialog({
           client,
           aiUsed,
           soomWork,
-          videoUrl: videoUrl.trim(),
+          ...(videoSource === 'youtube' ? { videoUrl: videoUrl.trim() } : {}),
+          ...(videoPath != null ? { videoPath } : {}),
           linkUrl: linkUrl.trim(),
         })
         if (!r.ok) {
@@ -581,24 +618,125 @@ export function WorkDialog({
             />
           </label>
 
-          {/* 유튜브 영상 — 작업 맨 끝에 붙는다. 비우고 저장하면 떼진다 */}
-          <label className="mt-3 block">
+          {/* 영상 — 작업 맨 끝에 붙는다. 유튜브 주소 또는 올린 파일 중 하나만
+              쓴다. 탭을 바꾸면 다른 쪽은 떼진다. */}
+          <div className="mt-3">
             <span className="mb-1.5 block text-xs font-medium text-neutral-600">
-              유튜브 영상 <span className="font-normal text-neutral-400">(선택)</span>
+              영상 <span className="font-normal text-neutral-400">(선택)</span>
             </span>
-            <input
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              inputMode="url"
-              placeholder="https://youtu.be/..."
-              className={`h-9 w-full rounded-lg border px-3 text-sm outline-none ring-violet-500 focus:ring-2 ${
-                badVideo ? 'border-rose-400' : 'border-neutral-300'
-              }`}
-            />
-            <span className="mt-1 block text-xs text-neutral-400">
-              {badVideo ? '유튜브 주소를 확인해 주세요.' : '작업 맨 끝에서 영상이 재생됩니다.'}
-            </span>
-          </label>
+            <div className="mb-1.5 flex gap-1 rounded-lg bg-neutral-100 p-0.5 text-xs font-medium">
+              {(
+                [
+                  ['youtube', '유튜브 주소'],
+                  ['file', '영상 파일 첨부'],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setVideoSource(key)}
+                  className={`flex-1 rounded-md py-1.5 transition ${
+                    videoSource === key
+                      ? 'bg-white text-neutral-900 shadow-sm'
+                      : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {videoSource === 'youtube' ? (
+              <>
+                <input
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  inputMode="url"
+                  placeholder="https://youtu.be/..."
+                  className={`h-9 w-full rounded-lg border px-3 text-sm outline-none ring-violet-500 focus:ring-2 ${
+                    badVideo ? 'border-rose-400' : 'border-neutral-300'
+                  }`}
+                />
+                <span className="mt-1 block text-xs text-neutral-400">
+                  {badVideo ? '유튜브 주소를 확인해 주세요.' : '작업 맨 끝에서 영상이 재생됩니다.'}
+                </span>
+              </>
+            ) : (
+              <>
+                {videoFile ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-neutral-300 px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate">{videoFile.name}</span>
+                    <span className="shrink-0 text-xs text-neutral-400">
+                      {(videoFile.size / 1024 / 1024).toFixed(1)}MB
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVideoFile(null)
+                        setVideoFileError(null)
+                      }}
+                      className="shrink-0 text-xs font-medium text-red-600 hover:underline"
+                    >
+                      취소
+                    </button>
+                  </div>
+                ) : w.video_file_path && !videoFileRemoved ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-neutral-300 px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate text-neutral-600">
+                      지금 붙어 있는 영상 파일
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => videoFileRef.current?.click()}
+                      className="shrink-0 text-xs font-medium text-violet-700 hover:underline"
+                    >
+                      바꾸기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVideoFileRemoved(true)}
+                      className="shrink-0 text-xs font-medium text-red-600 hover:underline"
+                    >
+                      빼기
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => videoFileRef.current?.click()}
+                    className="h-9 w-full rounded-lg border border-dashed border-neutral-300 text-sm text-neutral-500 transition hover:border-violet-400 hover:text-violet-700"
+                  >
+                    {videoFileRemoved ? '뗀 뒤 저장됩니다 — 다시 선택' : '+ 영상 파일 선택'}
+                  </button>
+                )}
+                <input
+                  ref={videoFileRef}
+                  type="file"
+                  accept={VIDEO_ACCEPT}
+                  hidden
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null
+                    e.target.value = ''
+                    if (!f) return
+                    const bad = checkVideoFile(f)
+                    if (bad) {
+                      setVideoFileError({ text: bad })
+                      return
+                    }
+                    setVideoFileError(null)
+                    setVideoFileRemoved(false)
+                    setVideoFile(f)
+                  }}
+                />
+                <span className="mt-1 block text-xs text-neutral-400">
+                  MP4·MOV·WebM · <b className="font-medium text-neutral-600">{MAX_VIDEO_MB}MB 이하</b> — 올린
+                  영상이 작업 맨 끝에서 재생됩니다.
+                </span>
+                {/* 고른 파일을 거절하면 다이얼로그 위에 토스트로 알린다(warn-toast.tsx) */}
+                <WarnToast msg={videoFileError} onDone={() => setVideoFileError(null)} />
+              </>
+            )}
+          </div>
 
           {/* 이동 링크(0025_work_link.sql) — 비우고 저장하면 떼진다.
               어드민은 디자이너별 허용 스위치와 무관하게 붙이고 뗄 수 있다 */}
