@@ -32,6 +32,9 @@ const HIDDEN = ['/admin', '/studio', '/designers/proposal']
    카드 위에 겹친다. 좁은 화면에서는 가리더라도 손이 닿는 자리가 먼저다. */
 const CONTENT_MAX = 1280 /* max-w-7xl */
 const FAB_GAP = 16 /* 본문 좌우 여백(px-4)과 같은 값 — 아래쪽에도 쓴다 */
+/* 아래쪽은 옆보다 더 띄운다 — 둥근 모서리 폰에서 FAB_GAP 만큼이면 단추가
+   화면 아래 끝에 붙어 보인다 */
+const FAB_BOTTOM = 28
 const FAB_SIZE = 56 /* size-14 */
 
 /* 단추를 흰 여백 안에 온전히 두려면 필요한 폭 — 양옆 간격까지 친다 */
@@ -112,7 +115,7 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
       const gap = FAB_GAP / vv.scale
       const rightGap = vv.scale > 1 ? gap : fabRight(vv.width)
       const right = window.innerWidth - (vv.offsetLeft + vv.width) + rightGap
-      const bottom = window.innerHeight - (vv.offsetTop + vv.height) + gap
+      const bottom = window.innerHeight - (vv.offsetTop + vv.height) + FAB_BOTTOM / vv.scale
       el.style.right = `${right}px`
       el.style.bottom = `${bottom}px`
       /* 확대하면 단추도 함께 커져 화면을 가린다 — 배율만큼 줄여 크기를 지킨다 */
@@ -285,7 +288,7 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
              여백이 좁으면 그 값이 FAB_GAP 아래로 떨어지므로 max() 가 가장자리로
              붙인다 — 분기 없이 두 경우가 한 줄로 맞아떨어진다. */
           style={{
-            bottom: `${FAB_GAP}px`,
+            bottom: `${FAB_BOTTOM}px`,
             right: FAB_RIGHT_CSS,
           }}
           className="fixed z-40 grid size-14 place-items-center rounded-full bg-violet-600 text-white shadow-lg transition hover:bg-violet-700"
@@ -296,7 +299,7 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
               점은 뚫린 구멍처럼 보여야 한다. 색을 칠하지 않고 바탕을 그대로
               내보낸다(fill-rule: evenodd) — 그래야 hover 로 단추 색이 바뀌어도
               점이 따라 바뀌어 겉돌지 않는다. */}
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="size-6">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="size-[30px]">
             <path
               fillRule="evenodd"
               clipRule="evenodd"
@@ -325,7 +328,7 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
         <div
           role="dialog"
           aria-label="문의 챗봇"
-          style={{ '--fab-right': FAB_RIGHT_CSS, '--fab-gap': `${FAB_GAP}px` } as CSSProperties}
+          style={{ '--fab-right': FAB_RIGHT_CSS, '--fab-gap': `${FAB_BOTTOM}px` } as CSSProperties}
           className="fixed inset-x-3 bottom-3 z-40 flex max-h-[min(80vh,560px)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-neutral-200 sm:inset-x-auto sm:bottom-[var(--fab-gap)] sm:right-[var(--fab-right)] sm:w-[23rem]"
         >
           {/* 머리 */}

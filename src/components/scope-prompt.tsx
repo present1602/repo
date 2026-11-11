@@ -55,14 +55,6 @@ export function ScopePrompt({
             </button>
           ))}
         </div>
-
-        <button
-          type="button"
-          onClick={onSkip}
-          className="mt-5 w-full text-center text-xs text-neutral-500 transition hover:text-neutral-900"
-        >
-          아직 모르겠어요.
-        </button>
       </div>
     </div>
   )
