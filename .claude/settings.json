@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "/Users/cy/balance/soom-agency/agency/app/admin/payments",
+      "/Users/cy/balance/soom-agency/agency/app/admin"
+    ]
+  }
+}

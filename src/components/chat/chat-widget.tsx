@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { usePathname } from 'next/navigation'
 import { InquiryModal } from '@/components/inquiry/inquiry-modal'
 import {
@@ -36,6 +36,10 @@ const FAB_SIZE = 56 /* size-14 */
 
 /* 단추를 흰 여백 안에 온전히 두려면 필요한 폭 — 양옆 간격까지 친다 */
 const FAB_CLEAR = FAB_SIZE + FAB_GAP * 2
+
+/* fabRight 와 같은 셈을 CSS 로 — 자바스크립트 전에도 맞는 자리에 서게.
+   열린 패널도 이 값을 써서 단추가 있던 자리에 뜬다. */
+const FAB_RIGHT_CSS = `max(${FAB_GAP}px, calc((100vw - ${CONTENT_MAX}px) / 2 - ${FAB_SIZE + FAB_GAP}px))`
 
 /* 화면 너비에서 단추의 오른쪽 여백을 구한다.
 
@@ -282,7 +286,7 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
              붙인다 — 분기 없이 두 경우가 한 줄로 맞아떨어진다. */
           style={{
             bottom: `${FAB_GAP}px`,
-            right: `max(${FAB_GAP}px, calc((100vw - ${CONTENT_MAX}px) / 2 - ${FAB_SIZE + FAB_GAP}px))`,
+            right: FAB_RIGHT_CSS,
           }}
           className="fixed z-40 grid size-14 place-items-center rounded-full bg-violet-600 text-white shadow-lg transition hover:bg-violet-700"
         >
@@ -315,10 +319,14 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
       )}
 
       {open && (
+        /* 넓은 화면에서는 여는 단추가 있던 자리에 뜬다 — 오른쪽·아래 선을 단추와
+           같은 셈으로 맞춘다. 화면 끝(right-5)에 붙이면 큰 모니터에서 단추와
+           멀리 떨어져 엉뚱한 곳에 열린 것처럼 보인다. 좁은 화면은 폭을 다 쓴다. */
         <div
           role="dialog"
           aria-label="문의 챗봇"
-          className="fixed inset-x-3 bottom-3 z-40 flex max-h-[min(80vh,560px)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-neutral-200 sm:inset-x-auto sm:right-5 sm:w-[23rem]"
+          style={{ '--fab-right': FAB_RIGHT_CSS, '--fab-gap': `${FAB_GAP}px` } as CSSProperties}
+          className="fixed inset-x-3 bottom-3 z-40 flex max-h-[min(80vh,560px)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-neutral-200 sm:inset-x-auto sm:bottom-[var(--fab-gap)] sm:right-[var(--fab-right)] sm:w-[23rem]"
         >
           {/* 머리 */}
           <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 px-4 py-3">

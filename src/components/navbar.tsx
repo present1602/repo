@@ -11,7 +11,7 @@ import { ExploreLink } from '@/components/explore-gate'
    갈 곳은 모두 우측에 모았다. 메뉴가 더 늘면 로고와 우측 묶음 사이에
    nav 를 넣는다.
 
-   차례는 탐색 → FAQ → 의뢰하기 다. 색을 채운 단추는 의뢰 하나뿐이라
+   차례는 소개 → 탐색 → FAQ → 의뢰하기 다. 색을 채운 단추는 의뢰 하나뿐이라
    오른쪽 끝에 둔다. */
 export function Navbar() {
   const [inquiry, setInquiry] = useState(false)
@@ -29,6 +29,14 @@ export function Navbar() {
           </Link>
 
           <div className="ml-auto flex items-center gap-5">
+            {/* 누가·어떻게 만드는지 — 처음 온 손님이 가장 먼저 볼 곳이라 맨 앞에 둔다 */}
+            <Link
+              href="/about"
+              className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
+            >
+              소개
+            </Link>
+
             {/* 공개 전에는 탐색 대신 지원 안내를 띄운다(explore-gate.tsx) */}
             <ExploreLink className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900">
               탐색
