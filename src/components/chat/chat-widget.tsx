@@ -286,8 +286,18 @@ export function ChatWidget({ adminOnly, intents }: { adminOnly: boolean; intents
           }}
           className="fixed z-40 grid size-14 place-items-center rounded-full bg-violet-600 text-white shadow-lg transition hover:bg-violet-700"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden className="size-6">
-            <path d="M21 12a8 8 0 0 1-8 8H8l-4 3v-4.5A8 8 0 0 1 13 4a8 8 0 0 1 8 8Z" />
+          {/* 속을 채운 말풍선에 점 셋 — '대화 중'이 한눈에 읽힌다.
+              선으로 그리면 56px 에서 획이 뭉개진다.
+
+              점은 뚫린 구멍처럼 보여야 한다. 색을 칠하지 않고 바탕을 그대로
+              내보낸다(fill-rule: evenodd) — 그래야 hover 로 단추 색이 바뀌어도
+              점이 따라 바뀌어 겉돌지 않는다. */}
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="size-6">
+            <path
+              fillRule="evenodd"
+              clipRule="evenodd"
+              d="M12 3c-4.97 0-9 3.36-9 7.5 0 2.3 1.25 4.36 3.2 5.73-.14 1.2-.6 2.3-1.36 3.2-.2.24-.05.6.26.57 1.9-.2 3.5-.95 4.6-1.78.74.12 1.5.18 2.3.18 4.97 0 9-3.36 9-7.5S16.97 3 12 3Zm-3.5 6.4a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm3.5 0a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm3.5 0a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"
+            />
           </svg>
           {/* 우상단 점 — 장식이다. 알림이 와 있는 것처럼 보여 눈이 먼저 간다.
 
