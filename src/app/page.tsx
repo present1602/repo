@@ -1,71 +1,121 @@
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { HomeFeed } from '@/components/home-feed'
 import { HomeCta } from '@/components/home-cta'
 import { HtmlClass } from '@/components/html-class'
 import { ExploreLink } from '@/components/explore-gate'
+import { GeneralInquiryButton } from '@/components/general-inquiry-button'
 import { PRE_LAUNCH } from '@/lib/pre-launch'
 import { WorksTeaser } from '@/components/works-teaser'
 import { listRecentWorks } from '@/lib/public-designers'
 import { listActivePopups } from '@/lib/popups-db'
 import { SitePopups } from '@/components/site-popup'
-import { DEFAULT_DESIGN_PRICE, formatPrice } from '@/lib/plans'
+import { DEFAULT_DESIGN_PRICE } from '@/lib/plans'
+import styles from '@/components/home.module.css'
 
-/* 홈에 띄우는 작업 수.
-
-   지금은 "최신 40장"으로 고정한다. 어드민이 노출할 작업을 직접 고르는
-   기능은 나중에 붙이고, 그때도 이 화면은 listRecentWorks 자리만 바뀐다. */
-const FEED_LIMIT = 40
-
-/* 히어로의 시작가 — 디자이너가 고를 수 있는 가장 낮은 디자인 플랜 금액이다.
-   보기(plans.ts)가 바뀌면 여기도 자동으로 따라간다. 숫자를 직접 적으면
-   가격표를 고친 뒤 홈만 옛 금액으로 남는다. */
-const START_PRICE = DEFAULT_DESIGN_PRICE
+// 홈에서는 대표 작업을 크게 보여주고, 전체 목록은 탐색 화면으로 연결한다.
+const FEED_LIMIT = 4
 
 export default function Home() {
   return (
-    <main className="flex-1 bg-white">
-      {/* 히어로의 '작업 보기'(#works)가 부드럽게 내려가게 — 이 화면에서만 켠다 */}
+    <main className={styles.home}>
       <HtmlClass names={['smooth-anchor']} />
       <Hero />
-
-      {/* scroll-mt — 상단 헤더가 sticky 라 앵커로 내려오면 제목이 그 밑에 깔린다.
-          헤더 높이(h-14 = 3.5rem)만큼 미리 띄워 둔다. */}
-      <section id="works" className="mx-auto max-w-7xl scroll-mt-14 px-4 pb-16 md:px-8 md:pb-20">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <h2 className="text-xl font-bold tracking-tight md:text-2xl">SOOM 디자이너들의 작업</h2>
-          <ExploreLink className="shrink-0 text-sm text-neutral-500 transition hover:text-neutral-900">
-            전체 디자이너 →
-          </ExploreLink>
+      <section id="works" className={`${styles.shell} ${styles.works}`} aria-labelledby="works-title">
+        <div className={styles.sectionHead}>
+          <div>
+            <p className={styles.eyebrow}>SELECTED WORK</p>
+            <h2 id="works-title">말보다 선명한 결과.</h2>
+          </div>
+          <ExploreLink className={styles.textLink}>디자이너 둘러보기 <span aria-hidden="true">↗</span></ExploreLink>
         </div>
-
-        {/* 피드는 캐시하지 않는다 — 디자이너가 작업을 올리거나 프로필을 숨기면
-            곧 반영돼야 한다. 대신 Suspense 로 감싸 히어로가 먼저 나가게 한다
-            (탐색 화면과 같은 방식). */}
-        {/* 공개 전에는 흐린 임시 이미지 위에 공개 예정 문구를 띄운다(works-teaser.tsx) */}
-        {PRE_LAUNCH ? (
-          <WorksTeaser />
-        ) : (
-          <Suspense fallback={<FeedSkeleton />}>
-            <Feed />
-          </Suspense>
+        {PRE_LAUNCH ? <WorksTeaser /> : (
+          <Suspense fallback={<FeedSkeleton />}><Feed /></Suspense>
         )}
       </section>
-
-      {/* 작업을 쭉 본 뒤 바로 의뢰로 넘어가는 자리 — 푸터 바로 위에 둔다 */}
-      <HomeCta price={START_PRICE} />
-
-      {/* 팝업은 게시 기간을 현재 시각으로 거르므로 요청마다 묻는다 —
-          화면을 막지 않도록 Suspense 뒤로 넘긴다 */}
-      <Suspense fallback={null}>
-        <Popups />
-      </Suspense>
+      <Services />
+      <HomeCta price={DEFAULT_DESIGN_PRICE} />
+      <Suspense fallback={null}><Popups /></Suspense>
     </main>
   )
 }
 
-async function Popups() {
-  const popups = await listActivePopups()
-  return popups.length > 0 ? <SitePopups popups={popups} /> : null
+function Hero() {
+  return (
+    <section className={styles.hero} aria-labelledby="home-title">
+      <div className={`${styles.shell} ${styles.heroInner}`}>
+        <div className={styles.heroCopy}>
+          <p className={styles.eyebrow}><span className={styles.dot} /> DESIGN, BUILT FOR BUSINESS</p>
+          <h1 id="home-title">비즈니스의 차이,<br />디자인에서 시작.</h1>
+          <p className={styles.heroDescription}>
+            전문 디자이너의 감각에 개발자의 기술을 더합니다.<br />당신의 브랜드에 꼭 맞는, SOOM.
+          </p>
+          <a href="#works" className={styles.heroLink}>
+            <span className={styles.roundArrow} aria-hidden="true">↓</span>작업 먼저 보기
+          </a>
+        </div>
+        <div className={styles.heroArt} aria-hidden="true">
+          {/* SOOM을 위한 벡터 그래픽. 외부 이미지 요청 없이 첫 화면에 표시한다. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/soom-sculpture.svg" alt="" width="680" height="680" fetchPriority="high" />
+        </div>
+        <div className={styles.heroFoot}>
+          <span>디자인의 감각. 기술의 완성도.</span>
+          <span>BRANDING <i /> WEB DESIGN <i /> DEVELOPMENT</span>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Services() {
+  return (
+    <section className={`${styles.shell} ${styles.services}`} aria-labelledby="services-title">
+      <div className={styles.servicesIntro}>
+        <p className={styles.eyebrow}>THE SOOM WAY</p>
+        <h2 id="services-title">AI의 속도에,<br />전문가의 깊이를.</h2>
+        <p>AI로 빠르게 시작하고, 디자이너가 세밀하게 다듬고, 개발자가 코드까지 검수합니다.</p>
+        <Link href="/about" className={styles.textLink}>SOOM 알아보기 <span aria-hidden="true">↗</span></Link>
+      </div>
+      <div className={styles.serviceList}>
+        <details className={styles.service} open>
+          <summary><span className={styles.serviceNumber}>01</span><h3>웹사이트 제작</h3><span className={styles.plus} aria-hidden="true" /></summary>
+          <div className={styles.serviceBody}>
+            <div className={styles.planHeading}>
+              <span>실속형</span>
+              <div><strong>39만 원</strong><span>고정 · VAT 별도</span></div>
+            </div>
+            <p className={styles.designerNote}><span className={styles.dot} /> 전문 디자이너가 직접 디자인합니다.</p>
+            <dl className={styles.planDetails}>
+              <div><dt>규모</dt><dd>최대 5페이지 · 메인 최대 8섹션</dd></div>
+              <div><dt>수정</dt><dd>최대 3회</dd></div>
+              <div><dt>기능</dt><dd>문의 폼 · 이메일 연동 · 지도</dd></div>
+            </dl>
+            <p className={styles.planExclusions}>회원·예약 · 콘텐츠 관리 · 관리자 페이지 미포함</p>
+            <div className={styles.premiumNote}>
+              <div><span>더 많은 기능이 필요하다면</span><strong>프리미엄 250만 원부터</strong></div>
+              <p>회원 · 예약 · 콘텐츠 · 관리자 페이지<br />규모에 맞춘 견적 · VAT 별도</p>
+            </div>
+            <GeneralInquiryButton className={styles.textLink}>웹사이트 제작 문의 <span aria-hidden="true">↗</span></GeneralInquiryButton>
+          </div>
+        </details>
+        <details className={styles.service}>
+          <summary><span className={styles.serviceNumber}>02</span><h3>브랜드 & 디지털 디자인</h3><span className={styles.plus} aria-hidden="true" /></summary>
+          <div className={styles.serviceBody}>
+            <p>로고부터 UI·UX까지. 포트폴리오를 살펴보고, 브랜드에 맞는 디자이너를 직접 선택하세요.</p>
+            <ExploreLink className={styles.textLink}>내게 맞는 디자이너 찾기 <span aria-hidden="true">↗</span></ExploreLink>
+          </div>
+        </details>
+        <details className={styles.service}>
+          <summary><span className={styles.serviceNumber}>03</span><h3>맞춤 서비스 개발</h3><span className={styles.plus} aria-hidden="true" /></summary>
+          <div className={styles.serviceBody}>
+            <p>기능 중심 MVP부터 복잡한 웹 서비스까지. 비즈니스를 전공한 리드 개발자가 설계와 코드 품질을 함께 살핍니다.</p>
+            <a href="https://agency.soom.it" target="_blank" rel="noopener noreferrer" className={styles.textLink}>개발 프로젝트 살펴보기 <span aria-hidden="true">↗</span></a>
+          </div>
+        </details>
+      </div>
+    </section>
+  )
 }
 
 async function Feed() {
@@ -73,93 +123,17 @@ async function Feed() {
   return <HomeFeed works={works} />
 }
 
-function Hero() {
-  return (
-    <section className="relative overflow-hidden">
-      {/* 뒤에 깔리는 보라색 번짐 — 장식이라 클릭을 먹지 않게 한다 */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-40 left-1/2 size-[44rem] -translate-x-1/2 rounded-full bg-violet-100/70 blur-3xl"
-      />
-
-      <div className="relative mx-auto max-w-4xl px-5 pb-16 pt-16 text-center md:pb-24 md:pt-28">
-        <span className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold tracking-wide text-white">
-          <span className="size-1.5 rounded-full bg-white" /> LOW RISK
-        </span>
-
-        <h1 className="mt-6 text-3xl font-bold leading-tight tracking-tight text-balance md:text-6xl md:leading-[1.1]">
-          메인 시안 먼저 의뢰 후,
-          <br />
-          본 계약을 진행할 수 있어요
-        </h1>
-
-        <p className="mt-6 text-4xl font-black tracking-tight text-violet-600 md:text-6xl">
-          {START_PRICE.toLocaleString('ko-KR')}
-          <span className="text-2xl md:text-3xl">원~</span>
-        </p>
-
-        <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed text-neutral-600 md:text-lg">
-          SOOM의 디자이너들은 AI의 효율적인 활용으로
-          <br className="hidden md:block" /> 저렴한 비용으로{' '}
-          <b className="font-semibold text-neutral-900">만족도 높은 퀄리티</b>와{' '}
-          <b className="font-semibold text-neutral-900">빠른 제작기간</b>을 보장합니다.
-        </p>
-
-        <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-          <ExploreLink className="rounded-xl bg-neutral-900 px-7 py-4 text-sm font-semibold text-white transition hover:bg-violet-600">
-            디자이너 탐색하기
-          </ExploreLink>
-          {/* 같은 화면 안으로 내려가는 앵커다 — Link 로 바꾸면 라우터를 거쳐
-              스크롤이 끊긴다. 브라우저 기본 동작(부드러운 스크롤은 globals.css)에 맡긴다. */}
-          <a
-            href="#works"
-            className="rounded-xl border border-neutral-300 px-7 py-4 text-sm font-semibold transition hover:border-neutral-900"
-          >
-            포트폴리오 보기
-          </a>
-        </div>
-
-        {/* 진행 순서 — 로마 숫자와 세리프로 에디토리얼하게(ref/soom-design MainPageV4) */}
-        <ol className="mx-auto mt-20 grid max-w-4xl gap-10 md:mt-24 md:grid-cols-3 md:gap-12">
-          {STEPS.map(([no, title, note]) => (
-            <li key={no} className="text-center">
-              <p className="font-serif text-4xl italic text-violet-600 md:text-5xl">{no}</p>
-              <p className="mt-4 font-serif text-xl md:mt-5 md:text-2xl">{title}</p>
-              <p className="mx-auto mt-3 max-w-[16rem] text-sm leading-relaxed text-neutral-500">
-                {note}
-              </p>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </section>
-  )
-}
-
-const STEPS: [string, string, string][] = [
-  ['I', '메인 시안 의뢰', `${formatPrice(START_PRICE)}부터, 부담 없이 첫 장면을 의뢰합니다.`],
-  ['II', '시안 확인', '결과물을 받아보고 만족하셨다면,'],
-  ['III', '본 계약', ' 그때 본 계약을 의뢰합니다.'],
-]
-
-/* 실제 피드와 같은 벽 모양으로 둔다 — 작업이 들어올 때 화면이 튀지 않게.
-   높이를 번갈아 줘서 한 줄로 반듯한 회색 벽돌처럼 보이지 않게 한다. */
 function FeedSkeleton() {
   return (
-    <div className="columns-2 gap-3 md:columns-3 md:gap-4 lg:columns-4">
-      {Array.from({ length: 12 }, (_, i) => (
-        <div key={i} className="mb-3 break-inside-avoid md:mb-4">
-          <div
-            className={`animate-pulse rounded-xl bg-neutral-200 ${
-              i % 3 === 0 ? 'aspect-[3/4]' : i % 3 === 1 ? 'aspect-square' : 'aspect-[1/1.8]'
-            }`}
-          />
-          <div className="mt-2 flex items-center gap-2">
-            <div className="size-5 shrink-0 animate-pulse rounded-full bg-neutral-200" />
-            <div className="h-3 w-20 animate-pulse rounded bg-neutral-100" />
-          </div>
-        </div>
+    <div className={styles.workGrid} role="status" aria-label="작업을 불러오는 중">
+      {Array.from({ length: FEED_LIMIT }, (_, i) => (
+        <div key={i} className={styles.workSkeleton} aria-hidden="true"><div /><span /></div>
       ))}
     </div>
   )
+}
+
+async function Popups() {
+  const popups = await listActivePopups()
+  return popups.length > 0 ? <SitePopups popups={popups} /> : null
 }

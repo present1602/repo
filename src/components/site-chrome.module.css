@@ -1,0 +1,36 @@
+.header { position: sticky; top: 0; z-index: 20; background: #f4f3f6; color: #242328; }
+.headerInner { width: min(100% - 112px, 1440px); min-height: 90px; margin-inline: auto; display: flex; align-items: center; gap: 40px; padding-block: 16px; }
+.logo { display: inline-block; font-size: 35px; font-weight: 750; line-height: 1; letter-spacing: -.07em; }
+.logo > span { color: #7953e8; }
+.nav { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 14px 32px; margin-left: auto; }
+.navLink { font-size: 13px; line-height: 1.5; font-weight: 500; overflow-wrap: anywhere; cursor: pointer; transition: color .2s; }
+.navLink:hover { color: #7953e8; }
+.headerCta { flex: none; }
+.inquiryButton { display: inline-flex; align-items: center; gap: 25px; padding: 13px 22px; border-radius: 50px; background: #242328; color: white; font-size: 12px; font-weight: 500; cursor: pointer; transition: background .2s; }
+.inquiryButton > span { font-size: 18px; line-height: 1; }
+.inquiryButton:hover { background: #6943d5; }
+.footer { background: #f8f7f9; color: #242328; }
+.footerInner { width: min(100% - 112px, 1440px); margin-inline: auto; padding-block: 56px 24px; }
+.header :is(a, button):focus-visible, .footer a:focus-visible { outline: 2px solid #7451e8; outline-offset: 5px; }
+@media (max-width: 1100px) {
+  .headerInner, .footerInner { width: calc(100% - 64px); }
+  .headerInner { gap: 28px; }
+  .nav { column-gap: 24px; }
+}
+@media (max-width: 760px) {
+  .headerInner, .footerInner { width: calc(100% - 40px); }
+  .headerInner { min-height: 72px; gap: 16px; padding-block: 14px; flex-wrap: wrap; }
+  .logo { font-size: 28px; }
+  .nav { column-gap: 15px; }
+  .navLink { font-size: 11px; }
+  .inquiryButton { gap: 12px; padding: 11px 15px; font-size: 11px; }
+  .inquiryButton > span { font-size: 14px; }
+  .footerInner { padding-top: 40px; }
+}
+@media (max-width: 370px) {
+  .headerInner { gap: 12px; }
+  .nav { column-gap: 12px; }
+  .logo { font-size: 25px; }
+  .inquiryButton { padding: 10px 12px; gap: 7px; }
+}
+@media (prefers-reduced-motion: reduce) { .header * { transition: none; } }

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
-import { InquiryModal } from '@/components/inquiry/inquiry-modal'
+import { GeneralInquiryButton } from '@/components/general-inquiry-button'
 import { ExploreLink } from '@/components/explore-gate'
 import { DEFAULT_SITE_MENUS, SITE_MENU_ITEMS, type SiteMenus } from '@/lib/site-menu-shape'
+import styles from './site-chrome.module.css'
 
 /* 사이트 공통 바.
 
@@ -15,7 +15,6 @@ import { DEFAULT_SITE_MENUS, SITE_MENU_ITEMS, type SiteMenus } from '@/lib/site-
    차례는 소개 → 탐색 → FAQ → 의뢰하기 다. 색을 채운 단추는 의뢰 하나뿐이라
    오른쪽 끝에 둔다. */
 export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
-  const [inquiry, setInquiry] = useState(false)
   // 설정이 전달되지 않거나 일부 항목이 빠져도 기본 메뉴로 표시한다.
   const items = SITE_MENU_ITEMS.map((item) => ({
     ...item,
@@ -24,19 +23,13 @@ export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
 
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex min-h-14 max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 md:px-8">
-          {/* 글자에 보라→파랑 그라데이션을 입힌다 — 배경을 글자 모양으로 잘라 낸다 */}
-          <Link
-            href="/"
-            className="bg-gradient-to-r from-violet-600 to-blue-500 bg-clip-text text-lg font-black tracking-tight text-transparent"
-          >
-            SOOM
-          </Link>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <Link href="/" className={styles.logo} aria-label="SOOM 홈">soom<span aria-hidden="true">.</span></Link>
 
-          <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2 sm:gap-x-5">
+          <nav className={styles.nav} aria-label="주 메뉴">
             {items.filter(({ visible }) => visible).map(({ key, href, name }) => {
-              const className = 'break-all text-sm font-medium text-neutral-600 transition hover:text-neutral-900'
+              const className = styles.navLink
               return key === 'explore' ? (
                 <ExploreLink key={key} className={className}>{name}</ExploreLink>
               ) : (
@@ -44,23 +37,14 @@ export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
               )
             })}
 
-            {/* 가장 하고 싶은 일 — 유일하게 색을 채운 버튼으로 둔다.
-                페이지를 옮기지 않고 그 자리에서 폼을 띄운다. */}
-            <button
-              type="button"
-              onClick={() => setInquiry(true)}
-              className="rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
-            >
-              의뢰하기
-            </button>
+          </nav>
+          {/* InquiryModal은 portal로 body에 렌더링해 헤더 위에 표시한다. */}
+          <div className={styles.headerCta}>
+            <GeneralInquiryButton className={styles.inquiryButton}>의뢰하기 <span aria-hidden="true">↗</span></GeneralInquiryButton>
           </div>
         </div>
       </header>
 
-      {/* 모달은 헤더 밖에 둔다 — 헤더가 sticky 라 그 안의 fixed 는
-          뷰포트가 아니라 헤더를 기준으로 자리잡는다(56px 안에 갇힌다).
-          position 이 static 이 아닌 조상은 fixed 의 기준이 된다. */}
-      {inquiry && <InquiryModal onClose={() => setInquiry(false)} />}
     </>
   )
 }
