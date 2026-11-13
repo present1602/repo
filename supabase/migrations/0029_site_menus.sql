@@ -8,8 +8,4 @@ create table if not exists public.site_menus (
 alter table public.site_menus enable row level security;
 alter table public.site_menus force row level security;
 
-insert into public.site_menus (key, name, visible) values
-  ('about', '소개', true),
-  ('explore', '탐색', true),
-  ('faq', 'FAQ', true)
-on conflict (key) do nothing;
+

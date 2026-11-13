@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { InquiryModal } from '@/components/inquiry/inquiry-modal'
 import { ExploreLink } from '@/components/explore-gate'
-import { SITE_MENU_ITEMS, type SiteMenus } from '@/lib/site-menu-shape'
+import { DEFAULT_SITE_MENUS, SITE_MENU_ITEMS, type SiteMenus } from '@/lib/site-menu-shape'
 
 /* 사이트 공통 바.
 
@@ -14,8 +14,13 @@ import { SITE_MENU_ITEMS, type SiteMenus } from '@/lib/site-menu-shape'
 
    차례는 소개 → 탐색 → FAQ → 의뢰하기 다. 색을 채운 단추는 의뢰 하나뿐이라
    오른쪽 끝에 둔다. */
-export function Navbar({ menus }: { menus: SiteMenus }) {
+export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
   const [inquiry, setInquiry] = useState(false)
+  // 설정이 전달되지 않거나 일부 항목이 빠져도 기본 메뉴로 표시한다.
+  const items = SITE_MENU_ITEMS.map((item) => ({
+    ...item,
+    ...(menus?.[item.key] ?? DEFAULT_SITE_MENUS[item.key]),
+  }))
 
   return (
     <>
@@ -30,12 +35,12 @@ export function Navbar({ menus }: { menus: SiteMenus }) {
           </Link>
 
           <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2 sm:gap-x-5">
-            {SITE_MENU_ITEMS.filter(({ key }) => menus[key].visible).map(({ key, href }) => {
+            {items.filter(({ visible }) => visible).map(({ key, href, name }) => {
               const className = 'break-all text-sm font-medium text-neutral-600 transition hover:text-neutral-900'
               return key === 'explore' ? (
-                <ExploreLink key={key} className={className}>{menus[key].name}</ExploreLink>
+                <ExploreLink key={key} className={className}>{name}</ExploreLink>
               ) : (
-                <Link key={key} href={href} className={className}>{menus[key].name}</Link>
+                <Link key={key} href={href} className={className}>{name}</Link>
               )
             })}
 
