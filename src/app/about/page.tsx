@@ -43,32 +43,35 @@ const PROMISES = [
   },
 ]
 
-/* 품질에 대한 의심에 답하는 세 칸 — 보유한 것, 받지 않는 것, 그래도 생기면 하는 것 */
-const QUALITY = [
+const RESPONSIBILITIES = [
   {
-    title: '전문 개발자 네트워크를 갖추고 있습니다.',
+    title: '심사를 거친 디자이너',
     description: [
-      'SOOM은 디자이너만 그룸만으로 움직이지 않습니다.', '필요한 순간에 투입할 수 있는 전문 개발자 네트워크를 함께 보유하고 있습니다.',
+      'SOOM의 디자이너는 심사를 거쳐 등록됩니다.',
+      '심사를 통과한 전문 디자이너가 프로젝트를 진행합니다.',
     ],
   },
   {
-    title: '문제가 생기면 SOOM이 직접 책임집니다.',
-    description: [,
-      '만에 하나 디자이너의 개발 역량 부족으로 1차적으로 제작된 코드 퀄리티가 현저히 떨어진다면, 즉시 전문 개발자가 투입되어 코드를 완전히 재설계합니다.',
+    title: 'SOOM이 책임지는 결과물',
+    description: [
+      'SOOM은 디자이너와 고객을 연결하는 단순 중개 플랫폼이 아닙니다.',
+      '결과물의 품질을 직접 확인하고, SOOM이 책임지고 보장합니다.',
     ],
   },
   {
-    title: '전문 개발자의 검수 및 개선 작업을 거치기에 코드와 기능 품질을 보장을 약속드릴 수있습니다',
+    title: '사후 관리도 SOOM이 직접',
     description: [
-      '바이브코딩 기술 발달로 이제는 Uxui 디자이너들이 개발 업무를 병행하는 일은 흔합니다.',
-      'SOOM은 이미 개발역량까지 갖춘 디자이너들을 우선 섭외하며, 코드 품질을 높일 수 있는 체계적인 요령과 교육, 가이드를 제공합니다.',
+      '제작이 끝난 뒤에도 SOOM이 사후 관리의 주체가 됩니다.',
+      '필요한 소통과 관리를 직접 이끌며, 완성 이후까지 책임 있게 함께합니다.',
     ],
   },
 ]
 
 const STEPS = [
-  { title: '의뢰 · 상담', description: '필요한 작업과 브랜드의 방향을 함께 정리합니다.' },
-  { title: '디자이너 선정', description: '브랜드에 맞는 전문 디자이너를 찾아 방향을 맞춥니다.' },
+  {
+    title: '의뢰·상담 & 디자이너 선정',
+    description: '필요한 작업과 브랜드의 방향을 함께 정리합니다.\n디자이너를 직접 선택해 의뢰도 가능합니다.',
+  },
   { title: '디자인 · 개발', description: '전문 디자이너가 AI를 활용해 화면과 기능을 구현합니다.' },
   { title: '검수 · 배포', description: '개발자의 코드·기능 검수를 거쳐 서비스를 공개합니다.' },
 ]
@@ -147,40 +150,33 @@ export default function AboutPage() {
               방향을 맞춘 뒤 디자인과 개발, 검수까지 이어갑니다.
             </p> */}
           </div>
-          <ol className="mt-10 grid gap-x-8 gap-y-7 sm:grid-cols-2 lg:grid-cols-4">
+          <ol className="mt-10 grid gap-x-8 gap-y-7 md:grid-cols-3">
             {STEPS.map((step, index) => (
               <li key={step.title} className="border-t border-neutral-300 pt-5">
                 <p className="font-mono text-[11px] tracking-wide text-violet-600">STEP 0{index + 1}</p>
                 <h3 className="mt-3 text-lg font-bold">{step.title}</h3>
-                <p className="mt-2 text-sm leading-[1.85] text-neutral-600">{step.description}</p>
+                <p className="mt-2 whitespace-pre-line text-sm leading-[1.85] text-neutral-600">{step.description}</p>
               </li>
             ))}
           </ol>
         </div>
       </section>
 
-      {/* 손님이 품는 의심에 먼저 답하는 자리.
-
-         "디자이너가 개발하면 코드 품질이 떨어지지 않나"는 이 사업 모델에서
-         가장 먼저 나오는 질문이다. 답을 숨기지 않고 질문 자체를 제목으로
-         내건다 — 피해 가면 더 의심스러워 보인다.
-
-         마지막 칸은 받지 않는 의뢰를 밝히고 에이전시로 보내는 자리다.
-         못 하는 일을 적어 두는 쪽이 할 수 있는 일의 신뢰를 올린다. */}
-      <section aria-labelledby="about-quality-title" className="bg-[#19172a] text-white">
+      <section aria-labelledby="about-responsibility-title" className="bg-[#19172a] text-white">
         <div className={`${container} py-16 md:py-20`}>
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-violet-300">QUALITY</p>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-violet-300">THE SOOM STANDARD</p>
 
           <h2
-            id="about-quality-title"
+            id="about-responsibility-title"
             className="mt-4 max-w-3xl text-[clamp(1.5rem,2.6vw,2.125rem)] font-bold leading-[1.45] tracking-[-0.035em]"
           >
-            Q. 아무리 개발자가 품질 검수를 한다고 해도, 디자이너가 바이크코딩으로 하면
-            기능과 코드 품질 문제가 생기지 않을까요?
+            디자이너 선정부터 사후 관리까지,
+            <br />
+            SOOM이 책임집니다.
           </h2>
 
           <div className="mt-10 grid gap-x-10 gap-y-8 md:mt-12 md:grid-cols-3">
-            {QUALITY.map((item, index) => (
+            {RESPONSIBILITIES.map((item, index) => (
               <article key={item.title} className="min-w-0 border-t border-white/20 pt-6">
                 <p className="font-mono text-[11px] tracking-wide text-violet-300">
                   0{index + 1}
@@ -193,32 +189,6 @@ export default function AboutPage() {
                 </div>
               </article>
             ))}
-          </div>
-
-          {/* 난이도 높은 프로젝트는 여기서 받지 않는다 — 에이전시로 보낸다.
-              위 세 칸의 결론이라 한 단 아래에 따로 세운다. */}
-          <div className="mt-12 flex flex-col gap-5 rounded-2xl border border-white/15 bg-white/[0.04] p-6 md:mt-14 md:flex-row md:items-center md:justify-between md:gap-10 md:p-8">
-            <p className="min-w-0 text-[15px] leading-[1.75] text-white/85 md:text-base">
-              <b className="font-semibold text-white">
-                기능적으로 난이도가 높은 프로젝트
-              </b>
-              라면 에이전시숨에서 의뢰해주시기를 권장드립니다.
-            </p>
-            <a
-              href="https://agency.soom.it/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group inline-flex shrink-0 items-center gap-2.5 self-start rounded-xl border border-white/25 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/45 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300 md:self-auto"
-            >
-              에이전시숨으로
-              <span
-                aria-hidden="true"
-                className="transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none"
-              >
-                →
-              </span>
-              <span className="sr-only"> (새 탭에서 열기)</span>
-            </a>
           </div>
         </div>
       </section>
