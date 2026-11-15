@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { HomeFeed } from '@/components/home-feed'
 import { HomeCta } from '@/components/home-cta'
+import { AgencyBanner } from '@/components/agency-banner'
 import { HtmlClass } from '@/components/html-class'
 import { ExploreLink } from '@/components/explore-gate'
 import { PRE_LAUNCH } from '@/lib/pre-launch'
@@ -53,6 +54,10 @@ export default function Home() {
 
       {/* 작업을 쭉 본 뒤 바로 의뢰로 넘어가는 자리 — 푸터 바로 위에 둔다 */}
       <HomeCta price={START_PRICE} />
+
+      {/* 디자인이 아니라 개발을 찾아온 손님을 받는 자리 — 의뢰 띠 바로 아래,
+          푸터 위에 둔다. 의뢰 띠 안에 섞으면 가격·버튼에 묻힌다. */}
+      <AgencyBanner />
 
       {/* 팝업은 게시 기간을 현재 시각으로 거르므로 요청마다 묻는다 —
           화면을 막지 않도록 Suspense 뒤로 넘긴다 */}

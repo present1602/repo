@@ -41,15 +41,8 @@ export function HomeCta({ price }: { price: number }) {
             <span className="text-violet-300">본 계약을 결정하세요</span>
           </h2>
 
-          {/* 개발만 맡기려는 손님은 여기가 아니다 — 같은 회사의 에이전시로 보낸다 */}
-          <a
-            href="https://agency.soom.it"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-block text-xs text-neutral-400 transition hover:text-neutral-200 md:text-sm"
-          >
-            혹시 개발만 의뢰를 원하시나요? SOOM 숨에이전시 →
-          </a>
+          {/* 개발만 맡기려는 손님은 이 띠 아래 자리(agency-banner.tsx)에서 받는다 —
+              여기 작은 글씨로 끼워 두면 가격·의뢰 버튼에 묻혀 아무도 읽지 않는다 */}
         </div>
 
         {/* 가격과 버튼 — 좁은 화면에서는 아래로 내려가 가로로 나란히 선다 */}
