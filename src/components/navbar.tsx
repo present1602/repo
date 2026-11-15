@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { InquiryModal } from '@/components/inquiry/inquiry-modal'
 import { ExploreLink } from '@/components/explore-gate'
 import { DEFAULT_SITE_MENUS, SITE_MENU_ITEMS, type SiteMenus } from '@/lib/site-menu-shape'
@@ -16,6 +17,7 @@ import { DEFAULT_SITE_MENUS, SITE_MENU_ITEMS, type SiteMenus } from '@/lib/site-
    오른쪽 끝에 둔다. */
 export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
   const [inquiry, setInquiry] = useState(false)
+  const pathname = usePathname()
   // 설정이 전달되지 않거나 일부 항목이 빠져도 기본 메뉴로 표시한다.
   const items = SITE_MENU_ITEMS.map((item) => ({
     ...item,
@@ -34,13 +36,14 @@ export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
             SOOM
           </Link>
 
-          <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2 sm:gap-x-5">
+          <nav aria-label="주요 메뉴" className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-4 gap-y-2 sm:gap-x-7">
             {items.filter(({ visible }) => visible).map(({ key, href, name }) => {
-              const className = 'break-all text-sm font-medium text-neutral-600 transition hover:text-neutral-900'
+              const active = pathname === href || pathname?.startsWith(`${href}/`)
+              const className = `inline-flex min-h-10 items-center whitespace-nowrap border-b-2 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-500 ${active ? 'border-violet-600 text-violet-700' : 'border-transparent text-neutral-600 hover:text-neutral-900'}`
               return key === 'explore' ? (
                 <ExploreLink key={key} className={className}>{name}</ExploreLink>
               ) : (
-                <Link key={key} href={href} className={className}>{name}</Link>
+                <Link key={key} href={href} aria-current={active ? 'page' : undefined} className={className}>{name}</Link>
               )
             })}
 
@@ -49,11 +52,11 @@ export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
             <button
               type="button"
               onClick={() => setInquiry(true)}
-              className="rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
+              className="ml-1 rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-700 sm:ml-3"
             >
               의뢰하기
             </button>
-          </div>
+          </nav>
         </div>
       </header>
 

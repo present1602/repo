@@ -5,12 +5,16 @@ import { InquiryModal } from './inquiry/inquiry-modal'
 
 /* 홈 맨 아래 띠 배너 — 작업을 쭉 본 뒤 바로 의뢰로 넘어가는 자리.
 
-   흰 바탕이다. 앞의 작업 피드와 같은 색을 이어받아 화면이 끊기지 않고,
-   가격과 버튼만 연보라 카드로 띄워 눈이 거기로 모이게 한다.
+   연회색 바탕 위에 흰 카드를 띄워 가격과 버튼으로 눈이 모이게 한다.
 
    어두운 띠로 "끝났다"를 알리던 예전 방식은 쓰지 않는다 — 대신 위에
    얇은 경계선을 긋고 여백을 크게 줘서 구간이 바뀐 것을 알린다. */
-export function HomeCta({ price }: { price: number }) {
+/* was 는 할인 전 금액 — 줄을 그어 지금 금액 위에 작게 둔다 */
+export type HomePrice = { label: string; price: number; was: number }
+
+const won = (n: number) => n.toLocaleString('ko-KR')
+
+export function HomeCta({ prices }: { prices: HomePrice[] }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -26,41 +30,61 @@ export function HomeCta({ price }: { price: number }) {
         <div className="min-w-0">
           {/* 알약 배지 대신 글자만 — 흰 바탕에서는 배지가 무거워 보인다.
               자간을 넓혀 작은 글씨를 표제처럼 읽히게 한다 */}
-          <p className="text-[11px] font-bold tracking-[0.18em] text-violet-600">LOW RISK</p>
+          <p className="text-[11px] font-bold tracking-[0.18em] text-violet-600">DESIGN &amp; DEV</p>
 
           <h2 className="mt-4 text-2xl font-bold leading-snug tracking-tight text-neutral-900 md:text-[2.5rem] md:leading-[1.25]">
-            저렴하게 시안 먼저 받아보고,
+            {/* 누가(전문 디자이너·전문 개발자) 무엇을(디자인·보증) 하는지만
+                강조색으로 — 조사와 어미는 기본색으로 둬서 핵심어가 튀게 한다 */}
+            <span className="text-violet-600">전문 디자이너</span>가{' '}
+            <span className="text-violet-600">디자인</span>하고,
             <br />
-            <span className="text-violet-600">본 계약을 결정하세요</span>
+            <span className="text-violet-600">전문 개발자</span>가{' '}
+            <span className="text-violet-600">보증</span>합니다
           </h2>
 
           <p className="mt-4 text-sm leading-relaxed text-neutral-500 md:text-base">
-            메인 시안 먼저 의뢰 후, 본 계약을 진행할 수 있어요.
+            고객을 끌어들이는 홈페이지, SOOM의 전문 디자이너에게 의뢰하세요.
           </p>
 
           {/* 개발만 맡기려는 손님은 이 띠 아래 자리(agency-banner.tsx)에서 받는다 —
               여기 작은 글씨로 끼워 두면 가격·의뢰 버튼에 묻혀 아무도 읽지 않는다 */}
         </div>
 
-        {/* 가격과 버튼을 한 장의 카드로 묶는다 — 그냥 놓으면 둘이 흩어져 보인다.
-            바탕이 연회색이므로 카드는 흰색으로 둔다 — 반투명 보라를 회색 위에
-            얹으면 탁해지고, 흰색이어야 카드가 바탕에서 한 겹 떠 보인다.
+        {/* 가격과 버튼을 한 장의 흰 카드로 묶는다. 장식은 빼고 글자 크기와
+            여백만으로 위계를 만든다 — 상품 이름 < 지금 금액, 그 위에 그은 옛 금액.
             좁은 화면에서는 폭을 가득 채워 버튼을 누르기 쉽게 한다. */}
-        <div className="w-full shrink-0 rounded-3xl border border-neutral-200/70 bg-white p-6 shadow-[0_1px_3px_rgb(0_0_0/0.04)] md:w-[22rem] md:p-8">
-          <p className="text-center text-4xl font-black tracking-tight text-neutral-900 md:text-5xl">
-            {price.toLocaleString('ko-KR')}
-            <span className="ml-1 align-baseline text-base font-bold text-neutral-400 md:text-lg">
-              원~
-            </span>
-          </p>
+        <div className="w-full shrink-0 rounded-3xl border border-neutral-200/80 bg-white p-6 shadow-[0_8px_24px_-12px_rgb(23_23_23/0.12)] md:w-[22rem] md:p-7">
+          <p className="text-xs font-medium text-neutral-500">시작가</p>
+
+          <dl className="mt-2 divide-y divide-neutral-100">
+            {prices.map(({ label, price, was }) => (
+              <div key={label} className="flex items-end justify-between gap-4 py-4">
+                <dt className="pb-0.5 text-sm font-semibold text-neutral-800 md:text-[15px]">{label}</dt>
+                <dd className="shrink-0 text-right">
+                  <s className="block text-xs tabular-nums text-neutral-400">
+                    <span className="sr-only">할인 전 </span>
+                    {won(was)}원
+                  </s>
+                  <span className="mt-0.5 block text-xl font-black tabular-nums tracking-tight text-neutral-900 md:text-2xl">
+                    {won(price)}
+                    <span className="ml-0.5 text-sm font-bold text-neutral-400">원~</span>
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
 
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="mt-6 w-full rounded-xl bg-violet-600 px-7 py-4 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 md:text-base"
+            className="mt-4 w-full rounded-xl bg-violet-600 px-7 py-4 text-sm font-semibold text-white transition hover:bg-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 md:text-base"
           >
             의뢰하기
           </button>
+
+          <p className="mt-3 text-center text-[11px] text-neutral-400">
+            VAT 별도 · 범위에 따라 달라집니다
+          </p>
         </div>
       </div>
 

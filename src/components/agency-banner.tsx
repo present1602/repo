@@ -44,7 +44,7 @@ export function AgencyBanner() {
           </h2>
 
           <p className="mt-2.5 text-xs leading-relaxed text-white/50 md:text-sm">
-            디자인이 아닌 개발 의뢰는 같은 팀의 개발 에이전시에서 맡습니다.
+            개발 중심 의뢰는 에이전시숨으로 의뢰주세요.
           </p>
         </div>
 
