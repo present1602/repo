@@ -77,6 +77,21 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
+  /* 검색 콘솔 소유 확인 — verification.other 의 키가 그대로
+     <meta name="..."> 로 나간다. 네이버 서치어드바이저는 전용 칸이 없어
+     other 에 적는다(구글은 verification.google 칸이 따로 있다).
+
+     확인이 끝난 뒤에도 지우지 않는다 — 네이버는 주기적으로 이 태그를
+     다시 읽고, 사라지면 소유 확인이 풀린다.
+
+     dev.soom.it 등에도 같이 붙지만 해롭지 않다. 소유 확인은 등록한
+     주소(soom.it)에서만 읽히고, 위 robots 로 운영 외에는 noindex 다. */
+  verification: {
+    other: {
+      "naver-site-verification":
+        "4ef0df42c5adf71c24534448578ebe932f9a2627",
+    },
+  },
   openGraph: {
     type: "website",
     locale: "ko_KR",
