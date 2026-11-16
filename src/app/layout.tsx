@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
+import Script from "next/script";
 import { SiteNavbarData } from "@/components/site-navbar-data";
 import { SiteFooter } from "@/components/site-footer";
 import { ErrorToaster } from "@/components/error-toast";
@@ -182,6 +183,16 @@ const ORG_JSON_LD = {
   ],
 };
 
+/* 구글 태그(구글 광고 연결 때 받은 GTM 컨테이너).
+
+   운영(soom.it)에서만 싣는다 — 위 robots 와 같은 INDEXABLE 판별이다.
+   dev.soom.it·로컬에서 시험 삼아 누른 문의가 광고 전환으로 잡히면 광고
+   성과가 부풀고, 구글 광고가 그 가짜 전환을 보고 입찰을 학습한다.
+
+   next/script 의 afterInteractive(기본값)로 싣는다 — 받은 코드의 async 와
+   같은 효과로, 화면이 먼저 그려지고 태그는 그 뒤에 붙는다. */
+const GTM_ID = "GTM-WG5873K9";
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -225,6 +236,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_JSON_LD) }}
         />
+
+        {INDEXABLE && (
+          <>
+            <Script id="gtag-init">
+              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());`}
+            </Script>
+            <Script src={`https://www.googletagmanager.com/gtm.js?id=${GTM_ID}`} />
+          </>
+        )}
       </body>
     </html>
   );
