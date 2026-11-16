@@ -15,6 +15,7 @@ import {
   formatPrice,
   formatPriceRange,
   livePremium,
+  originalPriceLabel,
   type BucketPlan,
   type DesignerPremiums,
   type PlanCopies,
@@ -83,8 +84,9 @@ export type ScopeOption = {
      고르는 분야는 'web/app 디자인 의뢰', 범위가 정해진 분야는 '랜딩페이지 의뢰' */
   fullLabel: string
   priceLabel: string
+  originalPriceLabel?: string
   /* 유형 전체·디자이너별 프리미엄이 모두 켜졌을 때만 */
-  premium?: { name: string; priceLabel: string }
+  premium?: { name: string; priceLabel: string; originalPriceLabel?: string }
   /* 본계약 줄에 메인화면 먼저 의뢰 옵션을 붙일 수 있는지 — 분야의 범위별 스위치(0013).
      분야에 메인 시안 줄이 있을 때만 뜻이 있다(splitSample) */
   sampleOk: boolean
@@ -135,7 +137,7 @@ export function categoryPremium(
   meta: Pick<CategoryMeta, 'id' | 'prices'> | undefined,
   scope: InquiryScope,
   ownPrices?: DesignerSpecialtyPrices,
-): { name: string; desc: string; price: number } | null {
+): { name: string; desc: string; price: number; originalPrice?: number | null } | null {
   const live = livePremium(copies, premiums, SCOPE_PLAN[scope])
   if (scope === 'sample' || !meta) return live
   const own = priceOf(meta.prices, scope, 'premium')
@@ -145,7 +147,7 @@ export function categoryPremium(
   const mine = ownPriceOf(ownPrices, meta.id, scope, 'premium') ?? own.price
   if (mine != null) {
     const copy = copies[SCOPE_PLAN[scope]].premium
-    return { name: copy.name, desc: copy.desc, price: mine }
+    return { name: copy.name, desc: copy.desc, price: mine, originalPrice: ownPriceOf(ownPrices, meta.id, scope, 'premium') != null ? null : own.originalPrice }
   }
   return live
 }
@@ -268,7 +270,13 @@ function build(
            그 디자이너에게만 적어 둔 금액이 있으면 그것이 또 이긴다(0016).
            둘 다 비어 있으면 디자이너 기본가. 메인 시안은 늘 디자이너 가격 */
         const own = categoryPrice(meta, s, ownPrices)
-        const priceLabel = own != null ? `${formatPrice(own)}~` : prices[s]
+        const common = copies[SCOPE_PLAN[s]].basic
+        const sale = own ?? common.price
+        const priceLabel = sale != null ? `${formatPrice(sale)}~` : prices[s]
+        // 할인 전 가격은 판매가와 같은 출처에서만 가져온다.
+        const original = s !== 'sample' && own != null
+          ? ownPriceOf(ownPrices, meta.id, s, 'basic') != null ? null : priceOf(meta.prices, s, 'basic').originalPrice
+          : common.originalPrice
         const fixedScope = fixed && s !== 'sample' ? s : null
         const label = copies[SCOPE_PLAN[s]].basic.name.trim() || SCOPE_TEXT[s].label
         return {
@@ -280,7 +288,8 @@ function build(
           desc: fixedScope ? '' : SCOPE_TEXT[s].desc,
           ...(fixedScope ? { title: fixedTitle(meta.name, fixedScope) } : {}),
           priceLabel,
-          ...(live ? { premium: { name: live.name, priceLabel: `${formatPrice(live.price)}~` } } : {}),
+          originalPriceLabel: originalPriceLabel(sale, original),
+          ...(live ? { premium: { name: live.name, priceLabel: `${formatPrice(live.price)}~`, originalPriceLabel: originalPriceLabel(live.price, live.originalPrice) } } : {}),
           sampleOk: s !== 'sample' && priceOf(meta.prices, s, 'basic').allowSample,
         }
       })

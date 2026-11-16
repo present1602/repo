@@ -26,6 +26,7 @@ type PriceRow = {
   tier: PriceTier
   enabled: boolean
   price: number | null
+  original_price?: number | null
   /* 0013 전에는 없다 */
   allow_sample?: boolean
 }
@@ -33,10 +34,13 @@ type PriceRow = {
 /* 분야별 범위·단계 시작가(0011). 표가 없으면 null — 예전 price_from 으로 대신한다 */
 async function readPrices(): Promise<Map<string, SpecialtyPrices> | null> {
   const ask = (cols: string) => supabaseAdmin!.from('specialty_plan_prices').select(cols)
-  let { data, error } = await ask('specialty_id, scope, tier, enabled, price, allow_sample')
-  /* 0013 전이면 allow_sample 칸이 없다 — 빼고 다시 묻는다(모두 켜짐으로 읽힌다) */
-  if (error?.message.includes('allow_sample')) {
-    ;({ data, error } = await ask('specialty_id, scope, tier, enabled, price'))
+  let cols = ['specialty_id', 'scope', 'tier', 'enabled', 'price', 'allow_sample', 'original_price']
+  let { data, error } = await ask(cols.join(', '))
+  for (let attempt = 0; error && attempt < 2; attempt++) {
+    const missing = ['original_price', 'allow_sample'].find((c) => cols.includes(c) && error?.message.includes(c))
+    if (!missing) break
+    cols = cols.filter((c) => c !== missing)
+    ;({ data, error } = await ask(cols.join(', ')))
   }
   if (error) {
     if (!/specialty_plan_prices/i.test(error.message)) {
@@ -49,7 +53,7 @@ async function readPrices(): Promise<Map<string, SpecialtyPrices> | null> {
     const p = map.get(r.specialty_id) ?? {}
     p[r.scope] = {
       ...p[r.scope],
-      [r.tier]: { enabled: r.enabled, price: r.price, allowSample: r.allow_sample ?? true },
+      [r.tier]: { enabled: r.enabled, price: r.price, originalPrice: r.original_price ?? null, allowSample: r.allow_sample ?? true },
     }
     map.set(r.specialty_id, p)
   }

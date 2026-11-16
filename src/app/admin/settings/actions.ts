@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import {
   MAX_OPTION_TEMPLATE,
   isContractPrice,
+  pricePairError,
   MAX_PLAN_DESC,
   MAX_PLAN_DURATION,
   MAX_PLAN_NAME,
@@ -57,6 +58,8 @@ export async function updatePlanCopies(input: PlanCopies): Promise<Result> {
     enabled: boolean
     duration: string
     visible: boolean
+    price?: number | null
+    original_price?: number | null
   }[] = []
   for (const plan of SCOPES) {
     for (const tier of PLAN_TIERS) {
@@ -81,7 +84,12 @@ export async function updatePlanCopies(input: PlanCopies): Promise<Result> {
       const enabled = true
       /* 노출은 기본 줄에만 둔다 — 플랜을 숨기면 프리미엄도 함께 빠진다 */
       const visible = tier === 'basic' ? input[plan].visible !== false : true
-      rows.push({ plan, tier, name, description, enabled, duration, visible })
+      const priceError = pricePairError(t?.price, t?.originalPrice)
+      if (priceError) return fail(`${name}: ${priceError}`)
+      rows.push({ plan, tier, name, description, enabled, duration, visible,
+        ...(t?.price !== undefined ? { price: t.price } : {}),
+        ...(t?.originalPrice !== undefined ? { original_price: t.originalPrice } : {}),
+      })
     }
   }
 
@@ -89,6 +97,7 @@ export async function updatePlanCopies(input: PlanCopies): Promise<Result> {
 
   if (error) {
     console.error('[settings] 플랜 문구 수정 실패:', error.message)
+    if (/original_price|\bprice\b/.test(error.message)) return fail('가격 설정 칸이 없습니다. 0030_plan_sale_prices.sql 을 실행해 주세요.')
     if (/plan_copy|enabled|duration|visible/.test(error.message)) {
       return fail(
         '플랜 문구 표가 아직 없거나 옛 판입니다. 036·037·038 마이그레이션을 먼저 적용해 주세요.',
@@ -323,7 +332,7 @@ export async function setSpecialtyPrice(
   id: string,
   scope: PriceScope,
   tier: PriceTier,
-  patch: { price?: number | null; enabled?: boolean; allowSample?: boolean },
+  patch: { price?: number | null; originalPrice?: number | null; enabled?: boolean; allowSample?: boolean },
 ): Promise<Result> {
   const db = await guard()
 
@@ -335,7 +344,9 @@ export async function setSpecialtyPrice(
   if (tier === 'basic' && patch.enabled === false) return fail('기본 단계는 끌 수 없습니다.')
 
   const missing = (msg: string) =>
-    /allow_sample/i.test(msg)
+    /original_price/i.test(msg)
+      ? fail('원래 가격 칸이 없습니다. 0030_plan_sale_prices.sql 을 실행해 주세요.')
+      : /allow_sample/i.test(msg)
       ? fail('0013_scope_allow_sample.sql 을 먼저 실행해 주세요.')
       : /specialty_plan_prices/i.test(msg)
         ? fail('0011_specialty_scope_prices.sql 을 먼저 실행해 주세요.')
@@ -343,24 +354,34 @@ export async function setSpecialtyPrice(
 
   /* 한 칸만 바꿔도 줄 전체를 쓰므로 지금 값을 먼저 읽는다.
      allow_sample 은 바꿀 때만 쓴다 — 0013 전 DB 에서도 시작가·프리미엄은 저장되게 */
-  const cur = await db
+  const readCurrent = (cols: string) => db
     .from('specialty_plan_prices')
-    .select('enabled, price')
+    .select(cols)
     .eq('specialty_id', id)
     .eq('scope', scope)
     .eq('tier', tier)
     .maybeSingle()
+  let cur = await readCurrent('enabled, price, original_price')
+  if (cur.error?.message.includes('original_price') && patch.originalPrice === undefined) cur = await readCurrent('enabled, price')
   if (cur.error) {
     console.error('[specialties] 시작가 조회 실패:', cur.error.message)
     return missing(cur.error.message)
   }
 
+  const current = cur.data as unknown as { enabled?: boolean; price?: number | null; original_price?: number | null } | null
+  const nextPrice = patch.price !== undefined ? patch.price : current?.price
+  const nextOriginal = patch.originalPrice !== undefined ? patch.originalPrice : current?.original_price
+  if (patch.price !== undefined || patch.originalPrice !== undefined) {
+    const invalid = pricePairError(nextPrice, nextOriginal)
+    if (invalid) return fail(invalid)
+  }
   const { error } = await db.from('specialty_plan_prices').upsert({
     specialty_id: id,
     scope,
     tier,
-    enabled: patch.enabled ?? cur.data?.enabled ?? true,
-    price: patch.price !== undefined ? patch.price : (cur.data?.price ?? null),
+    enabled: patch.enabled ?? current?.enabled ?? true,
+    price: patch.price !== undefined ? patch.price : (current?.price ?? null),
+    ...(patch.originalPrice !== undefined ? { original_price: patch.originalPrice } : {}),
     ...(patch.allowSample !== undefined ? { allow_sample: patch.allowSample } : {}),
   })
   if (error) {

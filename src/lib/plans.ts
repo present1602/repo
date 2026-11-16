@@ -98,7 +98,7 @@ export type PlanTier = (typeof PLAN_TIERS)[number]
 export type PlanText = { name: string; desc: string }
 
 /* 플랜 하나의 전체 공통값 — 이름·설명과 작업 기간(037_plan_details.sql) */
-export type PlanTierCopy = PlanText & { duration: string }
+export type PlanTierCopy = PlanText & { duration: string; price?: number | null; originalPrice?: number | null }
 export type PremiumText = PlanTierCopy & { enabled: boolean }
 /* visible — 플랜을 사이트에 보여주는지(038_plan_visibility.sql). 끄면 공개 화면 어디에도 안 나간다 */
 export type PlanCopies = Record<Scope, { basic: PlanTierCopy; premium: PremiumText; visible: boolean }>
@@ -248,15 +248,18 @@ export function hiddenScopes(copies: PlanCopies): Scope[] {
 export type PremiumSetting = { enabled: boolean; price: number }
 export type DesignerPremiums = Partial<Record<Scope, PremiumSetting>>
 
-/* 공개 화면에 나갈 프리미엄 — 두 스위치가 모두 켜졌을 때만, 아니면 null */
+/* 공통 프리미엄 판매가가 있으면 사용한다. 비면 디자이너별 프리미엄 설정을 따른다. */
 export function livePremium(
   copies: PlanCopies,
   premiums: DesignerPremiums,
   scope: Scope,
-): (PlanText & { price: number }) | null {
+): (PlanText & { price: number; originalPrice?: number | null }) | null {
   const p = premiums[scope]
-  if (!copies[scope].premium.enabled || !p?.enabled) return null
-  return { name: copies[scope].premium.name, desc: copies[scope].premium.desc, price: p.price }
+  const copy = copies[scope].premium
+  if (!copy.enabled) return null
+  if (copy.price != null) return { name: copy.name, desc: copy.desc, price: copy.price, originalPrice: copy.originalPrice }
+  if (!p?.enabled) return null
+  return { name: copy.name, desc: copy.desc, price: p.price }
 }
 
 /* 표를 못 읽었을 때 쓰는 값 — 화면이 비는 것보다 낫다.
@@ -309,4 +312,16 @@ export function setupItems(
     ...(setup.custom[b] ?? []).filter((c) => c.basic).map((c) => c.text),
   ]
   return [...new Set([...listOf(COMMON_BUCKET), ...(bucket === COMMON_BUCKET ? [] : listOf(bucket))])]
+}
+
+/* 원래 가격은 판매가와 함께 설정하고, 실제 할인일 때만 표시한다. */
+export function pricePairError(price: number | null | undefined, original: number | null | undefined): string | null {
+  if (price != null && !isContractPrice(price)) return '판매가는 10,000원 이상 1억 원 이하의 정수로 입력해 주세요.'
+  if (original != null && !isContractPrice(original)) return '원래 가격은 10,000원 이상 1억 원 이하의 정수로 입력해 주세요.'
+  if (original != null && price == null) return '원래 가격을 입력하려면 판매가도 입력해 주세요.'
+  if (original != null && price != null && original < price) return '원래 가격은 판매가 이상이어야 합니다.'
+  return null
+}
+export function originalPriceLabel(price: number | null | undefined, original: number | null | undefined): string | undefined {
+  return price != null && original != null && original > price ? `${formatPrice(original)}~` : undefined
 }

@@ -5,6 +5,7 @@ import { useActionTransition } from '@/lib/use-action-transition'
 import { useRouter } from 'next/navigation'
 import {
   MAX_PLAN_DESC,
+  pricePairError,
   MAX_PLAN_DURATION,
   MAX_PLAN_NAME,
   PLAN_TIERS,
@@ -18,10 +19,10 @@ import { Flash } from '@/components/flash'
 
 /* 금액을 누가 정하는지 — 문구를 맞출 때 참고하라고 각 유형 옆에 적는다 */
 const PRICE_NOTES: Record<Scope, string> = {
-  sample: '금액: 디자이너가 고름',
-  logo: '금액: 디자이너가 고름',
-  full_design: '금액: 어드민이 디자이너마다 정함',
-  with_dev: '금액: 어드민이 디자이너마다 정함',
+  sample: '판매가를 비우면 디자이너 금액',
+  logo: '로고 분야의 가격 설정 우선',
+  full_design: '분야별 판매가 우선',
+  with_dev: '분야별 판매가 우선',
 }
 
 const TIER_LABELS: Record<PlanTier, string> = { basic: '기본', premium: '프리미엄' }
@@ -29,14 +30,14 @@ const TIER_LABELS: Record<PlanTier, string> = { basic: '기본', premium: '프�
 /* 플랜 이름·설명은 모든 디자이너가 함께 쓴다 — 여기서 한 번 고치면 전체에 반영된다.
    의뢰 유형 넷이 같은 모양이다.
 
-   프리미엄은 여기서 켜고 끄지 않는다 — 이름·설명만 정한다. 켜고 끄기와 금액은
-   전문 분야의 범위별 칸(기본 설정)과 디자이너별 프리미엄이 맡는다. */
+   판매가와 할인 전 가격은 한 쌍으로 저장한다. 분야별 판매가가 공통 판매가보다 우선한다. */
 export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
   const [draft, setDraft] = useState(copies)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, start] = useActionTransition()
   const router = useRouter()
 
+  const invalid = SCOPES.flatMap((s) => PLAN_TIERS.map((t) => pricePairError(draft[s][t].price, draft[s][t].originalPrice))).some(Boolean)
   const dirty = JSON.stringify(draft) !== JSON.stringify(copies)
 
   const edit = (plan: Scope, tier: PlanTier, patch: Partial<PlanTierCopy>) =>
@@ -53,6 +54,7 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (invalid) return
     setMsg(null)
     start(async () => {
       const r = await updatePlanCopies(draft)
@@ -67,12 +69,12 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
 
   return (
     <form onSubmit={submit} className="rounded-xl bg-white p-5 ring-1 ring-neutral-200">
-      <h2 className="text-sm font-semibold">가격 플랜 문구</h2>
+      <h2 className="text-sm font-semibold">의뢰 유형별 가격 · 문구</h2>
       <p className="mt-1 text-xs leading-relaxed text-neutral-500">
         의뢰 유형마다 기본과 프리미엄의 이름·설명·작업 기간을 정합니다. 디자이너 상세의 의뢰
         패널에 나갑니다. 작업 기간은 디자이너마다 따로 바꿀 수 있습니다.
         <br />
-        프리미엄을 켜고 끄는 것과 금액은 기본 설정의 전문 분야(분야·범위별)에서 정합니다.
+        판매가를 비우면 기존 디자이너 금액을 사용합니다. 분야별·디자이너별 분야 금액이 있으면 그 금액이 우선합니다. 원래 가격은 판매가보다 클 때 취소선으로 표시됩니다. 프리미엄 판매가를 입력하면 해당 유형의 프리미엄이 제공됩니다.
         <br />
         숨긴 플랜은 공개 화면(상세·의뢰 폼·탐색)과 디자이너 스튜디오에서 빠집니다. 디자이너별
         설정은 남아 있어 다시 노출하면 돌아옵니다.
@@ -125,10 +127,11 @@ export function PlanCopyForm({ copies }: { copies: PlanCopies }) {
         ))}
       </div>
 
+      {msg && !msg.ok && <p role="alert" className="mt-4 text-sm text-red-600">{msg.text}</p>}
       <div className="mt-5 flex items-center gap-2">
         <button
           type="submit"
-          disabled={pending || !dirty}
+          disabled={pending || !dirty || invalid}
           className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:opacity-40"
         >
           {pending ? '저장 중…' : '저장'}
@@ -150,10 +153,25 @@ function TierFields({
   value: PlanTierCopy
   onChange: (patch: Partial<PlanTierCopy>) => void
 }) {
+  const invalid = pricePairError(value.price, value.originalPrice)
   return (
     <div>
       <p className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-500">{label}</p>
 
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {(['price', 'originalPrice'] as const).map((field) => (
+          <label key={field} className="block text-xs text-neutral-600">
+            {field === 'price' ? '판매가 (시작가)' : '원래 가격 (할인 전)'}
+            <input type="number" inputMode="numeric" min={10000} max={100000000} step={1}
+              aria-label={`${label} ${field === 'price' ? '판매가' : '원래 가격'}`}
+              value={value[field] ?? ''}
+              onChange={(e) => onChange({ [field]: e.target.value === '' ? null : Number(e.target.value) })}
+              placeholder={field === 'price' ? '기존 금액 사용' : '선택 입력'}
+              className="mt-1.5 h-9 w-full rounded-lg border border-neutral-300 px-3 text-sm outline-none focus:ring-2 focus:ring-violet-500" />
+          </label>
+        ))}
+      </div>
+      {invalid && <p role="alert" className="mt-2 text-xs text-red-600">{invalid}</p>}
       <label className="mt-2 block">
         <span className="mb-1.5 block text-xs font-medium text-neutral-600">이름</span>
         <input

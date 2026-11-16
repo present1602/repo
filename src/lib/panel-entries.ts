@@ -121,10 +121,10 @@ export function panelEntries(src: PanelSource): PanelEntry[] {
          이 디자이너에게만 적어 둔 금액(0016)까지 보고 정한 것을 그대로 쓴다.
          선택지 없이 만든 줄(예전 호출)만 여기서 다시 계산한다 */
       const live = o.premium
-        ? { name: o.premium.name, desc: copies[plan].premium.desc, priceLabel: o.premium.priceLabel }
+        ? { name: o.premium.name, desc: copies[plan].premium.desc, priceLabel: o.premium.priceLabel, originalPriceLabel: o.premium.originalPriceLabel }
         : (() => {
             const p = categoryPremium(copies, premiums, metaOf.get(c.name), o.key)
-            return p ? { name: p.name, desc: p.desc, priceLabel: `${formatPrice(p.price)}~` } : null
+            return p ? { name: p.name, desc: p.desc, priceLabel: `${formatPrice(p.price)}~`, originalPriceLabel: undefined } : null
           })()
 
       const basicRows = optionSetup ? setupRows(optionSetup, 'basic', plan, categoryId, templates) : null
@@ -149,6 +149,7 @@ export function panelEntries(src: PanelSource): PanelEntry[] {
           /* 범위가 정해진 분야는 플랜 설명 대신 비운다 — 로고에 '서비스 전체 디자인' 설명이 붙지 않게 */
           desc: o.title ? '' : copies[plan].basic.desc,
           priceLabel: o.priceLabel,
+          originalPriceLabel: o.originalPriceLabel,
           duration: durationOf(plan, 'basic'),
           items: basicItems,
           missing: compare ? missingOf(basicRows, premiumRows, basicItems) : [],
@@ -159,6 +160,7 @@ export function panelEntries(src: PanelSource): PanelEntry[] {
                 name: live.name,
                 desc: live.desc,
                 priceLabel: live.priceLabel,
+                originalPriceLabel: live.originalPriceLabel,
                 duration: durationOf(plan, 'premium'),
                 items: premiumItems,
                 missing: compare ? missingOf(premiumRows, basicRows, premiumItems) : [],

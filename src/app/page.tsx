@@ -115,26 +115,33 @@ function Hero() {
 
         {/* 가격표 — 두 가지라 세로로 쌓지 않고 가로로 나란히 세운다.
             금액이 주인공이므로 이름은 그 위에 작게 둔다. */}
-        <dl className="mx-auto mt-10 grid max-w-xl gap-3 sm:grid-cols-2">
-          {PRICES.map(({ label, price, was }) => (
-            <div
-              key={label}
-              className="rounded-2xl border border-neutral-200 bg-white px-5 py-5 text-center"
-            >
-              <dt className="text-sm font-medium text-neutral-500">{label}</dt>
-              <dd className="mt-1.5">
-                <s className="text-sm font-medium tabular-nums text-neutral-400">
-                  <span className="sr-only">할인 전 </span>
-                  {was.toLocaleString('ko-KR')}원
-                </s>
-                <span className="mt-0.5 block text-2xl font-black tabular-nums tracking-tight text-violet-600 md:text-[1.75rem]">
-                  {price.toLocaleString('ko-KR')}
-                  <span className="ml-0.5 text-base font-bold md:text-lg">원~</span>
-                </span>
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="mx-auto mt-10 max-w-xl">
+          <h2 className="inline-flex items-center gap-2.5 rounded-xl border border-[#f2d7ae] bg-linear-to-r from-[#fff4ce] to-[#ffe8dd] px-5 py-2.5 text-2xl font-black tracking-tight text-[#a7472d] shadow-[0_3px_12px_-6px_rgb(167_71_45/0.2)] md:px-6 md:text-[1.75rem]">
+            <span aria-hidden="true" className="text-xl text-[#e78439] md:text-2xl">✦</span>
+            오픈 이벤트 특가
+          </h2>
+
+          <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+            {PRICES.map(({ label, price, was }) => (
+              <div
+                key={label}
+                className="rounded-2xl border border-neutral-200 bg-white px-5 py-5 text-center"
+              >
+                <dt className="text-sm font-medium text-neutral-500">{label}</dt>
+                <dd className="mt-1.5">
+                  <s className="text-sm font-medium tabular-nums text-neutral-400">
+                    <span className="sr-only">할인 전 </span>
+                    {was.toLocaleString('ko-KR')}원
+                  </s>
+                  <span className="mt-0.5 block text-2xl font-black tabular-nums tracking-tight text-violet-600 md:text-[1.75rem]">
+                    {price.toLocaleString('ko-KR')}
+                    <span className="ml-0.5 text-base font-bold md:text-lg">원~</span>
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
 
         <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
           <ExploreLink className="rounded-xl bg-neutral-900 px-7 py-4 text-sm font-semibold text-white transition hover:bg-violet-600">

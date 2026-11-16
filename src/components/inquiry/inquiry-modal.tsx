@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { PriceLabel } from '../price-label'
 import { Consent, Dialog, Done, Field, FileField, ReadonlyRow, inputCls } from './form-bits'
 import {
   defaultScope,
@@ -68,12 +69,14 @@ function ExtraOption({
   title,
   desc,
   priceLabel,
+  originalPriceLabel,
   on,
   onChange,
 }: {
   title: string
   desc: string
   priceLabel: string
+  originalPriceLabel?: string
   on: boolean
   onChange: (on: boolean) => void
 }) {
@@ -97,6 +100,7 @@ function ExtraOption({
           <span className={`font-medium ${on ? '' : 'text-neutral-500'}`}>{title}</span>
           <Price
             label={priceLabel}
+            original={originalPriceLabel}
             className={`text-sm font-semibold ${on ? 'text-violet-700' : 'text-neutral-400'}`}
           />
         </span>
@@ -116,11 +120,11 @@ function ExtraOption({
 
    금액을 흐려 둔 줄에서는 이 줄도 함께 흐려진다 — 금액보다 진하면
    꺼 둔 줄의 'VAT 별도'가 되레 또렷해 보인다. */
-function Price({ label, className }: { label: string; className: string }) {
+function Price({ label, original, className }: { label: string; original?: string; className: string }) {
   const muted = className.includes('text-neutral-400')
   return (
     <span className="shrink-0 text-right">
-      <span className={`block ${className}`}>{label}</span>
+      <span className={`block ${className}`}><PriceLabel label={label} original={original} /></span>
       <span
         className={`block text-[11px] font-normal ${muted ? 'text-neutral-400' : 'text-neutral-500'}`}
       >
@@ -432,6 +436,7 @@ export function InquiryModal({
                                     여기는 흐려 둔다. 고르지 않은 줄도 흐리다. */}
                                 <Price
                                   label={o.priceLabel}
+                                  original={o.originalPriceLabel}
                                   className={`text-sm font-semibold ${
                                     checked && extra === 'none' ? 'text-violet-700' : 'text-neutral-400'
                                   }`}
@@ -449,7 +454,7 @@ export function InquiryModal({
                               {o.premium && !checked && (
                                 <span className="mt-2 flex items-center gap-1.5 text-xs text-neutral-400">
                                   <PremiumBadge muted />
-                                  {o.premium.priceLabel}
+                                  <PriceLabel label={o.premium.priceLabel} original={o.premium.originalPriceLabel} />
                                 </span>
                               )}
                               {/* 메인 시안을 받는 분야 — 고르면 아래에서 덧붙일 수 있다고 미리 알린다 */}
@@ -468,6 +473,7 @@ export function InquiryModal({
                               title="메인화면 먼저 의뢰"
                               desc={sample.desc}
                               priceLabel={sample.priceLabel}
+                              originalPriceLabel={sample.originalPriceLabel}
                               on={extra === 'sample'}
                               onChange={(on) => setExtra(on ? 'sample' : 'none')}
                             />
@@ -477,6 +483,7 @@ export function InquiryModal({
                               title="프리미엄으로 의뢰"
                               desc={o.premium.name}
                               priceLabel={o.premium.priceLabel}
+                              originalPriceLabel={o.premium.originalPriceLabel}
                               on={extra === 'premium'}
                               onChange={(on) => setExtra(on ? 'premium' : 'none')}
                             />

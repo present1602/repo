@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useState } from 'react'
+import { PriceLabel } from './price-label'
 import { defaultScope, dividerBefore, type CategoryChoice, type InquiryScope } from '@/lib/inquiry-choices'
 import type { PlanTier } from '@/lib/plans'
 import { InquiryModal, PremiumBadge } from './inquiry/inquiry-modal'
@@ -9,6 +10,7 @@ import { InquiryModal, PremiumBadge } from './inquiry/inquiry-modal'
 export type PanelTier = {
   name: string
   priceLabel: string
+  originalPriceLabel?: string
   desc: string
   /* 노출 스위치가 꺼졌거나 비어 있으면 null */
   duration: string | null
@@ -144,7 +146,7 @@ export function PlanPanel({
       {/* 패널이 좁아 이름과 금액을 두 줄로 — 한 줄이면 이름이 중간에서 꺾인다 */}
       <span className="min-w-0 flex-1">
         <span className={`block font-medium ${preview ? 'text-xs' : 'text-sm'}`}>메인화면 먼저 의뢰</span>
-        <span className="block text-xs font-semibold text-violet-700">{sample.basic.priceLabel}</span>
+        <span className="block text-xs font-semibold text-violet-700"><PriceLabel label={sample.basic.priceLabel} original={sample.basic.originalPriceLabel} /></span>
       </span>
     </label>
   )
@@ -194,7 +196,7 @@ export function PlanPanel({
                         {/* 스튜디오 미리보기는 칸이 좁아 이름을 한 단계 작게 */}
                         <span className={`font-medium ${preview ? 'text-xs' : 'text-sm'}`}>{e.basic.name}</span>
                         <span className="ml-auto shrink-0 text-right text-xs text-neutral-500">
-                          {e.basic.priceLabel}
+                          <PriceLabel label={e.basic.priceLabel} original={e.basic.originalPriceLabel} />
                           {/* 미리보기는 카드를 낮게 — VAT 줄을 뺀다(아래 금액 상자에 있다) */}
                           {!preview && <span className="block text-[10px] text-neutral-400">VAT 별도</span>}
                         </span>
@@ -209,7 +211,7 @@ export function PlanPanel({
                             } ${preview ? 'text-[11px]' : 'text-xs'}`}
                           >
                             <PremiumBadge muted={!on} />
-                            {e.premium.priceLabel}
+                            <PriceLabel label={e.premium.priceLabel} original={e.premium.originalPriceLabel} />
                           </span>
                         )}
                         {/* 메인 시안을 받는 분야 — 고르면 아래에서 덧붙일 수 있다 */}
@@ -345,7 +347,7 @@ function TierBox({ tier, plain, flash }: { tier: PanelTier; plain?: boolean; fla
 
       {/* 의뢰 폼과 같이 — 공개 화면의 금액은 모두 부가세 별도다 */}
       <p className="mt-3 text-2xl font-bold tracking-tight">
-        {tier.priceLabel}
+        <PriceLabel label={tier.priceLabel} original={tier.originalPriceLabel} />
         <span className="ml-1.5 text-xs font-normal tracking-normal text-neutral-500">VAT 별도</span>
       </p>
 

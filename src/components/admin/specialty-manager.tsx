@@ -27,6 +27,7 @@ import {
   reorderSpecialtyBudgets,
 } from '@/app/admin/settings/actions'
 import { BUDGET_LABEL_MAX, BUDGET_MAX_PER_CATEGORY, type BudgetChoice } from '@/lib/inquiry-budget'
+import { PricePairEditor } from './price-pair-editor'
 import { Flash } from '@/components/flash'
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null
@@ -409,7 +410,7 @@ function ScopePriceRow({
   disabled: boolean
   onSave: (
     tier: 'basic' | 'premium',
-    patch: { price?: number | null; enabled?: boolean; allowSample?: boolean },
+    patch: { price?: number | null; originalPrice?: number | null; enabled?: boolean; allowSample?: boolean },
     done: string,
   ) => void
 }) {
@@ -419,12 +420,13 @@ function ScopePriceRow({
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-neutral-500">
       <span className="w-20 shrink-0 font-medium text-neutral-600">{label}</span>
-      <PriceField
-        key={`basic:${basic.price}`}
-        label="시작가"
-        value={basic.price}
+      <PricePairEditor
+        key="basic"
+        label={`${s.name} ${label} 기본`}
+        price={basic.price}
+        originalPrice={basic.originalPrice}
         disabled={disabled}
-        onSave={(price) => onSave('basic', { price }, `${label} 시작가를 저장했습니다.`)}
+        onSave={(price, originalPrice) => setSpecialtyPrice(s.id, scope, 'basic', { price, originalPrice })}
       />
       {/* 메인화면 먼저 의뢰 옵션 — 분야의 '메인시안 우선 허용'이 켜졌을 때만 범위마다 고른다(0013) */}
       {s.allow_sample && (
@@ -447,7 +449,7 @@ function ScopePriceRow({
         </label>
       )}
       {/* 프리미엄 체크와 그 금액은 함께 줄을 넘긴다 — 금액 칸만 떨어지면 어느 시작가인지 헷갈린다 */}
-      <span className="flex shrink-0 items-center gap-x-3">
+      <div className="flex w-full flex-wrap items-center gap-2">
         <label className="flex shrink-0 cursor-pointer items-center gap-1">
           <input
             type="checkbox"
@@ -461,62 +463,16 @@ function ScopePriceRow({
           />
           프리미엄
         </label>
-        <PriceField
-          key={`premium:${premium.price}`}
-          label="시작가"
-          value={premium.price}
+        <PricePairEditor
+          key="premium"
+          label={`${s.name} ${label} 프리미엄`}
+          price={premium.price}
+          originalPrice={premium.originalPrice}
           disabled={disabled || !premium.enabled}
-          placeholder="디자이너 금액"
-          onSave={(price) => onSave('premium', { price }, `${label} 프리미엄 시작가를 저장했습니다.`)}
+          onSave={(price, originalPrice) => setSpecialtyPrice(s.id, scope, 'premium', { price, originalPrice })}
         />
-      </span>
+      </div>
     </div>
-  )
-}
-
-/* 분야 시작가 한 칸 — 의뢰 폼에서 이 분야 금액으로 나간다. 비우면 디자이너 가격.
-   DescField 와 같이 칸을 벗어나거나 Enter 로 저장한다 */
-function PriceField({
-  label,
-  value,
-  disabled,
-  placeholder = '디자이너 가격',
-  onSave,
-}: {
-  label: string
-  value: number | null
-  placeholder?: string
-  disabled: boolean
-  onSave: (price: number | null) => void
-}) {
-  const [text, setText] = useState(value == null ? '' : String(value))
-  const save = () => {
-    const digits = text.replace(/\D/g, '')
-    const next = digits ? Number(digits) : null
-    if (next !== value) onSave(next)
-  }
-
-  return (
-    <label className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-      <span className="shrink-0">{label}</span>
-      <input
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={save}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            save()
-          }
-          if (e.key === 'Escape') setText(value == null ? '' : String(value))
-        }}
-        disabled={disabled}
-        inputMode="numeric"
-        placeholder={placeholder}
-        className="h-8 w-28 shrink-0 rounded-md border border-neutral-200 bg-white px-2.5 text-xs text-neutral-700 outline-none ring-violet-500 placeholder:text-neutral-400 focus:ring-2 disabled:opacity-60"
-      />
-      <span className="shrink-0">원</span>
-    </label>
   )
 }
 

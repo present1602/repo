@@ -29,11 +29,13 @@ type CopyRow = {
   enabled?: boolean
   duration?: string
   visible?: boolean
+  price?: number | null
+  original_price?: number | null
 }
 
 /* 마이그레이션 판마다 없는 칸 — 실패 메시지에 이름이 나오면 그것만 빼고 다시 묻는다.
    036 의 이전 판에는 enabled 가, 037 전에는 duration 이, 038 전에는 visible 이 없다. */
-const OPTIONAL_COPY_COLS = ['visible', 'duration', 'enabled']
+const OPTIONAL_COPY_COLS = ['original_price', 'price', 'visible', 'duration', 'enabled']
 
 /* 플랜 문구 — 유형 × 단계마다 한 줄(036_plan_copy_premium.sql),
    작업 기간(037_plan_details.sql)까지.
@@ -44,8 +46,9 @@ export async function getPlanCopies(): Promise<PlanCopies> {
 
   let cols = ['plan', 'tier', 'name', 'description', ...OPTIONAL_COPY_COLS]
   let r = await db.from('plan_copy').select(cols.join(', '))
-  for (const c of OPTIONAL_COPY_COLS) {
-    if (!r.error?.message.includes(c)) continue
+  for (let attempt = 0; r.error && attempt < OPTIONAL_COPY_COLS.length; attempt++) {
+    const c = OPTIONAL_COPY_COLS.find((col) => cols.includes(col) && r.error?.message.includes(col))
+    if (!c) break
     cols = cols.filter((x) => x !== c)
     r = await db.from('plan_copy').select(cols.join(', '))
   }
@@ -66,7 +69,7 @@ export async function getPlanCopies(): Promise<PlanCopies> {
 
   for (const row of (r.data ?? []) as unknown as CopyRow[]) {
     if (!isScope(row.plan)) continue
-    const base = { name: row.name, desc: row.description, duration: row.duration ?? '' }
+    const base = { name: row.name, desc: row.description, duration: row.duration ?? '', price: row.price ?? null, originalPrice: row.original_price ?? null }
     if (row.tier === 'basic') {
       copies[row.plan].basic = base
       /* 칸이 없으면(038 전) 보여준다 — 지금까지 다 보였다 */

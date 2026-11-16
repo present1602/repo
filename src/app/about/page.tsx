@@ -96,15 +96,12 @@ export default function AboutPage() {
               </p> */}
               <p className="mt-4 max-w-md text-[15px] leading-[1.85] text-neutral-600">
                 AI가 만드는 속도에 전문가의 기획과 브랜딩 감각을 녹여냅니다.<br/>
-                회사와 고객특성을 잘 녹여낸 디자인, 고객을 끌어드리는 멋진 웹사이트 제작을 합리적인 비용으로 의뢰하세요.
+                회사와 고객특성을 잘 반영한 <span className="text-violet-600">고객을 끌어드리는 감각적인 웹사이트 제작을 합리적인 비용</span>으로 의뢰하세요.
               </p>
             </div>
           </div>
           <div className="mt-10 flex flex-wrap items-center gap-5 md:mt-12 md:gap-8">
             <AboutInquiryButton />
-            <a href="#about-promises" className="inline-flex min-h-12 items-center gap-3 text-sm font-medium text-neutral-700 hover:text-violet-600 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-500">
-              SOOM이 일하는 방법 <span aria-hidden="true">↓</span>
-            </a>
           </div>
         </div>
       </section>
@@ -182,7 +179,7 @@ export default function AboutPage() {
                   0{index + 1}
                 </p>
                 <h3 className="mt-3 text-lg font-bold leading-snug tracking-tight">{item.title}</h3>
-                <div className="mt-3 space-y-3 text-[15px] leading-[1.85] text-white/70">
+                <div className="mt-3 space-y-3 text-[15px] leading-[1.85] text-white/70">=
                   {item.description.map((line) => (
                     <p key={line}>{line}</p>
                   ))}
