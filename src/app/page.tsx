@@ -39,7 +39,7 @@ export default function Home() {
 
       {/* scroll-mt — 상단 헤더가 sticky 라 앵커로 내려오면 제목이 그 밑에 깔린다.
           헤더 높이(h-14 = 3.5rem)만큼 미리 띄워 둔다. */}
-      <section id="works" className="mx-auto max-w-7xl scroll-mt-14 px-4 pb-16 md:px-8 md:pb-20">
+      <section id="works" className="mx-auto max-w-7xl scroll-mt-14 px-4 pt-16 pb-16 md:px-8 md:pb-20">
         <div className="mb-6 flex items-end justify-between gap-4">
           <h2 className="text-xl font-bold tracking-tight md:text-2xl">SOOM 디자이너들의 작업</h2>
           <ExploreLink className="shrink-0 text-sm text-neutral-500 transition hover:text-neutral-900">
@@ -88,54 +88,46 @@ async function Feed() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden">
-      {/* 뒤에 깔리는 보라색 번짐 — 장식이라 클릭을 먹지 않게 한다 */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-40 left-1/2 size-[44rem] -translate-x-1/2 rounded-full bg-violet-100/70 blur-3xl"
-      />
+    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-linear-to-b from-[#f6f3ff] via-[#fcfbff] to-white">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_15%_15%,rgb(221_214_254/0.45),transparent_50%),radial-gradient(ellipse_at_90%_45%,rgb(237_233_254/0.6),transparent_45%)]" />
+      <div aria-hidden="true" className="pointer-events-none absolute -left-64 -top-96 -z-10 size-[40rem] rounded-full border border-white/80 bg-white/25 md:-left-40" />
 
-      <div className="relative mx-auto max-w-4xl px-5 pb-16 pt-16 text-center md:pb-24 md:pt-28">
-        <span className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold tracking-wide text-white">
-          <span className="size-1.5 rounded-full bg-white" /> DESIGN &amp; DEV
+      <div className="mx-auto max-w-6xl px-5 pb-14 pt-14 text-center md:px-8 md:pb-16 md:pt-20">
+        <span className="inline-flex items-center gap-2 rounded-full border border-violet-200/70 bg-white/80 px-3.5 py-1.5 text-[11px] font-bold tracking-[0.08em] text-violet-700">
+          <span className="size-1.5 rounded-full bg-violet-500" /> DESIGN &amp; DEV
         </span>
 
-        <h1 className="mt-6 text-3xl font-bold leading-tight tracking-tight text-balance md:text-6xl md:leading-[1.1]">
+        <h1 id="hero-title" className="mt-6 text-[1.9rem] font-bold leading-[1.3] tracking-[-0.045em] text-neutral-900 sm:text-[2.75rem] md:text-[3.5rem] md:leading-[1.22]">
           전문 디자이너가 디자인하고,
           <br />
-          전문 개발자가 보증합니다
+          <span className="text-violet-600">전문 개발자</span>가 보증합니다
         </h1>
 
-        <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed text-neutral-600 md:text-lg">
+        <p className="mx-auto mt-5 max-w-2xl text-sm leading-[1.8] text-neutral-500 md:text-base">
           SOOM의 디자이너들은 AI의 효율적인 활용으로
-          <br className="hidden md:block" /> 저렴한 비용으로{' '}
-          <b className="font-semibold text-neutral-900">만족도 높은 퀄리티</b>와{' '}
-          <b className="font-semibold text-neutral-900">빠른 제작기간</b>을 보장합니다.
+          <br className="hidden sm:block" /> 저렴한 비용으로{' '}
+          <b className="font-semibold text-neutral-700">만족도 높은 퀄리티</b>와{' '}
+          <b className="font-semibold text-neutral-700">빠른 제작기간</b>을 보장합니다.
         </p>
 
-        {/* 가격표 — 두 가지라 세로로 쌓지 않고 가로로 나란히 세운다.
-            금액이 주인공이므로 이름은 그 위에 작게 둔다. */}
-        <div className="mx-auto mt-10 max-w-xl">
-          <h2 className="inline-flex items-center gap-2.5 rounded-xl border border-[#f2d7ae] bg-linear-to-r from-[#fff4ce] to-[#ffe8dd] px-5 py-2.5 text-2xl font-black tracking-tight text-[#a7472d] shadow-[0_3px_12px_-6px_rgb(167_71_45/0.2)] md:px-6 md:text-[1.75rem]">
-            <span aria-hidden="true" className="text-xl text-[#e78439] md:text-2xl">✦</span>
+        <div className="mx-auto mt-8 max-w-[36rem] md:mt-9">
+          <h2 className="inline-flex items-center gap-1.5 rounded-full border border-orange-200/70 bg-orange-50 px-3.5 py-1.5 text-sm font-bold text-[#ad5637]">
+            <span aria-hidden="true" className="text-orange-400">✦</span>
             오픈 이벤트 특가
           </h2>
 
-          <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+          <dl className="mt-4 grid grid-cols-2 gap-3 md:gap-4">
             {PRICES.map(({ label, price, was }) => (
-              <div
-                key={label}
-                className="rounded-2xl border border-neutral-200 bg-white px-5 py-5 text-center"
-              >
-                <dt className="text-sm font-medium text-neutral-500">{label}</dt>
-                <dd className="mt-1.5">
-                  <s className="text-sm font-medium tabular-nums text-neutral-400">
+              <div key={label} className="rounded-2xl border border-violet-100 bg-white/90 px-3 py-5 shadow-[0_8px_28px_-16px_rgb(109_40_217/0.18)] md:px-6 md:py-6">
+                <dt className="text-xs font-semibold text-neutral-700 sm:text-sm">{label}</dt>
+                <dd className="mt-2.5">
+                  <s className="text-xs tabular-nums text-neutral-400 sm:text-sm">
                     <span className="sr-only">할인 전 </span>
                     {was.toLocaleString('ko-KR')}원
                   </s>
-                  <span className="mt-0.5 block text-2xl font-black tabular-nums tracking-tight text-violet-600 md:text-[1.75rem]">
+                  <span className="mt-1 block text-[1.6rem] font-extrabold tabular-nums tracking-tight text-violet-600 sm:text-3xl">
                     {price.toLocaleString('ko-KR')}
-                    <span className="ml-0.5 text-base font-bold md:text-lg">원~</span>
+                    <span className="ml-0.5 text-xs font-semibold sm:text-sm">원~</span>
                   </span>
                 </dd>
               </div>
@@ -143,30 +135,29 @@ function Hero() {
           </dl>
         </div>
 
-        <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-          <ExploreLink className="rounded-xl bg-neutral-900 px-7 py-4 text-sm font-semibold text-white transition hover:bg-violet-600">
+        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row md:mt-7">
+          <ExploreLink className="inline-flex items-center justify-center gap-3 rounded-xl bg-violet-600 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_4px_12px_-4px_rgb(124_58_237/0.35)] transition hover:bg-violet-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-600">
             디자이너 탐색하기
+            <span aria-hidden="true">→</span>
           </ExploreLink>
-          {/* 같은 화면 안으로 내려가는 앵커다 — Link 로 바꾸면 라우터를 거쳐
-              스크롤이 끊긴다. 브라우저 기본 동작(부드러운 스크롤은 globals.css)에 맡긴다. */}
-          <a
-            href="#works"
-            className="rounded-xl border border-neutral-300 px-7 py-4 text-sm font-semibold transition hover:border-neutral-900"
-          >
+          <a href="#works" className="inline-flex items-center justify-center gap-3 rounded-xl border border-violet-200 bg-white/80 px-6 py-3.5 text-sm font-semibold text-neutral-700 transition hover:border-violet-400 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-600">
             포트폴리오 보기
+            <span aria-hidden="true">→</span>
           </a>
         </div>
 
-        {/* SOOM 이 내세우는 세 가지. 예전에는 '시안 → 확인 → 본 계약' 순서였는데,
-            그 흐름을 접었으므로 번호를 뗐다 — 이 셋은 차례가 아니라 동시에
-            성립하는 조건이라 ol 이 아니라 ul 이다. */}
-        <ul className="mx-auto mt-20 grid max-w-4xl gap-10 md:mt-24 md:grid-cols-3 md:gap-12">
-          {POINTS.map(([title, note]) => (
-            <li key={title} className="text-center">
-              <p className="font-serif text-xl md:text-2xl">{title}</p>
-              <p className="mx-auto mt-3 max-w-[16rem] text-sm leading-relaxed text-neutral-500">
-                {note}
-              </p>
+        <ul className="mx-auto mt-12 grid max-w-5xl gap-5 border-t border-violet-100/80 pt-7 text-left md:mt-14 md:grid-cols-3 md:gap-0 md:pt-8">
+          {POINTS.map(([title, note, path]) => (
+            <li key={title} className="flex gap-3 md:px-6 md:not-first:border-l md:not-first:border-violet-100 md:first:pl-0 md:last:pr-0">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100/60 text-violet-600">
+                <svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={path} />
+                </svg>
+              </span>
+              <div>
+                <p className="text-sm font-bold text-neutral-800 md:text-base">{title}</p>
+                <p className="mt-1.5 max-w-[17rem] text-xs leading-relaxed text-neutral-500">{note}</p>
+              </div>
             </li>
           ))}
         </ul>
@@ -175,10 +166,10 @@ function Hero() {
   )
 }
 
-const POINTS: [string, string][] = [
-  ['전문 디자이너', '모든 홈페이지를 전문 디자이너가 직접 디자인합니다.'],
-  ['전문 개발자 보증', '개발자가 코드와 기능을 검수해 안정성을 보증합니다.'],
-  ['합리적인 비용', '디자이너 친화적 수익 모델로 플랫폼 수익을 낮췄습니다.'],
+const POINTS: [string, string, string][] = [
+  ['전문 디자이너', '모든 홈페이지를 전문 디자이너가 직접 디자인합니다.', 'm15 5 4 4 M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z'],
+  ['전문 개발자 보증', '개발자가 코드와 기능을 검수해 안정성을 보증합니다.', 'm7 7-5 5 5 5 M17 7l5 5-5 5 M14 4l-4 16'],
+  ['합리적인 비용', '디자이너 친화적 수익 모델로 플랫폼 수익을 낮췄습니다.', 'M20 6c0 2-3.6 3-8 3S4 8 4 6s3.6-3 8-3 8 1 8 3Z M4 6v6c0 2 3.6 3 8 3s8-1 8-3V6 M4 12v6c0 2 3.6 3 8 3s8-1 8-3v-6'],
 ]
 
 /* 실제 피드와 같은 벽 모양으로 둔다 — 작업이 들어올 때 화면이 튀지 않게.
