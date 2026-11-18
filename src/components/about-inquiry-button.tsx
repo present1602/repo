@@ -3,7 +3,18 @@
 import { useState } from 'react'
 import { InquiryModal } from './inquiry/inquiry-modal'
 
-export function AboutInquiryButton({ className }: { className?: string }) {
+/* '프로젝트 의뢰하기' — 홈과 소개가 같이 쓴다.
+   category: 골라 둔 채 열 의뢰 분야(소개 화면은 웹사이트).
+   product: 견적표에서 고른 상품 이름 — 폼에 한 줄로 보여 주고 문의내용 앞에 붙여 보낸다 */
+export function AboutInquiryButton({
+  className,
+  category,
+  product,
+}: {
+  className?: string
+  category?: string
+  product?: string
+}) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -16,7 +27,7 @@ export function AboutInquiryButton({ className }: { className?: string }) {
         프로젝트 의뢰하기
         <span aria-hidden="true" className="transition-transform group-hover:translate-x-1 motion-reduce:transform-none">→</span>
       </button>
-      {open && <InquiryModal onClose={() => setOpen(false)} />}
+      {open && <InquiryModal initialCategory={category} product={product} onClose={() => setOpen(false)} />}
     </>
   )
 }

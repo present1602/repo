@@ -36,11 +36,16 @@ export function PriceStack({ price, was, caseDiscount, startingAt }: Pick<HomePr
 
       <div className="mt-2.5 rounded-xl bg-violet-50 px-4 py-3.5 ring-1 ring-inset ring-violet-100">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-violet-700">{hasCase ? '사례 게재 동의 시' : '할인가'}</span>
+          {/* <span className="text-xs font-semibold text-violet-700">{hasCase ? '사례 게재 동의 시' : '할인가'}</span> */}
           {hasCase && (
-            <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
-              −{caseDiscount / 10_000}만원
-            </span>
+            <>
+              <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+                기간한정 
+              </span>
+              <span>
+              {caseDiscount / 10_000}만원 추가 할인 
+              </span>
+            </>
           )}
         </div>
         <p className="mt-1 text-[1.75rem] font-extrabold leading-tight tabular-nums tracking-tight text-violet-600 sm:text-3xl">

@@ -5,14 +5,18 @@ import Image from 'next/image'
 import worksShot from '@/assets/about/gyeol-works.jpg'
 import { AboutInquiryButton } from '@/components/about-inquiry-button'
 import {
+  ABOUT_INQUIRY_CATEGORY,
   ADD_ONS,
   ADD_ON_GROUPS,
   ESTIMATE_EVENT_LABEL,
   ESTIMATE_PRESETS,
   LANDING_PRICE,
+  SITE_KINDS,
+  WEBSITE_PRICE,
   manwon,
   won,
   type AddOn,
+  type SiteKind,
 } from '@/lib/landing-package'
 
 /* 기본형 + 추가 기능 견적표.
@@ -25,6 +29,8 @@ import {
 const DEFAULT_PRESET = 1
 
 export function EstimateBuilder() {
+  /* 랜딩페이지만 기능을 골라 더한다. 웹사이트·프리미엄은 상담으로 견적을 정하므로 체크 없이 안내만 */
+  const [kind, setKind] = useState<SiteKind>('landing')
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(ESTIMATE_PRESETS[DEFAULT_PRESET].ids))
 
   function toggle(item: AddOn) {
@@ -54,8 +60,38 @@ export function EstimateBuilder() {
     lo === hi ? `${won(lo)}${open ? '~' : ''}` : `${lo.toLocaleString('ko-KR')} ~ ${won(hi)}${open ? '~' : ''}`
   const finalRange = range(min - LANDING_PRICE.caseDiscount, max - LANDING_PRICE.caseDiscount)
 
+  /* 의뢰 폼에 넘길 상품 이름 — 고른 기능은 이름만 덧붙인다(금액은 상담에서 정한다) */
+  const landingProduct =
+    chosen.length > 0 ? `랜딩페이지 기본형 + ${chosen.map((a) => a.title).join(', ')}` : '랜딩페이지 기본형'
+
+  const site = SITE_KINDS.find((k) => k.id === kind)!
+
   return (
     <div>
+      {/* 유형 — 랜딩페이지만 아래에서 기능을 고른다 */}
+      <div role="radiogroup" aria-label="사이트 유형" className="grid gap-2.5 sm:grid-cols-3">
+        {SITE_KINDS.map((k) => (
+          <label
+            key={k.id}
+            className="flex cursor-pointer flex-col rounded-2xl border border-neutral-200 bg-white px-4 py-3.5 transition hover:border-violet-300 has-checked:border-violet-600 has-checked:bg-violet-50 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-violet-500"
+          >
+            <input
+              type="radio"
+              name="site-kind"
+              value={k.id}
+              checked={kind === k.id}
+              onChange={() => setKind(k.id)}
+              className="sr-only"
+            />
+            <span className="text-[15px] font-bold leading-snug text-neutral-900">{k.label}</span>
+            <span className="mt-1 text-xs leading-relaxed text-neutral-500">{k.tagline}</span>
+            <span className="mt-2 text-sm font-bold tabular-nums text-violet-700">{won(k.price)}~</span>
+          </label>
+        ))}
+      </div>
+
+      {kind === 'landing' ? (
+        <div className="mt-8">
       {/* 견적 예시 */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-xs font-semibold text-neutral-500">견적 예시</span>
@@ -99,7 +135,7 @@ export function EstimateBuilder() {
                 {group.id === 'custom' && (
                   <div className="flex flex-col justify-center rounded-2xl border border-dashed border-neutral-300 px-5 py-4 text-sm leading-relaxed text-neutral-500">
                     <p className="font-semibold text-neutral-700">그 밖의 기능도 만들 수 있어요</p>
-                    <p className="mt-1">결제, 주문, 위치 안내 등 필요한 기능을 말씀해 주시면 상담 후 맞춤 견적을 드립니다.</p>
+                    <p className="mt-1">복잡한 콘텐츠 관리시스템, 주문, 결제, 정산, AI 광고콘텐츠 생성 등 사장님의 목적에 특화된 기능들도 다 개발 가능합니다.</p>
                   </div>
                 )}
               </div>
@@ -132,6 +168,7 @@ export function EstimateBuilder() {
               <p className="text-sm text-white/70">합계</p>
               <p aria-live="polite" className="mt-1 text-[1.9rem] font-extrabold leading-tight tracking-tight tabular-nums text-white">
                 {range(min, max)}
+                <sup className="ml-1 align-super text-[10.5px] font-medium tracking-normal text-white/50">VAT 별도</sup>
               </p>
             </div>
 
@@ -141,14 +178,16 @@ export function EstimateBuilder() {
                 {ESTIMATE_EVENT_LABEL}
               </p>
               <p className="mt-1.5 text-sm text-white/80">
-                최종 <b className="font-extrabold tabular-nums text-violet-300">{finalRange}</b>까지 내려갑니다
+                <b className="font-extrabold tabular-nums text-violet-300">{finalRange}</b>
               </p>
+              <p className="mt-0.5 text-[11px] text-white/45">사례 게재 동의조건</p>
             </div>
 
-            <p className="mt-4 text-xs leading-relaxed text-white/45">
-              VAT 별도 · 안내용 예상 금액이며, 정확한 금액은 상담 후 확정됩니다.
-            </p>
-            <AboutInquiryButton className="mt-5 w-full bg-violet-500 text-white hover:bg-violet-400" />
+            <AboutInquiryButton
+              category={ABOUT_INQUIRY_CATEGORY}
+              product={landingProduct}
+              className="mt-5 w-full bg-violet-500 text-white hover:bg-violet-400"
+            />
           </div>
         </aside>
       </div>
@@ -162,6 +201,84 @@ export function EstimateBuilder() {
           </span>
         </div>
       </div>
+        </div>
+      ) : (
+        <ConsultEstimate site={site} />
+      )}
+    </div>
+  )
+}
+
+/* 일반 웹사이트·프리미엄 — 고를 기능 없이 기본 제공 범위와 시작가만 보여 준다 */
+function ConsultEstimate({ site }: { site: (typeof SITE_KINDS)[number] }) {
+  /* 사례 게재 할인은 웹사이트에만 있다(홈 가격 카드와 같다) */
+  const discount = site.id === 'website' ? WEBSITE_PRICE.caseDiscount : 0
+
+  return (
+    <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-8">
+      <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-6 md:p-7">
+        <p className="text-[15px] font-bold text-neutral-900">{site.label}</p>
+        <p className="mt-1 text-[13px] text-neutral-500">{site.tagline}</p>
+
+        <p className="mt-6 text-xs font-semibold text-violet-700">기본 제공</p>
+        <ul className="mt-2.5 space-y-2">
+          {site.includes?.map((t) => {
+            const { title, note } = typeof t === 'string' ? { title: t, note: null } : t
+            return (
+              <li key={title} className="flex items-start gap-2.5 text-[14px] leading-relaxed text-neutral-800">
+                <span
+                  aria-hidden
+                  className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet-600 text-[11px] font-bold text-white"
+                >
+                  ✓
+                </span>
+                <span>
+                  {title}
+                  {note && <span className="mt-0.5 block text-[11.5px] text-neutral-400">{note}</span>}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+
+        {site.closing && (
+          <p className="mt-6 border-t border-violet-200 pt-5 text-[13px] leading-relaxed text-neutral-600">{site.closing}</p>
+        )}
+      </div>
+
+      <aside aria-label="예상 견적" className="lg:sticky lg:top-20">
+        <div className="rounded-3xl bg-[#19172a] p-6 text-white shadow-[0_20px_50px_-25px_rgb(25_23_42/0.7)] md:p-7">
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-violet-300">ESTIMATE</p>
+          <p className="mt-2 text-lg font-bold">예상 견적</p>
+
+          <div className="mt-5 border-t border-white/10 pt-5">
+            <p className="text-sm text-white/70">{site.label}</p>
+            <p className="mt-1 text-[1.9rem] font-extrabold leading-tight tracking-tight tabular-nums text-white">
+              {won(site.price)}~
+              <sup className="ml-1 align-super text-[10.5px] font-medium tracking-normal text-white/50">VAT 별도</sup>
+            </p>
+          </div>
+
+          {discount > 0 && (
+            <div className="mt-4 rounded-xl bg-violet-500/15 px-3.5 py-3 ring-1 ring-inset ring-violet-400/30">
+              <p className="flex items-start gap-1.5 text-[11.5px] font-semibold leading-snug text-violet-200">
+                <span aria-hidden className="text-orange-300">✦</span>
+                {ESTIMATE_EVENT_LABEL}
+              </p>
+              <p className="mt-1.5 text-sm text-white/80">
+                <b className="font-extrabold tabular-nums text-violet-300">{won(site.price - discount)}~</b>
+              </p>
+              <p className="mt-0.5 text-[11px] text-white/45">사례 게재 동의조건</p>
+            </div>
+          )}
+
+          <AboutInquiryButton
+            category={ABOUT_INQUIRY_CATEGORY}
+            product={site.inquiryLabel}
+            className="mt-5 w-full bg-violet-500 text-white hover:bg-violet-400"
+          />
+        </div>
+      </aside>
     </div>
   )
 }
@@ -208,10 +325,8 @@ function AddOnCard({ item, checked, onToggle }: { item: AddOn; checked: boolean;
               ))}
             </ul>
           )}
-          {item.requires && (
-            <p className="mt-3 pl-7.5 text-[11.5px] text-neutral-400">
-              이메일 구독이 함께 들어갑니다
-            </p>
+          {item.note && (
+            <p className="mt-3 pl-7.5 text-[11.5px] leading-relaxed text-neutral-400">{item.note}</p>
           )}
         </div>
 

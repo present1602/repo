@@ -153,8 +153,11 @@ export function InquiryModal({
   initialScope,
   initialSample = false,
   initialPremium = true,
+  product,
   onClose,
 }: {
+  /* 소개 견적표에서 고른 상품 이름 — 폼에 한 줄로 보여 주고 문의내용 앞에 붙여 보낸다 */
+  product?: string
   designerId?: string
   designerName?: string
   /* 그 디자이너의 분야·범위·금액(designerChoices) — 없으면 일반 선택지를 받아 온다 */
@@ -257,6 +260,8 @@ export function InquiryModal({
      서버가 같은 접수로 보고 두 번 저장하지 않는다(012_inquiries.sql). */
   const [submitKey] = useState(() => crypto.randomUUID())
 
+  const estimatePrefix = product ? `[선택한 상품] ${product}\n\n` : ''
+
   const send = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (sending) return
@@ -297,6 +302,9 @@ export function InquiryModal({
         body.set('attachmentPath', prep.path)
         body.set('attachmentName', file.name)
       }
+
+      /* 견적표 구성은 따로 칸을 두지 않고 문의내용 맨 앞에 붙인다 — 어드민 목록과 알림 메일에 그대로 보인다 */
+      if (estimatePrefix) body.set('message', estimatePrefix + String(body.get('message') ?? ''))
 
       body.set('submitKey', submitKey)
       if (designerId) body.set('designerId', designerId)
@@ -540,6 +548,14 @@ export function InquiryModal({
             </div>
           )}
 
+          {/* 견적표에서 고른 상품 — 이름 한 줄만. 바꾸려면 창을 닫고 견적표에서 다시 고른다 */}
+          {product && (
+            <div className="mt-6 flex items-start gap-3 rounded-lg bg-neutral-100 px-3 py-2.5">
+              <span className="shrink-0 pt-px text-xs font-medium text-neutral-500">선택한 상품</span>
+              <span className="min-w-0 flex-1 text-right text-sm font-medium break-keep">{product}</span>
+            </div>
+          )}
+
           <div className="mt-6 grid gap-6 md:grid-cols-2 md:gap-7">
             <Field label="성함 (회사명)" req>
               <input required name="name" maxLength={100} autoComplete="name" className={inputCls} placeholder="" />
@@ -581,7 +597,8 @@ export function InquiryModal({
                   required
                   name="message"
                   rows={6}
-                  maxLength={5000}
+                  /* 견적표 구성이 앞에 붙어도 서버 한도(5000자)를 넘지 않게 */
+                  maxLength={5000 - estimatePrefix.length}
                   /* 중괄호로 감싸야 \n 이 줄바꿈이 된다 — 따옴표만 쓴 JSX 속성은
                      \n 을 글자 그대로 찍는다. textarea 의 placeholder 는 줄바꿈을 보여준다. */
                   placeholder={

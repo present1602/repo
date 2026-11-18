@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { AboutInquiryButton } from '@/components/about-inquiry-button'
 import { DeviceMockup } from '@/components/about/device-mockup'
 import { EstimateBuilder } from '@/components/about/estimate-builder'
-import { ESTIMATE_EVENT_LABEL, LANDING_INCLUDES, LANDING_PRICE, SAMPLE_SITE_URL, won } from '@/lib/landing-package'
+import { ABOUT_INQUIRY_CATEGORY, ESTIMATE_EVENT_LABEL, LANDING_INCLUDES, LANDING_PRICE, SAMPLE_SITE_URL, won } from '@/lib/landing-package'
 
 export const metadata: Metadata = {
   title: '소개',
@@ -104,7 +104,7 @@ export default function AboutPage() {
             </div>
           </div>
           <div className="mt-10 flex flex-wrap items-center gap-5 md:mt-12 md:gap-8">
-            <AboutInquiryButton />
+            <AboutInquiryButton category={ABOUT_INQUIRY_CATEGORY} />
           </div>
         </div>
       </section>
@@ -276,7 +276,7 @@ function LandingPackage() {
               </div>
 
               <div className="mt-5 flex flex-wrap items-center gap-3">
-                <AboutInquiryButton />
+                <AboutInquiryButton category={ABOUT_INQUIRY_CATEGORY} />
               </div>
             </div>
           </div>
@@ -298,8 +298,8 @@ function AddOns() {
               기본형에, 필요한 기능만 더하세요.
             </h2>
             <p className="mt-3 max-w-2xl text-[15px] leading-[1.85] text-neutral-600">
-              모든 사이트는 랜딩페이지 기본형에서 시작합니다. 관리자페이지·회원가입·예약·챗봇·앱처럼
-              필요한 기능을 고르면 그만큼만 더해집니다. 아래에서 골라 보며 예상 금액을 확인해 보세요.
+              랜딩페이지는 기본형에 관리자페이지·회원가입·예약·챗봇·앱처럼 필요한 기능을 고르면 그만큼만
+              더해집니다. 일반 웹사이트·기업형 홈페이지와 프리미엄은 작업양과 기능 상담에 따라 견적이 정해집니다.
             </p>
           </div>
           {/* 구조를 한 줄로 — 기본 + 추가 = 견적 */}

@@ -9,7 +9,9 @@ const menu = [
   { href: '/admin/designers', label: '디자이너' },
   { href: '/admin/works', label: '포트폴리오' },
   { href: '/admin/inquiries', label: '문의' },
-  { href: '/admin/payments', label: '결제 링크' },
+  /* 결제 링크(/admin/payments)는 페이업 신용카드 API 개통 전까지 숨긴다 — 지금은 페이업
+     관리자의 톡 결제로 받는다. 개통되면 PAYUP_* 환경변수를 넣고 이 줄을 되살린다:
+     { href: '/admin/payments', label: '결제 링크' }, */
   { href: '/admin/reviews', label: '후기' },
   { href: '/admin/applications', label: '지원서' },
   { href: '/admin/invites', label: '초대코드' },

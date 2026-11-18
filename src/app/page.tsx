@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { HomeFeed } from '@/components/home-feed'
 import { HomeCta, type HomePrice } from '@/components/home-cta'
 import { PriceStack } from '@/components/price-stack'
-import { LANDING_INCLUDES, LANDING_PRICE } from '@/lib/landing-package'
+import { LANDING_INCLUDES, LANDING_PRICE, PREMIUM_PRICE, WEBSITE_PRICE } from '@/lib/landing-package'
 import { AgencyBanner } from '@/components/agency-banner'
 import { HtmlClass } from '@/components/html-class'
 import { ExploreLink } from '@/components/explore-gate'
@@ -41,17 +41,14 @@ const PRICES: HomePrice[] = [
   },
   {
     label: '일반 웹사이트/기업형 홈페이지',
-    price: 890_000,
-    was: 1_490_000,
-    caseDiscount: 100_000,
+    ...WEBSITE_PRICE,
     startingAt: true,
     description: '기업 홍보에 적합한 가장 일반적인 홈페이지입니다.',
     items: ['기업 홍보', '게시판 (FAQ, Q&A 등)', '콘텐츠 관리 또는 예약 관리 등', '회원관리', '관리자페이지', '반응형 (PC·모바일)', '최대 30페이지'],
   },
   {
     label: '프리미엄 맞춤형 홈페이지',
-    price: 2_990_000,
-    was: 5_000_000,
+    ...PREMIUM_PRICE,
     startingAt: true,
     description: '기획부터 기능까지 원하는 대로 맞춰 만드는 홈페이지입니다.',
     items: ['요구사항 맞춤 기획', '맞춤 기능 개발', '맞춤형 관리자페이지', '반응형 (PC·모바일)', '30만원 상당의 상세페이지 디자인 쿠폰 제공'],
