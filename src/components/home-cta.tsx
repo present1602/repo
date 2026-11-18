@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { InquiryModal } from './inquiry/inquiry-modal'
+import { PriceStack } from './price-stack'
 
 /* 홈 맨 아래 띠 배너 — 작업을 쭉 본 뒤 바로 의뢰로 넘어가는 자리.
 
@@ -10,9 +11,17 @@ import { InquiryModal } from './inquiry/inquiry-modal'
    어두운 띠로 "끝났다"를 알리던 예전 방식은 쓰지 않는다 — 대신 위에
    얇은 경계선을 긋고 여백을 크게 줘서 구간이 바뀐 것을 알린다. */
 /* was 는 할인 전 금액 — 줄을 그어 지금 금액 위에 작게 둔다 */
-export type HomePrice = { label: string; price: number; was: number }
+export type HomePrice = {
+  label: string
+  price: number
+  was?: number
+  /* 사례 게재 조건으로 더 깎아 주는 금액 — 있으면 할인 문구를 띄운다 */
+  caseDiscount?: number
+  startingAt?: boolean
+  description?: string
+  items: string[]
+}
 
-const won = (n: number) => n.toLocaleString('ko-KR')
 
 export function HomeCta({ prices }: { prices: HomePrice[] }) {
   const [open, setOpen] = useState(false)
@@ -63,22 +72,16 @@ export function HomeCta({ prices }: { prices: HomePrice[] }) {
               <p className="shrink-0 pt-1 text-[11px] text-neutral-400">VAT 별도</p>
             </div>
             <dl className="mt-2 divide-y divide-neutral-100">
-              {prices.map(({ label, price, was }) => (
-                <div key={label} className="flex items-end justify-between gap-4 py-4">
-                  <dt className="pb-0.5 text-sm font-semibold text-neutral-800 md:text-[15px]">{label}</dt>
-                  <dd className="shrink-0 text-right">
-                    <s className="block text-xs tabular-nums text-neutral-400">
-                      <span className="sr-only">할인 전 </span>
-                      {won(was)}원
-                    </s>
-                    <span className="mt-0.5 block text-xl font-black tabular-nums tracking-tight text-neutral-900 md:text-2xl">
-                      {won(price)}
-                      <span className="ml-0.5 text-sm font-bold text-neutral-400">원~</span>
-                    </span>
+              {prices.map((p) => (
+                <div key={p.label} className="py-4">
+                  <dt className="px-1 text-sm font-semibold text-neutral-800 md:text-[15px]">{p.label}</dt>
+                  <dd className="mt-2.5">
+                    <PriceStack {...p} />
                   </dd>
                 </div>
               ))}
             </dl>
+            <p className="mt-2 text-xs leading-relaxed text-neutral-500">**개발 범위에 따라 가격이 달라집니다.</p>
 
             <button
               type="button"
@@ -89,7 +92,7 @@ export function HomeCta({ prices }: { prices: HomePrice[] }) {
             </button>
 
             <p className="mt-3 text-center text-xs leading-relaxed text-balance text-neutral-500">
-              **사례 게재 조건으로 제공되는 할인입니다.
+              **추가 할인은 사례 게재에 동의하시면 적용됩니다.
             </p>
           </div>
         </div>

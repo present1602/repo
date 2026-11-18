@@ -31,8 +31,10 @@ const geistMono = Geist_Mono({
 
    title.template — 하위 화면이 title 만 적으면 뒤에 브랜드가 자동으로 붙는다.
    default 는 이 레이아웃을 그대로 쓰는 화면(홈)의 제목이다. */
+/* "soom.it"·"숨it" 으로 검색해도 걸리도록 설명(검색결과 아래 문구)에도 적는다 —
+   keywords 칸은 구글이 읽지 않아, 페이지에 실제로 있는 글자가 근거가 된다. */
 const DESCRIPTION =
-  "에이전시숨(SOOM)은 검증된 디자이너를 소액 의뢰로 먼저 만나 보고 본 계약까지 이어가는 디자이너 포트폴리오 플랫폼입니다.";
+  "에이전시숨(SOOM · soom.it · 숨it)은 검증된 디자이너를 소액 의뢰로 먼저 만나 보고 본 계약까지 이어가는 디자이너 포트폴리오 플랫폼입니다.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -54,9 +56,16 @@ export const metadata: Metadata = {
     "숨아이티",
     "숨it",
     "숨잇",
+    "숨 it",
     "soomit",
+    "soom it",
     "soom.it",
     "SOOM",
+    /* 브랜드명 + 하는 일 — "숨"만으로는 일반명사라, 업종을 붙여 찾는 경우 */
+    "숨 웹디자인",
+    "숨 웹개발",
+    "숨 홈페이지",
+    "숨 홈페이지 개발",
     "디자이너 포트폴리오",
     "디자인 의뢰",
     "로고 디자인",
@@ -146,9 +155,11 @@ const ORG_JSON_LD = {
     "숨 에이전시",
     "숨아이티",
     "숨it",
+    "숨 it",
     "숨잇",
     "SOOM",
     "soomit",
+    "soom it",
     "soom.it",
   ],
   url: SITE_URL,
@@ -181,6 +192,17 @@ const ORG_JSON_LD = {
     "웹 개발",
     "홈페이지 제작",
   ],
+};
+
+/* 사이트 이름 — 구글이 검색결과 맨 위에 띄우는 "사이트 이름"은 Organization 이
+   아니라 이 WebSite 의 name·alternateName 에서 고른다. 홈(/)에서만 읽힌다.
+   이름 목록은 위 ORG_JSON_LD.alternateName 과 같게 맞춘다. */
+const WEBSITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "에이전시숨",
+  alternateName: ["SOOM", "soom.it", "숨it", "에이전시 숨"],
+  url: `${SITE_URL}/`,
 };
 
 /* 구글 태그(구글 광고 연결 때 받은 GTM 컨테이너).
@@ -235,6 +257,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_JSON_LD) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSON_LD) }}
         />
 
         {INDEXABLE && (

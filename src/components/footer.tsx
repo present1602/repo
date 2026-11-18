@@ -15,6 +15,12 @@ export function Footer() {
           <div className="min-w-0">
             {/* 본문보다 한 단계 연하게 — 푸터는 눈에 띄라고 두는 자리가 아니다 */}
             <p className="text-base font-black tracking-tight text-neutral-400">SOOM</p>
+            {/* 로고는 영문 SOOM 뿐이라, 사람들이 검색창에 적는 이름 꼴
+                (에이전시숨·soom.it·숨it)을 화면 글자로 한 번 둔다 —
+                구글은 페이지에 보이는 글자로만 검색어와 맞춰 본다 */}
+            <p className="mt-1 text-[11px] text-neutral-400">
+              에이전시숨 · soom.it · 숨it — 숨 웹디자인 · 웹개발 · 홈페이지 개발
+            </p>
 
             <dl className="mt-3.5 space-y-1 text-[11px] leading-relaxed text-neutral-400">
               <Row k="상호">밸런스</Row>

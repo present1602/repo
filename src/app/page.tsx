@@ -1,6 +1,8 @@
 import { Suspense } from 'react'
 import { HomeFeed } from '@/components/home-feed'
 import { HomeCta, type HomePrice } from '@/components/home-cta'
+import { PriceStack } from '@/components/price-stack'
+import { LANDING_INCLUDES, LANDING_PRICE } from '@/lib/landing-package'
 import { AgencyBanner } from '@/components/agency-banner'
 import { HtmlClass } from '@/components/html-class'
 import { ExploreLink } from '@/components/explore-gate'
@@ -9,6 +11,7 @@ import { WorksTeaser } from '@/components/works-teaser'
 import { listRecentWorks } from '@/lib/public-designers'
 import { listActivePopups } from '@/lib/popups-db'
 import { SitePopups } from '@/components/site-popup'
+import { AboutInquiryButton } from '@/components/about-inquiry-button'
 /* 홈에 띄우는 작업 수.
 
    지금은 "최신 40장"으로 고정한다. 어드민이 노출할 작업을 직접 고르는
@@ -24,11 +27,38 @@ const FEED_LIMIT = 40
    지금은 화면에 보여줄 안내 금액이라 여기 적어 둔다. 어드민에서 고치는
    값으로 옮길 때는 site-settings 에 칸을 만들어 이 상수를 대체한다.
 
-   was 는 할인 전 금액이다 — 화면에서 줄을 그어 지금 금액 옆에 둔다. */
+   was 는 할인 전 금액(줄을 긋는다), price 는 정상가, caseDiscount 는 사례
+   게재에 동의하면 더 깎아 주는 금액이다 — 최종가는 price - caseDiscount.
+   오픈 이벤트 특가(히어로·의뢰 띠)에는 caseDiscount 가 있는 상품만 띄운다. */
 const PRICES: HomePrice[] = [
-  { label: '랜딩페이지', price: 299_000, was: 490_000 },
-  { label: '일반 웹사이트 제작', price: 790_000, was: 1_200_000 },
+  {
+    label: '랜딩페이지 기본 플랜',
+    /* 소개 화면 견적표와 같은 숫자를 쓴다(landing-package.ts) */
+    ...LANDING_PRICE,
+    startingAt: true,
+    /* 포함 내용도 소개 화면 '랜딩페이지 기본형'과 같은 목록을 쓴다 */
+    items: LANDING_INCLUDES.map((i) => i.title),
+  },
+  {
+    label: '일반 웹사이트/기업형 홈페이지',
+    price: 890_000,
+    was: 1_490_000,
+    caseDiscount: 100_000,
+    startingAt: true,
+    description: '기업 홍보에 적합한 가장 일반적인 홈페이지입니다.',
+    items: ['기업 홍보', '게시판 (FAQ, Q&A 등)', '콘텐츠 관리 또는 예약 관리 등', '회원관리', '관리자페이지', '반응형 (PC·모바일)', '최대 30페이지'],
+  },
+  {
+    label: '프리미엄 맞춤형 홈페이지',
+    price: 2_990_000,
+    was: 5_000_000,
+    startingAt: true,
+    description: '기획부터 기능까지 원하는 대로 맞춰 만드는 홈페이지입니다.',
+    items: ['요구사항 맞춤 기획', '맞춤 기능 개발', '맞춤형 관리자페이지', '반응형 (PC·모바일)', '30만원 상당의 상세페이지 디자인 쿠폰 제공'],
+  },
 ]
+
+const EVENT_PRICES = PRICES.filter((p) => p.caseDiscount != null)
 
 export default function Home() {
   return (
@@ -36,6 +66,7 @@ export default function Home() {
       {/* 히어로의 '작업 보기'(#works)가 부드럽게 내려가게 — 이 화면에서만 켠다 */}
       <HtmlClass names={['smooth-anchor']} />
       <Hero />
+      <HomePlans />
 
       {/* scroll-mt — 상단 헤더가 sticky 라 앵커로 내려오면 제목이 그 밑에 깔린다.
           헤더 높이(h-14 = 3.5rem)만큼 미리 띄워 둔다. */}
@@ -61,7 +92,7 @@ export default function Home() {
       </section>
 
       {/* 작업을 쭉 본 뒤 바로 의뢰로 넘어가는 자리 — 푸터 바로 위에 둔다 */}
-      <HomeCta prices={PRICES} />
+      <HomeCta prices={EVENT_PRICES} />
 
       {/* 디자인이 아니라 개발을 찾아온 손님을 받는 자리 — 의뢰 띠 바로 아래,
           푸터 위에 둔다. 의뢰 띠 안에 섞으면 가격·버튼에 묻힌다. */}
@@ -110,29 +141,25 @@ function Hero() {
           <b className="font-semibold text-neutral-700">빠른 제작기간</b>을 보장합니다.
         </p>
 
-        <div className="mx-auto mt-8 max-w-[36rem] md:mt-9">
+        <div className="mx-auto mt-8 max-w-3xl md:mt-9">
           <h2 className="inline-flex items-center gap-1.5 rounded-full border border-orange-200/70 bg-orange-50 px-3.5 py-1.5 text-sm font-bold text-[#ad5637]">
             <span aria-hidden="true" className="text-orange-400">✦</span>
             오픈 이벤트 특가
           </h2>
 
-          <dl className="mt-4 grid grid-cols-2 gap-3 md:gap-4">
-            {PRICES.map(({ label, price, was }) => (
-              <div key={label} className="rounded-2xl border border-violet-100 bg-white/90 px-3 py-5 shadow-[0_8px_28px_-16px_rgb(109_40_217/0.18)] md:px-6 md:py-6">
-                <dt className="text-xs font-semibold text-neutral-700 sm:text-sm">{label}</dt>
-                <dd className="mt-2.5">
-                  <s className="text-xs tabular-nums text-neutral-400 sm:text-sm">
-                    <span className="sr-only">할인 전 </span>
-                    {was.toLocaleString('ko-KR')}원
-                  </s>
-                  <span className="mt-1 block text-[1.6rem] font-extrabold tabular-nums tracking-tight text-violet-600 sm:text-3xl">
-                    {price.toLocaleString('ko-KR')}
-                    <span className="ml-0.5 text-xs font-semibold sm:text-sm">원~</span>
-                  </span>
+          <dl className="mt-4 grid gap-3 sm:grid-cols-2 md:gap-4">
+            {EVENT_PRICES.map((p) => (
+              <div key={p.label} className="rounded-2xl border border-violet-100 bg-white/90 p-4 text-left shadow-[0_8px_28px_-16px_rgb(109_40_217/0.18)] md:p-5">
+                <dt className="px-1 text-sm font-bold text-neutral-800 md:text-[15px]">{p.label}</dt>
+                <dd className="mt-3">
+                  <PriceStack {...p} />
                 </dd>
               </div>
             ))}
           </dl>
+          <div className="mt-3 flex items-center justify-between gap-3 px-1">
+            <span className="text-xs leading-relaxed text-neutral-500">VAT 별도 · **개발 범위에 따라 가격이 달라집니다.</span>
+          </div>
         </div>
 
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row md:mt-7">
@@ -161,6 +188,52 @@ function Hero() {
             </li>
           ))}
         </ul>
+      </div>
+    </section>
+  )
+}
+
+function HomePlans() {
+  return (
+    <section id="plans" aria-labelledby="plans-title" className="scroll-mt-14 border-y border-neutral-100 bg-neutral-50/70">
+      <div className="mx-auto max-w-6xl px-5 py-14 md:px-8 md:py-20">
+        <div className="mb-7 md:mb-9">
+          <p className="text-[11px] font-bold tracking-[0.16em] text-violet-600">PLANS</p>
+          <h2 id="plans-title" className="mt-3 text-2xl font-bold tracking-tight text-neutral-900 md:text-3xl">홈페이지 제작 플랜</h2>
+          <p className="mt-3 text-sm leading-relaxed text-neutral-500">필요한 구성과 기능을 확인해 보세요.</p>
+        </div>
+
+        {/* 카드마다 줄 수가 달라도(설명 유무 등) 가격·VAT·설명·목록이 가로로
+            같은 높이에 오게 — 넓은 화면에서는 각 카드를 부모 격자의 5줄에
+            걸치고(subgrid) 칸마다 빈 자리라도 요소를 둔다 */}
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-3 lg:gap-y-0">
+          {PRICES.filter(({ items }) => items.length > 0).map(({ label, description, items, ...p }) => (
+            <article key={label} className="grid content-start rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 lg:row-span-5 lg:grid-rows-subgrid">
+              <h3 className="text-lg font-bold text-neutral-900">{label}</h3>
+              <div className="mt-5">
+                <PriceStack {...p} />
+              </div>
+              <div className="mt-2.5 flex px-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs leading-relaxed text-neutral-500">
+                <span>VAT 별도</span>
+                <span>**개발 범위에 따라 가격이 달라집니다.</span>
+              </div>
+              <p className="mt-5 text-sm leading-relaxed text-neutral-600">{description}</p>
+              <ul className="mt-6 space-y-3 border-t border-neutral-100 pt-6">
+                {items.map((item) => (
+                  <li key={item} className="flex gap-2.5 text-sm leading-relaxed text-neutral-700">
+                    <span aria-hidden="true" className="shrink-0 text-violet-600">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-7 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs leading-relaxed text-neutral-500">추가 할인은 완성된 홈페이지를 SOOM 사례로 게재하는 데 동의하시면 적용됩니다.</p>
+          <AboutInquiryButton />
+        </div>
       </div>
     </section>
   )

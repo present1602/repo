@@ -1,5 +1,8 @@
 import type { Metadata } from 'next'
 import { AboutInquiryButton } from '@/components/about-inquiry-button'
+import { DeviceMockup } from '@/components/about/device-mockup'
+import { EstimateBuilder } from '@/components/about/estimate-builder'
+import { ESTIMATE_EVENT_LABEL, LANDING_INCLUDES, LANDING_PRICE, SAMPLE_SITE_URL, won } from '@/lib/landing-package'
 
 export const metadata: Metadata = {
   title: '소개',
@@ -133,6 +136,9 @@ export default function AboutPage() {
         </div>
       </section>
 
+      <LandingPackage />
+      <AddOns />
+
       <section aria-labelledby="about-process-title" className="border-y border-neutral-200 bg-[#f8f8fa]">
         <div className={`${container} py-16 md:py-20`}>
           <div className="grid gap-5 lg:grid-cols-2 lg:items-end lg:gap-16">
@@ -179,7 +185,7 @@ export default function AboutPage() {
                   0{index + 1}
                 </p>
                 <h3 className="mt-3 text-lg font-bold leading-snug tracking-tight">{item.title}</h3>
-                <div className="mt-3 space-y-3 text-[15px] leading-[1.85] text-white/70">=
+                <div className="mt-3 space-y-3 text-[15px] leading-[1.85] text-white/70">
                   {item.description.map((line) => (
                     <p key={line}>{line}</p>
                   ))}
@@ -190,5 +196,124 @@ export default function AboutPage() {
         </div>
       </section>
     </main>
+  )
+}
+
+/* 랜딩페이지 기본형 — 샘플 사이트 목업 + 포함 내용 + 가격.
+   가격 숫자는 홈 가격 카드와 같은 곳(landing-package.ts)에서 온다. */
+function LandingPackage() {
+  const final = LANDING_PRICE.price - LANDING_PRICE.caseDiscount
+  return (
+    <section id="landing-package" aria-labelledby="landing-package-title" className="scroll-mt-24 border-t border-neutral-200 bg-[#f5f4ef]">
+      <div className={`${container} py-16 md:py-24`}>
+        <p className={eyebrow}>LANDING PACKAGE</p>
+        <div className="mt-4 grid gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center lg:gap-16">
+          {/* 목업 — 넓은 화면에서는 오른쪽 글보다 먼저 눈에 들어오게 왼쪽에 */}
+          <div className="order-2 lg:order-1">
+            <DeviceMockup />
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-3">
+              <a
+                href={SAMPLE_SITE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex min-h-11 items-center gap-2 rounded-full border border-neutral-900 bg-neutral-900 px-5 text-sm font-semibold text-white transition hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-500"
+              >
+                View sample web
+                <span aria-hidden className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">↗</span>
+                <span className="sr-only">(새 창)</span>
+              </a>
+              <span className="text-xs text-neutral-500">샘플 · 결 스페이스 (건축·인테리어 스튜디오)</span>
+            </div>
+          </div>
+
+          <div className="order-1 lg:order-2">
+            <h2 id="landing-package-title" className="text-[clamp(1.75rem,3vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]">
+              랜딩페이지 <span className="text-violet-600">기본형</span>
+            </h2>
+            <p className="mt-3 text-[15px] leading-[1.85] text-neutral-600">
+              브랜드를 소개하고 문의를 받는 한 페이지 웹사이트.
+              <br className="hidden sm:block" /> 이것만으로 바로 시작할 수 있습니다.
+            </p>
+
+            <ul className="mt-7 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+              {LANDING_INCLUDES.map((item) => (
+                <li key={item.title} className="flex gap-3">
+                  <span aria-hidden className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet-600 text-[10px] font-bold text-white">✓</span>
+                  <div>
+                    <p className="text-sm font-bold leading-snug text-neutral-900">{item.title}</p>
+                    <p className="mt-1 text-[12.5px] leading-relaxed text-neutral-500">{item.note}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* 가격 — 정상가를 크게, 이벤트 할인은 아래에 한 단계 작게(견적표와 같은 문구) */}
+            <div className="mt-8 rounded-3xl bg-white p-6 shadow-[0_12px_40px_-24px_rgb(60_40_120/0.35)] ring-1 ring-neutral-200/70">
+              <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+                <div>
+                  <p className="text-xs font-medium text-neutral-500">
+                    <s className="tabular-nums text-neutral-400">
+                      <span className="sr-only">할인 전 </span>최소 {won(LANDING_PRICE.was)}~
+                    </s>
+                  </p>
+                  <p className="mt-1 text-[2.25rem] font-extrabold leading-none tracking-tight tabular-nums text-neutral-900">
+                    {LANDING_PRICE.price.toLocaleString('ko-KR')}
+                    <span className="ml-1 text-base font-bold">원~</span>
+                  </p>
+                </div>
+                <p className="text-xs text-neutral-400">VAT 별도</p>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-violet-50 px-4 py-3.5 ring-1 ring-inset ring-violet-100">
+                <p className="flex min-w-0 items-start gap-1.5 text-xs font-semibold leading-snug text-violet-700">
+                  <span aria-hidden className="text-orange-400">✦</span>
+                  {ESTIMATE_EVENT_LABEL}
+                </p>
+                <p className="text-2xl font-extrabold tracking-tight tabular-nums text-violet-600">
+                  {final.toLocaleString('ko-KR')}
+                  <span className="ml-0.5 text-sm font-bold">원~</span>
+                </p>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <AboutInquiryButton />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* 추가 기능 — 기본형 위에 필요한 것만 더하는 구조를 견적표로 보여 준다 */
+function AddOns() {
+  return (
+    <section id="add-ons" aria-labelledby="add-ons-title" className="scroll-mt-24 bg-white">
+      <div className={`${container} py-16 md:py-24`}>
+        <p className={eyebrow}>ADD-ONS</p>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <h2 id="add-ons-title" className="text-[clamp(1.625rem,2.6vw,2.25rem)] font-bold leading-snug tracking-[-0.035em]">
+              기본형에, 필요한 기능만 더하세요.
+            </h2>
+            <p className="mt-3 max-w-2xl text-[15px] leading-[1.85] text-neutral-600">
+              모든 사이트는 랜딩페이지 기본형에서 시작합니다. 관리자페이지·회원가입·예약·챗봇·앱처럼
+              필요한 기능을 고르면 그만큼만 더해집니다. 아래에서 골라 보며 예상 금액을 확인해 보세요.
+            </p>
+          </div>
+          {/* 구조를 한 줄로 — 기본 + 추가 = 견적 */}
+          <p aria-hidden className="hidden items-center gap-2 text-xs font-semibold text-neutral-500 lg:flex">
+            <span className="rounded-full bg-violet-600 px-3 py-1.5 text-white">기본형</span>+
+            <span className="rounded-full border border-violet-300 px-3 py-1.5 text-violet-700">추가 기능</span>=
+            <span className="rounded-full bg-[#19172a] px-3 py-1.5 text-white">내 견적</span>
+          </p>
+        </div>
+
+        <div className="mt-10">
+          <EstimateBuilder />
+        </div>
+      </div>
+    </section>
   )
 }

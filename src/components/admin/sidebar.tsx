@@ -9,6 +9,7 @@ const menu = [
   { href: '/admin/designers', label: '디자이너' },
   { href: '/admin/works', label: '포트폴리오' },
   { href: '/admin/inquiries', label: '문의' },
+  { href: '/admin/payments', label: '결제 링크' },
   { href: '/admin/reviews', label: '후기' },
   { href: '/admin/applications', label: '지원서' },
   { href: '/admin/invites', label: '초대코드' },
