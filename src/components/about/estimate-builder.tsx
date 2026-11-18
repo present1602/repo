@@ -110,7 +110,7 @@ export function EstimateBuilder() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-8">
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           {/* 기본형 — 항상 들어가는 줄 */}
           <div className="rounded-2xl border border-violet-200 bg-violet-50/60 px-5 py-4">
             <div className="flex items-center justify-between gap-4">
@@ -139,7 +139,7 @@ export function EstimateBuilder() {
                 <span className="text-[15px] font-bold text-neutral-900">{group.label}</span>
                 <span className="text-xs text-neutral-400">{group.hint}</span>
               </legend>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 sm:gap-3">
                 {ADD_ONS.filter((a) => a.group === group.id).map((item) => (
                   <AddOnCard key={item.id} item={item} checked={picked.has(item.id)} onToggle={() => toggle(item)} />
                 ))}
@@ -299,51 +299,76 @@ function priceText(a: AddOn) {
   return `${won(a.price)}${a.startingAt ? '~' : ''}`
 }
 
+/* 모바일에서는 한 줄(체크·이름·금액)만 보이고 설명·사진은 ⌄ 를 눌러야 펼쳐진다 —
+   카드를 다 펼쳐 두면 일곱 개를 고르는 데 화면 두 장 넘게 내려야 했다.
+   sm 이상은 예전처럼 모두 펼쳐 둔다. */
 function AddOnCard({ item, checked, onToggle }: { item: AddOn; checked: boolean; onToggle: () => void }) {
   const wide = item.id === 'cms'
+  const [open, setOpen] = useState(false)
+  const fold = open ? '' : 'max-sm:hidden'
   return (
     <label
-      className={`group relative flex cursor-pointer flex-col rounded-2xl border bg-white p-5 transition hover:border-violet-300 has-checked:border-violet-500 has-checked:shadow-[0_0_0_3px_rgb(139_92_246/0.15)] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-violet-500 ${
+      className={`group relative flex cursor-pointer flex-col rounded-2xl border bg-white px-4 py-3 transition sm:p-5 hover:border-violet-300 has-checked:border-violet-500 has-checked:shadow-[0_0_0_3px_rgb(139_92_246/0.15)] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-violet-500 ${
         wide ? 'sm:col-span-2' : ''
       } ${checked ? 'border-violet-500' : 'border-neutral-200'}`}
     >
       <input type="checkbox" checked={checked} onChange={onToggle} className="sr-only" />
       <div className={wide ? 'gap-5 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]' : ''}>
         <div>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-2.5">
+          <div className="flex items-center justify-between gap-3 sm:items-start">
+            <div className="flex min-w-0 items-center gap-2.5 sm:items-start">
               <span
                 aria-hidden
-                className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border text-[11px] font-bold transition ${
+                className={`flex size-5 shrink-0 items-center justify-center rounded-md border text-[11px] font-bold transition sm:mt-0.5 ${
                   checked ? 'border-violet-600 bg-violet-600 text-white' : 'border-neutral-300 bg-white text-transparent'
                 }`}
               >
                 ✓
               </span>
-              <span className="text-[15px] font-bold leading-snug text-neutral-900">{item.title}</span>
+              <span className="text-[15px] font-bold leading-snug break-keep text-neutral-900">{item.title}</span>
             </div>
-            <span className="shrink-0 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold tabular-nums text-violet-700">
-              +{item.maxPrice ? `${manwon(item.price)}~${manwon(item.maxPrice)}` : `${manwon(item.price)}${item.startingAt ? '~' : ''}`}
-            </span>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold tabular-nums text-violet-700">
+                +{item.maxPrice ? `${manwon(item.price)}~${manwon(item.maxPrice)}` : `${manwon(item.price)}${item.startingAt ? '~' : ''}`}
+              </span>
+              {/* 펼치기 — label 안의 버튼이라 체크가 함께 바뀌지 않게 막는다 */}
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-label={`${item.title} 설명 ${open ? '접기' : '보기'}`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setOpen((o) => !o)
+                }}
+                className="-mr-2 flex size-9 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 sm:hidden"
+              >
+                <svg aria-hidden viewBox="0 0 20 20" className={`size-4 transition-transform ${open ? 'rotate-180' : ''}`}>
+                  <path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
           </div>
-          <p className="mt-2.5 pl-7.5 text-[13px] leading-relaxed text-neutral-600">{item.summary}</p>
-          {item.points && (
-            <ul className="mt-3 flex flex-wrap gap-1.5 pl-7.5">
-              {item.points.map((p) => (
-                <li key={p} className="rounded-md bg-neutral-100 px-2 py-1 text-[11.5px] font-medium text-neutral-600">
-                  {p}
-                </li>
-              ))}
-            </ul>
-          )}
-          {item.note && (
-            <p className="mt-3 pl-7.5 text-[11.5px] leading-relaxed text-neutral-400">{item.note}</p>
-          )}
+          <div className={fold}>
+            <p className="mt-2.5 pl-7.5 text-[13px] leading-relaxed text-neutral-600">{item.summary}</p>
+            {item.points && (
+              <ul className="mt-3 flex flex-wrap gap-1.5 pl-7.5">
+                {item.points.map((p) => (
+                  <li key={p} className="rounded-md bg-neutral-100 px-2 py-1 text-[11.5px] font-medium text-neutral-600">
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {item.note && (
+              <p className="mt-3 pl-7.5 text-[11.5px] leading-relaxed text-neutral-400">{item.note}</p>
+            )}
+          </div>
         </div>
 
         {/* 관리자페이지가 무엇을 바꾸는지 — 샘플 사이트의 실제 구간을 보여 준다 */}
         {wide && (
-          <figure className="mt-4 sm:mt-0">
+          <figure className={`mt-4 mb-1 sm:mt-0 sm:mb-0 ${fold}`}>
             <div className="relative overflow-hidden rounded-xl ring-1 ring-black/5">
               <Image src={worksShot} alt="샘플 사이트의 02 — SELECTED WORKS 구간" placeholder="blur" sizes="(min-width: 1024px) 320px, 90vw" className="block h-auto w-full" />
               <span className="absolute left-2 top-2 rounded-md bg-violet-600/90 px-2 py-1 text-[10.5px] font-bold text-white">관리자에서 수정 가능</span>
