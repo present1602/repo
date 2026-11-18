@@ -57,8 +57,8 @@ export function EstimateBuilder() {
     (p) => p.ids.length === picked.size && p.ids.every((id) => picked.has(id)),
   )
 
-  const range = (lo: number, hi: number) =>
-    lo === hi ? `${won(lo)}${open ? '~' : ''}` : `${lo.toLocaleString('ko-KR')} ~ ${won(hi)}${open ? '~' : ''}`
+  /* 최소 금액만 보여 준다 — 범위 항목(회원가입)이나 맞춤 개발이 들어 있으면 '~' 로 더 늘 수 있음을 알린다 */
+  const range = (lo: number, hi: number) => `${won(lo)}${open || lo !== hi ? '~' : ''}`
   const finalRange = range(min - LANDING_PRICE.caseDiscount, max - LANDING_PRICE.caseDiscount)
 
   /* 의뢰 폼에 넘길 상품 이름 — 고른 기능은 이름만 덧붙인다(금액은 상담에서 정한다) */
@@ -130,13 +130,16 @@ export function EstimateBuilder() {
                 ))}
                 {group.id === 'custom' && (
                   <div className="flex flex-col justify-center rounded-2xl border border-dashed border-neutral-300 px-5 py-4 text-sm leading-relaxed text-neutral-500">
-                    <p className="font-semibold text-neutral-700">그 밖의 기능도 만들 수 있어요</p>
-                    <p className="mt-1">복잡한 콘텐츠 관리시스템, 주문, 결제, 정산, AI 광고콘텐츠 생성 등 사장님의 목적에 특화된 기능들도 다 개발 가능합니다.</p>
+                    <p className="font-semibold text-neutral-700">특화된 기능/복잡한 시스템도 개발 가능해요</p>
+                    <p className="mt-1">복잡한 콘텐츠 관리시스템, 주문, 결제, 정산, AI 광고콘텐츠 생성 등 사장님의 목적에 특화된 기능들도 모두 개발 가능하며, 기능 구현 난이도와 작업 양에 따라 견적이 책정됩니다.</p>
                   </div>
                 )}
               </div>
             </fieldset>
           ))}
+
+          {/* 옵션마다 붙이면 너무 많아 목록 끝에 한 번만 — 견적 상자에도 같은 문구가 있다 */}
+          <p className="text-xs leading-relaxed text-neutral-500">**구체적인 금액은 세부기능 요구사항에 따라 책정됩니다.</p>
         </div>
 
         {/* 견적서 — 넓은 화면에서는 따라 내려온다 */}
@@ -178,6 +181,11 @@ export function EstimateBuilder() {
               </p>
               <p className="mt-0.5 text-[11px] text-white/45">사례 게재 동의조건</p>
             </div>
+
+            {/* 금액을 다 본 뒤, 의뢰 버튼을 누르기 직전에 읽히는 자리 */}
+            <p className="mt-4 text-[11.5px] leading-relaxed text-white/50">
+              **구체적인 금액은 세부기능 요구사항에 따라 책정됩니다.
+            </p>
 
             <AboutInquiryButton
               category={ABOUT_INQUIRY_CATEGORY}

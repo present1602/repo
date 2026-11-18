@@ -148,6 +148,7 @@ export const ADD_ONS: readonly AddOn[] = [
     group: 'customer',
     title: '뉴스레터',
     price: 100_000,
+    startingAt: true,
     summary:
       '뉴스레터 메일을 수집받고 관리자페이지에서 소식 메일을 발송합니다',
     points: ['기본 관리자페이지 제공'],
@@ -169,7 +170,7 @@ export const ADD_ONS: readonly AddOn[] = [
     price: 300_000,
     startingAt: true,
     summary: '',
-    points: ['기본 관리자페이지 제공', '예약 확인 이메일', '구글 캘린더 연동', '카카오 알림톡 알림'],
+    points: ['기본 관리자페이지 제공', '예약 확인 이메일', '구글 캘린더 연동', '알림톡 연동'],
   },
   {
     id: 'chatbot',
