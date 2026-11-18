@@ -14,41 +14,6 @@ import { getGeneralInquiryChoices, prepareInquiryUpload } from '@/app/inquiry-ac
 import { uploadSigned } from '@/lib/direct-upload'
 import { recalledRef } from '@/lib/invite-link'
 import type { BudgetsByCategory } from '@/lib/inquiry-budget'
-import { ABOUT_INQUIRY_CATEGORY, SITE_KINDS, won } from '@/lib/landing-package'
-
-/* 간편 의뢰에서 '홈페이지/반응형웹'을 골랐을 때 아래에 붙는 상품 안내.
-   고르는 칸이 아니다 — 금액 감을 잡게 하고, 자세한 구성은 소개 페이지로 보낸다 */
-function SiteKindGuide() {
-  return (
-    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-xs font-semibold text-neutral-700">이런 상품이 있어요</p>
-        <a
-          href="/about#add-ons"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 text-[11px] font-medium text-violet-600 underline-offset-2 hover:underline"
-        >
-          자세히 보기 ↗
-        </a>
-      </div>
-      <ul className="mt-2.5 divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
-        {SITE_KINDS.map((k) => (
-          <li key={k.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
-            <span className="min-w-0">
-              <span className="block text-[13px] font-semibold break-keep text-neutral-900">{k.label}</span>
-              <span className="mt-0.5 block text-[11.5px] leading-snug break-keep text-neutral-500">{k.tagline}</span>
-            </span>
-            <span className="shrink-0 pt-px text-[13px] font-bold tabular-nums text-violet-700">{won(k.price)}~</span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
-        아직 정하지 않으셔도 됩니다. 문의 내용을 보고 맞는 구성을 안내해 드립니다. (VAT 별도)
-      </p>
-    </div>
-  )
-}
 
 /* 분야 칸을 몇 줄로 나눌지 — 줄마다 고르게 차도록 칸 수를 정한다.
    3개면 한 줄(3칸), 4개면 2×2, 5~6개면 3칸씩 두 줄.
@@ -433,10 +398,6 @@ export function InquiryModal({
                   </div>
                 </fieldset>
               )}
-
-              {/* 홈페이지 분야 — 어떤 상품들이 있는지 안내만 한다(고르지 않는다).
-                  상품은 소개 견적표에서 골라 들어올 때만 정해진다(product) */}
-              {simple && !product && cat?.name === ABOUT_INQUIRY_CATEGORY && <SiteKindGuide />}
 
               {/* 2차 — 그 분야가 받는 범위. 분야를 골라야 열린다.
                   간편 의뢰에서는 묻지 않고 아래 예산 범위로 대신한다 */}
