@@ -21,8 +21,8 @@ export const metadata: Metadata = {
    구조는 거부감을 준다. 그래서 SOOM 이 받는 의뢰와 AI 로 일하는 방식을 앞에 둔다.
      01 표지
      02 SOOM 이 받는 의뢰  세 가지 의뢰 + 받을 분야만 고른다(Web/App 은 메인 시안 의뢰 가능)
-     03 공정한 수익 구조   더 큰 본계약으로, 초대 링크 리워드
-     04 AI               투입 시간은 줄이고 퀄리티는 높인다, AI 활용 포트폴리오, 바이브코딩 기술 지원
+     03 공정한 수익 구조   디자이너 배분율(최소 50%·디자인 90%·초기 그룹 1년 0%), 초대 링크 리워드
+     04 AI               투입 시간은 줄이고 퀄리티는 높인다, AI 활용 포트폴리오, 바이브코딩 개발 교육·검수 지원
      05 자격
      06 11월 이벤트       첫 거래 축하 선물
      07 지원
@@ -138,7 +138,7 @@ export default function ProposalV14Page() {
             <p className="mt-2 text-base leading-relaxed text-neutral-600 md:text-lg">
               <span className="font-semibold text-violet-600">받고 싶은 의뢰만 골라서 받으세요.
                 <br/></span>
-               직장인이라면, 비교적 부담이 없는 랜딩페이지나 로고 디자인만 받을수도 있어서  <br/>
+               직장인이라면, 비교적 부담이 없는 랜딩페이지나 상세페이지만 받을수도 있어서  <br/>
                <span className="font-semibold text-violet-600">부업에 유리해요.</span>
             </p>
 
@@ -146,9 +146,9 @@ export default function ProposalV14Page() {
                 그 카드 안에 둔다 — 클라이언트 쪽 장치지만 디자이너에게는 더 큰 계약으로 가는 길이다 */}
             <div className="mt-4 space-y-2.5">
               {[
-                { t: '랜딩페이지 개발', s: '', on: true, draft: false },
-                { t: 'Web/App 개발', s: '', on: true, draft: true },
-                { t: '로고/일러스트', s: '로고 · 일러스트 디자인', on: false, draft: false },
+                { t: '웹사이트', s: '랜딩페이지 · 기업형 홈페이지 · 프리미엄 맞춤형 홈페이지', on: true, draft: true },
+                { t: '앱 디자인', s: '모바일 앱 UX/UI 디자인', on: true, draft: false },
+                { t: '상세페이지', s: '상세페이지 · 모션배너', on: false, draft: false },
               ].map((x) => (
                 <div
                   key={x.t}
@@ -188,8 +188,8 @@ export default function ProposalV14Page() {
         </Spread>
 
         {/* ─────────── 03 FAIR REVENUE ───────────
-            기여한 만큼 번다 — 메인 시안이 더 큰 본계약으로 이어지는 길,
-            그리고 그 길을 직접 넓히는 초대 링크(0006_invite_link.sql) */}
+            기여한 만큼 번다 — 디자이너 쪽으로 기운 배분율,
+            그리고 의뢰를 직접 데려오는 초대 링크(0006_invite_link.sql) */}
         <Spread id={3}>
           <Half tone="cream" top={['Feature · 02', 'Fair revenue']} foot={[BRAND, 'L']}>
             <Label>Fair revenue</Label>
@@ -202,17 +202,37 @@ export default function ProposalV14Page() {
             </p>
           </Half>
 
-          <Half tone="white" top={['Bigger deal', '2026']} foot={[BRAND, `03 / ${pad(TOTAL)}`]}>
+          <Half tone="white" top={['Designer first', '2026']} foot={[BRAND, `03 / ${pad(TOTAL)}`]}>
             <span className="grid size-9 place-items-center rounded-full bg-violet-600 font-serif text-lg text-white">
               &ldquo;
             </span>
             <p className="mt-5 text-xl font-medium leading-snug md:text-2xl">
-              클라이언트가 메인 시안 의뢰 후 여러분이 만족스러운 결과물을 제공해주면,{' '}
-              <span className="text-violet-600">더 큰 수익의 본계약</span>으로 이어질 수 있습니다.
+              SOOM은 <span className="text-violet-600">디자이너 친화적인 플랫폼 수수료</span>를 약속합니다.
             </p>
-            <p className="mt-4 text-xl font-medium leading-snug md:mt-5 md:text-2xl">
-              또한 SOOM은 디자이너 친화적인 플랫폼 수수료를 약속합니다.
-            </p>
+
+            {/* 배분율 — 숫자가 주인공이다. 초기 그룹 0% 는 따로 진하게 강조한다 */}
+            <div className="mt-7 grid grid-cols-2 gap-3 md:mt-8">
+              {[
+                ['최소', '50%', '이상', '모든 의뢰 수익의 절반 이상을 디자이너에게 배분해요.'],
+                ['디자인 의뢰', '90%', '이상', '디자인만 하는 의뢰는 90% 이상을 디자이너에게 배분해요.'],
+              ].map(([k, n, u, s]) => (
+                <div key={n} className="border border-neutral-300 p-4 md:p-5">
+                  <p className="text-[10px] tracking-[0.2em] text-neutral-500">{k}</p>
+                  <p className="mt-2 font-semibold leading-none text-violet-600">
+                    <span className="text-4xl tracking-tight md:text-5xl">{n}</span>
+                    <span className="ml-1 text-sm text-neutral-700">{u}</span>
+                  </p>
+                  <p className="mt-3 text-xs leading-relaxed text-neutral-600">{s}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center gap-4 bg-neutral-900 px-5 py-4 text-white md:px-6">
+              <p className="shrink-0 text-4xl font-semibold leading-none tracking-tight text-violet-300 md:text-5xl">0%</p>
+              <p className="text-sm leading-relaxed text-white/85">
+                <b className="font-semibold text-white">초기 디자이너 그룹</b>은 1년간
+                <br className="hidden sm:block" /> 디자인 의뢰 건 수수료가 없어요.
+              </p>
+            </div>
 
             <div className="mt-8 border border-violet-600 bg-violet-50/50 px-5 py-5 md:mt-10 md:px-6">
               <p className="text-[11px] tracking-[0.3em] text-violet-600 md:text-xs">INVITE LINK</p>
@@ -283,15 +303,31 @@ export default function ProposalV14Page() {
             </div>
             <p className="mt-3 text-[10px] tracking-[0.3em] text-neutral-500">AI DESIGN STACK</p>
 
-            {/* 개발은 SOOM 이 하지만, 직접 만들고 싶은 디자이너에게는 길을 열어 둔다 */}
-            <div className="mt-6 flex items-start gap-3 bg-neutral-900 px-5 py-4 text-white md:mt-7">
-              <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-violet-500 font-mono text-[9px] font-bold">
-                {'</>'}
-              </span>
-              <p className="text-sm leading-relaxed text-white/85">
-                <b className="font-semibold text-white">바이브코딩 기술 지원</b> — 원한다면 간단한
-                랜딩페이지는 디자이너가 바이브코딩으로 직접 제작할 수 있도록 SOOM이 도와드려요.
-              </p>
+            {/* 개발까지 하고 싶은 디자이너에게 — 교육 → 실무 → 검수 순서로 길을 열어 둔다 */}
+            <div className="mt-6 bg-neutral-900 px-5 py-5 text-white md:mt-7 md:px-6">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-violet-500 font-mono text-[9px] font-bold">
+                  {'</>'}
+                </span>
+                <p className="text-sm leading-relaxed text-white/85">
+                  AI 시대에 UX/UI 디자이너로서 <b className="font-semibold text-white">바이브코딩을 통한 개발</b>까지
+                  하고 싶다면, SOOM이 적극적으로 지원해요.
+                </p>
+              </div>
+              <ol className="mt-4 grid gap-2 pl-9 text-[13px] leading-relaxed text-white/80 sm:grid-cols-3 sm:gap-3">
+                {[
+                  ['교육', '바이브코딩 교육을 적극 지원해요.'],
+                  ['실무', '실력이 올라오면 실무 개발까지 맡을 수 있어요.'],
+                  ['검수', '전문 개발자가 코드를 검수·개선해 안심하고 개발할 수 있어요.'],
+                ].map(([t, s], i) => (
+                  <li key={t} className="border-t border-white/15 pt-2">
+                    <span className="text-[10px] tracking-[0.2em] text-violet-300">
+                      {pad(i + 1)} · {t}
+                    </span>
+                    <span className="mt-1 block">{s}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
           </Half>
         </Spread>
@@ -364,13 +400,13 @@ export default function ProposalV14Page() {
             <div className="space-y-8 md:space-y-9">
               {[
                 {
-                  area: 'Web/App · 랜딩페이지',
+                  area: '웹사이트 · 앱 디자인',
                   required: 'Figma 웹디자인 가능 (웹 or 앱 포폴 필수)',
                   oneOf: ['디자인 실무 경력 보유자', '디자인계열 전공자'],
                 },
                 {
-                  area: '로고/일러스트',
-                  required: '로고 포트폴리오 보유',
+                  area: '상세페이지',
+                  required: '상세페이지 포트폴리오 보유',
                   oneOf: ['디자인 실무 경력 보유자', '디자인계열 전공자'],
                 },
               ].map((g) => (

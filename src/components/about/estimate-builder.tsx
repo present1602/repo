@@ -143,7 +143,7 @@ export function EstimateBuilder() {
         </div>
 
         {/* 견적서 — 넓은 화면에서는 따라 내려온다 */}
-        <aside aria-label="예상 견적" className="lg:sticky lg:top-20">
+        <aside aria-label="예상 견적" className="lg:sticky lg:top-36">
           <div className="rounded-3xl bg-[#19172a] p-6 text-white shadow-[0_20px_50px_-25px_rgb(25_23_42/0.7)] md:p-7">
             <p className="text-[11px] font-semibold tracking-[0.18em] text-violet-300">ESTIMATE</p>
             <p className="mt-2 text-lg font-bold">예상 견적</p>
@@ -270,7 +270,7 @@ function ConsultEstimate({ site, onShowOptions }: { site: (typeof SITE_KINDS)[nu
         </div>
       </div>
 
-      <aside aria-label="예상 견적" className="lg:sticky lg:top-20">
+      <aside aria-label="예상 견적" className="lg:sticky lg:top-36">
         <div className="rounded-3xl bg-[#19172a] p-6 text-white shadow-[0_20px_50px_-25px_rgb(25_23_42/0.7)] md:p-7">
           <p className="text-[11px] font-semibold tracking-[0.18em] text-violet-300">ESTIMATE</p>
           <p className="mt-2 text-lg font-bold">예상 견적</p>

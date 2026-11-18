@@ -289,6 +289,20 @@ export function SetupGuide() {
           처음 오셨다면 이 차례대로 따라오시면 됩니다. 프로필을 채우고, 작업을 올리고, 의뢰 받을
           유형을 고른 뒤 마지막에 노출 스위치를 켜면 공개됩니다.
         </p>
+
+        {/* 가장 많이 놓치는 마지막 단계 — 맨 위에서 먼저 짚어 둔다 */}
+        <figure className="mt-4 rounded-xl border border-violet-200 bg-violet-50/60 p-3.5">
+          <figcaption className="text-sm font-semibold leading-relaxed text-violet-800">
+            프로필 상태를 <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">노출</span>로
+            스위치를 ON 해야 프로필이 노출됩니다.
+          </figcaption>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/guide/profile-status-on.png"
+            alt="프로필 화면 위쪽 ‘프로필 상태’ 스위치를 켜 ‘노출’이 된 모습"
+            className="mt-3 w-full rounded-lg border border-neutral-200 bg-white"
+          />
+        </figure>
       </header>
 
       {/* 한눈에 보는 차례 — 긴 문서라 맨 위에 요약을 둔다 */}

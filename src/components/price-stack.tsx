@@ -10,7 +10,16 @@ import type { HomePrice } from './home-cta'
    상자에 price 를 '할인가'로 크게 둔다. */
 const won = (n: number) => n.toLocaleString('ko-KR')
 
-export function PriceStack({ price, was, caseDiscount, startingAt }: Pick<HomePrice, 'price' | 'was' | 'caseDiscount' | 'startingAt'>) {
+export function PriceStack({
+  price,
+  was,
+  caseDiscount,
+  startingAt,
+  vat = false,
+}: Pick<HomePrice, 'price' | 'was' | 'caseDiscount' | 'startingAt'> & {
+  /* 큰 금액 오른쪽 위에 작게 'VAT 별도' — 따로 한 줄을 두지 않는 자리(플랜 카드)에서 켠다 */
+  vat?: boolean
+}) {
   const tilde = startingAt ? '~' : ''
   const hasCase = caseDiscount != null
   const final = hasCase ? price - caseDiscount : price
@@ -51,6 +60,9 @@ export function PriceStack({ price, was, caseDiscount, startingAt }: Pick<HomePr
         <p className="mt-1 text-[1.75rem] font-extrabold leading-tight tabular-nums tracking-tight text-violet-600 sm:text-3xl">
           {won(final)}
           <span className="ml-0.5 text-sm font-semibold">원{tilde}</span>
+          {vat && (
+            <sup className="ml-1.5 align-super text-[10.5px] font-medium tracking-normal text-neutral-500">VAT 별도</sup>
+          )}
         </p>
       </div>
     </div>

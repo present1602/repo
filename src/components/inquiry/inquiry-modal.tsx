@@ -410,7 +410,7 @@ export function InquiryModal({
                   바꾸려면 창을 닫고 견적표에서 다시 고른다 */}
               {showProduct && (
                 <div className="-mt-2 rounded-lg border border-violet-200 bg-violet-50/60 px-3.5 py-3">
-                  <p className="text-[11px] font-medium text-violet-700">견적표에서 고른 구성</p>
+                  <p className="text-[11px] font-medium text-violet-700">고른 구성</p>
                   <ul className="mt-1.5 space-y-1 text-sm">
                     <li className="font-semibold break-keep text-neutral-900">+ {product}</li>
                     {productOptions?.map((o) => (

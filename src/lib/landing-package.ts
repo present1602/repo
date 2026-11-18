@@ -97,12 +97,24 @@ export const SITE_KINDS: {
    이름이 바뀌어 못 찾으면 고르지 않은 채 열릴 뿐 의뢰는 그대로 된다 */
 export const ABOUT_INQUIRY_CATEGORY = '웹사이트 개발'
 
-/* 소개 화면에 보여 주는 SOOM 의뢰 유형 — 이 중 웹사이트 개발만 견적표(SITE_KINDS)로 나뉜다 */
-export const INQUIRY_TYPES = ['앱 디자인', ABOUT_INQUIRY_CATEGORY, '상세페이지 디자인'] as const
+/* 소개 화면의 SOOM 의뢰 유형 — 위 탭 차례이자 아래 구역 차례다(id 는 구역의 id).
+   이 중 웹사이트 개발만 견적표(SITE_KINDS)로 나뉜다 */
+export const SERVICES = [
+  { id: 'service-website', label: '웹사이트 개발' },
+  { id: 'service-app', label: '앱 디자인' },
+  { id: 'service-detail', label: '상세페이지 디자인' },
+] as const
+
+/* 앱·상세페이지 구역의 '의뢰하기'가 골라 둘 분야 — 어드민 분야 이름과 같아야 한다 */
+export const APP_INQUIRY_CATEGORY = '모바일앱(디자인)'
+export const DETAIL_INQUIRY_CATEGORY = '상세페이지'
+
+/* 상세페이지 구역에 띄우는 모션배너 예시(유튜브 쇼츠 id) */
+export const MOTION_BANNER_VIDEO = 'ysnjN5N7BzM'
 
 /* 웹사이트·프리미엄 견적 안내 — 랜딩페이지 옵션도 더할 수 있음을 알린다 */
 export const CONSULT_NOTE =
-  '실제 개발 시 "랜딩페이지"에 기재된 옵션들도 모두 추가할 수 있으며, 작업범위에 따라 구체적인 견적이 산정됩니다.'
+  '**랜딩페이지에 제공되는 옵션들도 모두 결합 가능하고, 추가로 특화된 기능/복잡한 시스템도 개발 가능해요. 작업범위에 따라 구체적인 견적이 산정됩니다.'
 
 export type AddOnGroup = 'content' | 'customer' | 'custom'
 
@@ -188,7 +200,7 @@ export const ADD_ONS: readonly AddOn[] = [
     id: 'app',
     group: 'custom',
     title: '앱 동시 제작',
-    price: 400_000,
+    price: 500_000,
     startingAt: true,
     summary: '웹사이트와 함께 안드로이드/ios 앱도 함께 만듭니다.',
   },

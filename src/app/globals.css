@@ -88,6 +88,16 @@
   .item-flash { animation: item-tint 1.6s ease-out; }
 }
 
+/* 소개 상세페이지 구역의 케이스 그림 — 위아래로 천천히 떴다 내려온다(detail-showcase.tsx).
+   두 장의 박자를 어긋나게 두려고 길이·늦춤은 그 자리에서 정한다. 동작 줄이기를 켜면 멈춘다 */
+@keyframes float-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .float-bob { animation: float-bob 4.2s ease-in-out infinite; }
+}
+
 /* ─────────── 제안서 쪽 넘김 ───────────
 
    한 번에 펼침면 하나씩 멈춘다. 중간에 걸친 채로 서면 위아래가 잘려

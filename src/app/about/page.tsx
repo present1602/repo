@@ -2,7 +2,15 @@ import type { Metadata } from 'next'
 import { AboutInquiryButton } from '@/components/about-inquiry-button'
 import { DeviceMockup } from '@/components/about/device-mockup'
 import { EstimateBuilder } from '@/components/about/estimate-builder'
-import { ABOUT_INQUIRY_CATEGORY, INQUIRY_TYPES, SITE_KINDS, ESTIMATE_EVENT_LABEL, LANDING_INCLUDES, LANDING_PRICE, SAMPLE_SITE_URL, won } from '@/lib/landing-package'
+import Image from 'next/image'
+import appShot from '@/assets/about/app-nople.png'
+import { ServiceTabs } from '@/components/about/service-tabs'
+import { DetailShowcase } from '@/components/about/detail-showcase'
+import {
+  APP_INQUIRY_CATEGORY,
+  DETAIL_INQUIRY_CATEGORY,
+} from '@/lib/landing-package'
+import { ABOUT_INQUIRY_CATEGORY, SITE_KINDS, ESTIMATE_EVENT_LABEL, LANDING_INCLUDES, LANDING_PRICE, SAMPLE_SITE_URL, won } from '@/lib/landing-package'
 
 export const metadata: Metadata = {
   title: '소개',
@@ -136,7 +144,15 @@ export default function AboutPage() {
       </section>
 
       <LandingPackage />
-      <AddOns />
+      {/* 의뢰 유형 탭은 세 구역을 감싼 이 안에서만 따라 내려온다 */}
+      <div className="relative">
+        <ServiceTabs />
+        <div id="service-website" className="scroll-mt-32">
+          <AddOns />
+        </div>
+        <AppDesign />
+        <DetailDesign />
+      </div>
 
       <section aria-labelledby="about-process-title" className="border-y border-neutral-200 bg-[#f8f8fa]">
         <div className={`${container} py-16 md:py-20`}>
@@ -285,10 +301,105 @@ function LandingPackage() {
   )
 }
 
+/* 앱 디자인 — 화면만이 아니라 UX 설계부터 한다는 점을 실제 작업 한 장으로 보여 준다 */
+function AppDesign() {
+  return (
+    <section
+      id="service-app"
+      aria-labelledby="service-app-title"
+      className="scroll-mt-32 overflow-hidden border-t border-neutral-200 bg-[#f4f3fb]"
+    >
+      <div className={`${container} grid items-center gap-10 py-16 md:py-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16`}>
+        <div>
+          <p className={eyebrow}>APP DESIGN</p>
+          <h2
+            id="service-app-title"
+            className="mt-4 text-[clamp(1.75rem,3vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]"
+          >
+            앱 디자인
+          </h2>
+          <p className="mt-5 max-w-md text-[17px] font-semibold leading-relaxed text-neutral-800 md:text-lg">
+            단순한 화면 디자인이 아닌,
+            <br />
+            <span className="text-violet-600">UX 설계 경험이 있는 전문 디자이너</span>가 디자인합니다.
+          </p>
+          <div className="mt-8">
+            <AboutInquiryButton category={APP_INQUIRY_CATEGORY} />
+          </div>
+        </div>
+
+        <figure className="relative mx-auto w-4/5 max-w-[460px] lg:w-full">
+          {/* 휴대폰 뒤에 은은한 보라 빛 — 배경과 사진의 경계를 지운다 */}
+          <div
+            aria-hidden
+            className="absolute inset-[6%] rounded-full bg-[radial-gradient(circle,rgb(124_58_237/0.2),transparent_70%)] blur-2xl"
+          />
+          <Image
+            src={appShot}
+            alt="여행 앱 NO:PLE 의 홈 화면과 로그인 화면 디자인"
+            sizes="(min-width: 1024px) 460px, 80vw"
+            className="relative h-auto w-full drop-shadow-[0_30px_40px_rgb(25_23_42/0.18)]"
+          />
+          <figcaption className="relative mt-3 text-center text-[11.5px] text-neutral-500">
+            예) NO:PLE — 여행 일정 앱
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+  )
+}
+
+/* 상세페이지 디자인 — 왼쪽 글, 오른쪽 그림 무대(케이스 두 장 + 모션배너, detail-showcase.tsx).
+
+   좁은 화면 차례: 글 → 그림 무대 → 의뢰 버튼(order).
+   글 묶음은 좁은 화면에서 contents 로 풀려 그 안의 버튼만 맨 아래로 내려간다 */
+function DetailDesign() {
+  return (
+    <section
+      id="service-detail"
+      aria-labelledby="service-detail-title"
+      className="scroll-mt-32 overflow-hidden border-t border-neutral-200 bg-[#fbf7f8]"
+    >
+      <div className={`${container} grid gap-10 py-16 md:py-24 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-12`}>
+        <div className="contents lg:block">
+          <div className="order-1">
+            <p className={eyebrow}>DETAIL PAGE</p>
+            <h2
+              id="service-detail-title"
+              className="mt-4 text-[clamp(1.75rem,3vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]"
+            >
+              상세페이지 디자인
+            </h2>
+            <p className="mt-5 max-w-md text-[17px] font-semibold leading-relaxed text-neutral-800 md:text-lg">
+              제품의 매력을 한눈에 담은 상세페이지부터,
+              <br />
+              <span className="text-violet-600">다이나믹한 모션배너</span>까지 의뢰할 수 있습니다.
+            </p>
+            <ul className="mt-5 flex flex-wrap gap-2">
+              {['상세페이지', '썸네일', '모션배너'].map((t) => (
+                <li key={t} className="rounded-full border border-violet-100 bg-white px-3 py-1 text-xs font-semibold text-violet-700">
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="order-3 lg:mt-8">
+            <AboutInquiryButton category={DETAIL_INQUIRY_CATEGORY} />
+          </div>
+        </div>
+
+        <div className="order-2 mx-auto w-full max-w-md lg:max-w-none">
+          <DetailShowcase />
+        </div>
+      </div>
+    </section>
+  )
+}
+
 /* 추가 기능 — 기본형 위에 필요한 것만 더하는 구조를 견적표로 보여 준다 */
 function AddOns() {
   return (
-    <section id="add-ons" aria-labelledby="add-ons-title" className="scroll-mt-24 bg-white">
+    <section id="add-ons" aria-labelledby="add-ons-title" className="scroll-mt-32 bg-white">
       <div className={`${container} py-16 md:py-24`}>
         <p className={eyebrow}>ADD-ONS</p>
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
@@ -298,7 +409,9 @@ function AddOns() {
             </h2>
             <p className="mt-3 max-w-2xl text-[15px] leading-[1.85] text-neutral-600">
               랜딩페이지는 기본형에 관리자페이지·회원가입·예약·챗봇·앱처럼 필요한 기능을 고르면 그만큼만
-              더해집니다. 일반 웹사이트·기업형 홈페이지와 프리미엄은 작업양과 기능 상담에 따라 견적이 정해집니다.
+              더해집니다.{' '}
+              <b className="font-semibold text-neutral-800">특화된 기능/복잡한 시스템도 개발 가능해요.</b>{' '}
+              기업형 홈페이지, 프리미엄 맞춤형 홈페이지는 작업양과 기능 상담에 따라 견적이 정해집니다.
             </p>
           </div>
           {/* 구조를 한 줄로 — 기본 + 추가 = 견적 */}
@@ -309,33 +422,12 @@ function AddOns() {
           </p>
         </div>
 
-        {/* 의뢰 유형 세 가지 중 웹사이트 개발만 아래 견적표에서 세 갈래로 나뉜다 */}
-        <div className="mt-10 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 md:p-5">
-          <p className="text-xs font-semibold text-neutral-500">SOOM 의뢰 유형</p>
-          <ul className="mt-3 grid grid-cols-3 gap-2">
-            {INQUIRY_TYPES.map((t) => {
-              const here = t === ABOUT_INQUIRY_CATEGORY
-              return (
-                <li
-                  key={t}
-                  className={`relative flex min-h-11 items-center justify-center rounded-xl px-2 py-2.5 text-center text-[13px] font-semibold break-keep md:text-sm ${
-                    here ? 'bg-violet-600 text-white' : 'border border-neutral-200 bg-white text-neutral-500'
-                  }`}
-                >
-                  {t}
-                  {here && (
-                    <span aria-hidden className="absolute -bottom-2 left-1/2 size-3 -translate-x-1/2 rotate-45 bg-violet-600" />
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          <p className="mt-4 text-[13px] leading-relaxed text-neutral-600 md:text-sm">
-            이 중 <b className="font-semibold text-violet-700">{ABOUT_INQUIRY_CATEGORY}</b>은 아래처럼{' '}
-            <b className="font-semibold text-neutral-800">{SITE_KINDS.map((k) => k.label).join(' · ')}</b>{' '}
-            세 가지로 나뉘고, 고른 유형에 따라 견적이 산정됩니다.
-          </p>
-        </div>
+        {/* 웹사이트 개발은 아래 견적표에서 세 갈래로 나뉜다 */}
+        <p className="mt-10 rounded-2xl border border-violet-200 bg-violet-50/60 px-4 py-3.5 text-[13px] leading-relaxed text-neutral-600 md:px-5 md:text-sm">
+          <b className="font-semibold text-violet-700">{ABOUT_INQUIRY_CATEGORY}</b>은{' '}
+          <b className="font-semibold text-neutral-800">{SITE_KINDS.map((k) => k.label).join(' · ')}</b>{' '}
+          세 가지로 나뉘고, 고른 유형에 따라 견적이 산정됩니다.
+        </p>
 
         <div className="mt-6">
           <EstimateBuilder />

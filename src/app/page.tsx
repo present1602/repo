@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { HomeFeed } from '@/components/home-feed'
 import { HomeCta, type HomePrice } from '@/components/home-cta'
 import { PriceStack } from '@/components/price-stack'
-import { LANDING_INCLUDES, LANDING_PRICE, PREMIUM_PRICE, WEBSITE_PRICE } from '@/lib/landing-package'
+import { ABOUT_INQUIRY_CATEGORY, LANDING_INCLUDES, LANDING_PRICE, PREMIUM_PRICE, WEBSITE_PRICE } from '@/lib/landing-package'
 import { AgencyBanner } from '@/components/agency-banner'
 import { HtmlClass } from '@/components/html-class'
 import { ExploreLink } from '@/components/explore-gate'
@@ -201,19 +201,15 @@ function HomePlans() {
           <p className="mt-3 text-sm leading-relaxed text-neutral-500">필요한 구성과 기능을 확인해 보세요.</p>
         </div>
 
-        {/* 카드마다 줄 수가 달라도(설명 유무 등) 가격·VAT·설명·목록이 가로로
-            같은 높이에 오게 — 넓은 화면에서는 각 카드를 부모 격자의 5줄에
+        {/* 카드마다 줄 수가 달라도(설명 유무 등) 가격·설명·목록이 가로로
+            같은 높이에 오게 — 넓은 화면에서는 각 카드를 부모 격자의 4줄에
             걸치고(subgrid) 칸마다 빈 자리라도 요소를 둔다 */}
         <div className="grid gap-4 md:gap-6 lg:grid-cols-3 lg:gap-y-0">
           {PRICES.filter(({ items }) => items.length > 0).map(({ label, description, items, ...p }) => (
             <article key={label} className="grid content-start rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 lg:row-span-5 lg:grid-rows-subgrid">
               <h3 className="text-lg font-bold text-neutral-900">{label}</h3>
               <div className="mt-5">
-                <PriceStack {...p} />
-              </div>
-              <div className="mt-2.5 flex px-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs leading-relaxed text-neutral-500">
-                <span>VAT 별도</span>
-                <span>**개발 범위에 따라 가격이 달라집니다.</span>
+                <PriceStack {...p} vat />
               </div>
               <p className="mt-5 text-sm leading-relaxed text-neutral-600">{description}</p>
               <ul className="mt-6 space-y-3 border-t border-neutral-100 pt-6">
@@ -224,13 +220,18 @@ function HomePlans() {
                   </li>
                 ))}
               </ul>
+              {/* 카드마다 의뢰 — 웹사이트 개발 분야에 이 플랜 이름을 붙여 연다. 넓은 화면에서는 세 버튼이 같은 줄에 선다 */}
+              <div className="mt-7 self-end">
+                <AboutInquiryButton category={ABOUT_INQUIRY_CATEGORY} product={label} className="w-full bg-violet-600 text-white hover:bg-violet-700" />
+              </div>
             </article>
           ))}
         </div>
 
-        <div className="mt-7 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs leading-relaxed text-neutral-500">추가 할인은 완성된 홈페이지를 SOOM 사례로 게재하는 데 동의하시면 적용됩니다.</p>
-          <AboutInquiryButton />
+        {/* 카드마다 두지 않고 여기 한 번만 */}
+        <div className="mt-7 space-y-1 text-xs leading-relaxed text-neutral-500">
+          <p>**개발 범위에 따라 가격이 달라집니다.</p>
+          <p>추가 할인은 완성된 홈페이지를 SOOM 사례로 게재하는 데 동의하시면 적용됩니다.</p>
         </div>
       </div>
     </section>
