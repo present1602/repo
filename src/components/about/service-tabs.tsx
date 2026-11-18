@@ -46,7 +46,7 @@ export function ServiceTabs() {
   return (
     <nav
       aria-label="의뢰 유형"
-      className="sticky top-14 z-10 border-b border-neutral-200/80 bg-white/85 backdrop-blur"
+      className="follow-nav sticky top-14 z-10 border-b border-neutral-200/80 bg-white/85 backdrop-blur"
     >
       <div className="mx-auto flex max-w-[1200px] items-center gap-4 px-5 py-2.5 md:px-10">
         <span className="hidden shrink-0 text-xs font-semibold text-neutral-500 md:block">SOOM 의뢰 유형</span>

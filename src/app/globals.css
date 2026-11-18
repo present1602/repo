@@ -98,6 +98,16 @@
   .float-bob { animation: float-bob 4.2s ease-in-out infinite; }
 }
 
+/* 네비바 바로 아래 붙는 띠 — 좁은 화면에서 네비바가 숨으면(navbar.tsx 의 data-nav-hidden)
+   그 빈자리로 함께 올라붙는다 */
+@media (max-width: 767px) {
+  .follow-nav { transition: top 300ms ease-out; }
+  html[data-nav-hidden] .follow-nav { top: 0; }
+}
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .follow-nav { transition: none; }
+}
+
 /* ─────────── 제안서 쪽 넘김 ───────────
 
    한 번에 펼침면 하나씩 멈춘다. 중간에 걸친 채로 서면 위아래가 잘려

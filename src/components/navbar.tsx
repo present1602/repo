@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { InquiryModal } from '@/components/inquiry/inquiry-modal'
@@ -18,6 +18,7 @@ import { DEFAULT_SITE_MENUS, SITE_MENU_ITEMS, type SiteMenus } from '@/lib/site-
 export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
   const [inquiry, setInquiry] = useState(false)
   const pathname = usePathname()
+  const hidden = useHideOnScroll()
   // 설정이 전달되지 않거나 일부 항목이 빠져도 기본 메뉴로 표시한다.
   const items = SITE_MENU_ITEMS.map((item) => ({
     ...item,
@@ -26,7 +27,12 @@ export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
 
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur">
+      {/* 좁은 화면에서는 내려 읽는 동안 위로 미끄러져 숨고, 올리면 다시 내려온다(useHideOnScroll) */}
+      <header
+        className={`sticky top-0 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur transition-transform duration-300 ease-out motion-reduce:transition-none ${
+          hidden ? 'max-md:-translate-y-full' : ''
+        }`}
+      >
         <div className="mx-auto flex min-h-14 max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 md:px-8">
           {/* 글자에 보라→파랑 그라데이션을 입힌다 — 배경을 글자 모양으로 잘라 낸다 */}
           <Link
@@ -66,4 +72,55 @@ export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
       {inquiry && <InquiryModal onClose={() => setInquiry(false)} />}
     </>
   )
+}
+
+/* 좁은 화면(md 미만)에서 아래로 읽어 내려가면 숨기고, 위로 올리면 다시 보인다.
+
+   손가락 떨림에 깜빡이지 않게 일정 거리(GAP) 이상 움직였을 때만 바꾸고,
+   맨 위 근처에서는 늘 보인다. 숨김 여부는 <html data-nav-hidden> 에도 적어 둔다 —
+   네비바 바로 아래 붙는 띠(소개의 의뢰 유형 탭)가 함께 위로 올라붙게(globals.css 의 .follow-nav) */
+const GAP = 8
+const SHOW_NEAR_TOP = 64
+
+function useHideOnScroll() {
+  const [hidden, setHidden] = useState(false)
+
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 767px)')
+    let last = window.scrollY
+    let frame = 0
+    let current = false
+    const set = (v: boolean) => {
+      if (v === current) return
+      current = v
+      setHidden(v)
+      if (v) document.documentElement.dataset.navHidden = ''
+      else delete document.documentElement.dataset.navHidden
+    }
+    const update = () => {
+      frame = 0
+      const y = window.scrollY
+      if (!narrow.matches || y < SHOW_NEAR_TOP) {
+        set(false)
+        last = y
+        return
+      }
+      if (Math.abs(y - last) < GAP) return
+      set(y > last)
+      last = y
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    narrow.addEventListener('change', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      narrow.removeEventListener('change', onScroll)
+      cancelAnimationFrame(frame)
+      delete document.documentElement.dataset.navHidden
+    }
+  }, [])
+
+  return hidden
 }
