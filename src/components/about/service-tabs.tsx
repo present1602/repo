@@ -9,8 +9,8 @@ import { SERVICES } from '@/lib/landing-package'
    누르면 그 구역으로 부드럽게 내려간다. 구역 위치는 스크롤마다 다시 잰다 —
    견적표를 펼치고 접으면 아래 구역의 높이가 바뀌기 때문이다. */
 
-/* 네비바(56px) + 이 탭 띠 아래쯤 — 이 선을 넘은 마지막 구역이 지금 구역이다 */
-const LINE = 140
+/* 화면 높이의 이 비율 선 — 아래 update 참고 */
+const LINE = 0.4
 
 export function ServiceTabs() {
   const [active, setActive] = useState<string>(SERVICES[0].id)
@@ -19,10 +19,14 @@ export function ServiceTabs() {
     let frame = 0
     const update = () => {
       frame = 0
+      /* 구역 위쪽이 화면 위에서 40% 선을 넘어 올라온 마지막 구역이 지금 구역이다.
+         아래 구역이 화면 아래 60% 를 덮으면 넘어간다 — 반반에서 바뀌는 것보다 조금 늦게,
+         맨 위 선(네비바 아래)까지 기다리는 것보다는 훨씬 일찍 */
+      const line = window.innerHeight * LINE
       let current: string = SERVICES[0].id
       for (const s of SERVICES) {
         const el = document.getElementById(s.id)
-        if (el && el.getBoundingClientRect().top <= LINE) current = s.id
+        if (el && el.getBoundingClientRect().top <= line) current = s.id
       }
       setActive(current)
     }
