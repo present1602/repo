@@ -37,7 +37,8 @@ const PRICES: HomePrice[] = [
     ...LANDING_PRICE,
     startingAt: true,
     /* 포함 내용도 소개 화면 '랜딩페이지 기본형'과 같은 목록을 쓴다 */
-    items: LANDING_INCLUDES.map((i) => i.title),
+    /* 다른 플랜 카드처럼 반응형 줄을 따로 둔다 — 첫 줄 바로 아래 */
+    items: LANDING_INCLUDES.map((i): string => i.title).toSpliced(1, 0, '반응형 (PC·모바일)'),
   },
   {
     label: '일반 웹사이트/기업형 홈페이지',
@@ -51,7 +52,7 @@ const PRICES: HomePrice[] = [
     ...PREMIUM_PRICE,
     startingAt: true,
     description: '기획부터 기능까지 원하는 대로 맞춰 만드는 홈페이지입니다.',
-    items: ['요구사항 맞춤 기획', '맞춤 기능 개발', 'ai 활용 기능', '맞춤형 관리자페이지', '50만원 상당의 상세페이지 디자인 쿠폰 제공'],
+    items: ['요구사항 맞춤 기획', '복잡한 기획/설계가 요구되는 작업도 모두 맞춤형으로 구현', '50만원 상당의 상세페이지 디자인 쿠폰 제공'],
   },
 ]
 

@@ -19,11 +19,10 @@ export const LANDING_BASE_POINTS = [
 ] as const
 
 export const LANDING_INCLUDES = [
-  { title: '최대 8섹션 원페이지 반응형 웹사이트', note: 'PC·태블릿·모바일 화면에 맞춰 보입니다' },
-  { title: '상담 문의 기능', note: '문의가 들어오면 이메일로 바로 받아 봅니다' },
-  { title: '메인 시안 2종', note: '두 가지 시안 중 마음에 드는 쪽을 고릅니다' },
-  { title: '수정 3회', note: '고른 시안을 3번까지 고칠 수 있습니다' },
-  { title: '1년 무상 배포·서버 관리', note: '사이트 공개부터 서버 대응까지 1년간 맡아 드립니다' },
+  { title: '최대 8섹션 원페이지 반응형웹', note: 'PC·태블릿·모바일 완벽 대응' },
+  { title: '상담 문의 기능', note: '문의를 이메일로 연동해 받습니다.' },
+  { title: '메인 시안 2종 / 수정 3회', note: '' },
+  { title: '1년 무상 배포·서버 관리', note: '1년간 무료로 서버 관리를 해드립니다.' },
 ] as const
 
 /* 일반 웹사이트·프리미엄 — 기능을 골라 더하는 대신 상담으로 견적을 정한다.
@@ -92,7 +91,7 @@ export const SITE_KINDS: {
       '맞춤 기능 개발 (주문 · 결제 · 정산 · AI 등)',
       '맞춤형 관리자페이지',
       '반응형 (PC · 태블릿 · 모바일)',
-      '30만원 상당의 상세페이지 디자인 쿠폰 제공',
+      '50만원 상당의 상세페이지 디자인 쿠폰 제공',
     ],
     closing: '작업양과 기능 상담 등에 따라 견적이 산정됩니다.',
   },
@@ -122,7 +121,7 @@ export type AddOn = {
 }
 
 export const ADD_ON_GROUPS: { id: AddOnGroup; label: string; hint: string }[] = [
-  { id: 'content', label: '내용을 직접 고치고 싶다면', hint: '관리자페이지' },
+  { id: 'content', label: '콘텐츠를 직접 관리하고 싶다면,', hint: '관리자페이지' },
   { id: 'customer', label: '고객을 모으고 싶다면', hint: '구독 · 메일 · 회원' },
   { id: 'custom', label: '우리 업종에 꼭 맞는 기능이 필요하다면', hint: '프리미엄 맞춤 개발' },
 ]
@@ -133,16 +132,16 @@ export const ADD_ONS: readonly AddOn[] = [
     group: 'content',
     title: '콘텐츠 관리 시스템',
     price: 200_000,
-    summary: '기본 관리자페이지를 드립니다. 개발자 없이도 사이트 속 콘텐츠를 직접 바꿀 수 있습니다.',
-    points: ['콘텐츠 이미지 추가', '카테고리 편집', '글 내용 자유롭게 수정'],
+    summary: '사이트 속 콘텐츠를 관리자페이지를 통해 바꿀 수 있습니다.',
+    points: ['콘텐츠 이미지 자유롭게 교체', '카테고리 편집', '영상도 가능'],
   },
   {
     id: 'board',
     group: 'content',
-    title: 'FAQ · 팝업 공지사항',
+    title: 'FAQ · 팝업 ·공지사항',
     price: 100_000,
-    summary: '자주 묻는 질문과 팝업 공지를 관리자페이지에서 올리고 고칩니다.',
-    note: 'FAQ는 관리자페이지를 통해 내용을 수정할 수 있는 기능 요청시에만 추가요금이 발생됩니다.',
+    summary: '',
+    note: '내용이 고정된 FAQ 섹션을 무료이며. 관리자페이지를 통한 내용 편집 기능을 개발 시에만 추가비용이 발생됩니다.',
   },
   {
     id: 'subscribe',
@@ -150,7 +149,7 @@ export const ADD_ONS: readonly AddOn[] = [
     title: '뉴스레터',
     price: 100_000,
     summary:
-      '방문자가 남긴 이메일을 관리자페이지에서 구독자 목록으로 관리하고, 할인·소식 메일을 한 번에 보냅니다.',
+      '뉴스레터 메일을 수집받고 관리자페이지에서 소식 메일을 발송합니다',
     points: ['기본 관리자페이지 제공'],
   },
   {
@@ -159,7 +158,7 @@ export const ADD_ONS: readonly AddOn[] = [
     title: '회원가입 · 로그인',
     price: 200_000,
     maxPrice: 500_000,
-    summary: '필요한 방식만 고르세요. 고르는 방식에 따라 금액이 달라집니다.',
+    summary: '',
     points: ['구글 로그인', '카카오 로그인', '네이버 로그인', '자체 회원가입'],
     note: '관리자페이지에서 회원관리기능 및 이메일 가입방식의 경우 마케팅 메일 발송 기능이 함께 제공됩니다.',
   },
@@ -169,7 +168,7 @@ export const ADD_ONS: readonly AddOn[] = [
     title: '맞춤형 예약 시스템',
     price: 300_000,
     startingAt: true,
-    summary: '공간·상담 예약을 사이트에서 바로 받습니다. 업종에 맞춰 흐름을 설계합니다.',
+    summary: '',
     points: ['기본 관리자페이지 제공', '예약 확인 이메일', '구글 캘린더 연동', '카카오 알림톡 알림'],
   },
   {
@@ -178,7 +177,7 @@ export const ADD_ONS: readonly AddOn[] = [
     title: '챗봇 기능',
     price: 250_000,
     startingAt: true,
-    summary: '방문자의 자주 묻는 질문에 사이트가 바로 답합니다. 자동 예약 연동 기능까지 구현 가능합니다.',
+    summary: '방문자의 자주 묻는 질문에 사이트가 바로 답합니다. 예약 연동 등 맞춤형 기능 혼합도 가능합니다.',
     points: ['기본 관리자페이지 제공'],
   },
   {
@@ -197,7 +196,7 @@ export const ESTIMATE_EVENT_LABEL = '11월 한정 10만원 추가할인 이벤�
 /* 견적 예시 — 고르면 아래 견적표가 그 구성으로 바뀐다 */
 export const ESTIMATE_PRESETS: { label: string; ids: readonly string[] }[] = [
   { label: '기본형만', ids: [] },
-  { label: '내용을 직접 고치는 사이트', ids: ['cms', 'board'] },
+  { label: '콘텐츠 관리', ids: ['cms', 'board'] },
   { label: '고객을 모으는 사이트', ids: ['cms', 'subscribe'] },
   { label: '예약을 받는 공간', ids: ['cms', 'booking'] },
 ]
