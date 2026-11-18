@@ -21,7 +21,6 @@ export const LANDING_BASE_POINTS = [
 export const LANDING_INCLUDES = [
   { title: '최대 8섹션 원페이지 반응형 웹사이트', note: 'PC·태블릿·모바일 화면에 맞춰 보입니다' },
   { title: '상담 문의 기능', note: '문의가 들어오면 이메일로 바로 받아 봅니다' },
-  { title: '소셜 채널 링크 연동', note: '인스타그램·블로그·카카오 채널 등으로 이어집니다' },
   { title: '메인 시안 2종', note: '두 가지 시안 중 마음에 드는 쪽을 고릅니다' },
   { title: '수정 3회', note: '고른 시안을 3번까지 고칠 수 있습니다' },
   { title: '1년 무상 배포·서버 관리', note: '사이트 공개부터 서버 대응까지 1년간 맡아 드립니다' },
