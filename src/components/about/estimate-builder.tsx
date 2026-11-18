@@ -70,19 +70,10 @@ export function EstimateBuilder() {
   return (
     <div>
       {/* 유형 — 랜딩페이지만 아래에서 기능을 고른다 */}
-      {/* 윗줄은 새로 만드는 상품, 아랫줄은 이미 만든 화면·코드를 넘겨받는 상품 — 한 라디오 묶음이다 */}
-      <div role="radiogroup" aria-label="사이트 유형">
-        <div className="grid gap-2.5 sm:grid-cols-3">
-          {SITE_KINDS.filter((k) => !k.row).map((k) => (
-            <KindCard key={k.id} k={k} checked={kind === k.id} onPick={() => setKind(k.id)} />
-          ))}
-        </div>
-        <p className="mt-5 mb-2 text-xs font-semibold text-neutral-500">이미 만든 화면이 있다면</p>
-        <div className="grid gap-2.5 sm:grid-cols-2">
-          {SITE_KINDS.filter((k) => k.row === 'handoff').map((k) => (
-            <KindCard key={k.id} k={k} checked={kind === k.id} onPick={() => setKind(k.id)} />
-          ))}
-        </div>
+      <div role="radiogroup" aria-label="사이트 유형" className="grid gap-2.5 sm:grid-cols-3">
+        {SITE_KINDS.map((k) => (
+          <KindCard key={k.id} k={k} checked={kind === k.id} onPick={() => setKind(k.id)} />
+        ))}
       </div>
 
       {kind === 'landing' ? (

@@ -38,13 +38,11 @@ export const PREMIUM_PRICE = {
   price: 2_990_000,
 } as const
 
-export type SiteKind = 'landing' | 'website' | 'premium' | 'dev-only' | 'vibe-fix'
+export type SiteKind = 'landing' | 'website' | 'premium'
 
-/* 견적표 맨 위 유형 고르기. landing 만 아래에서 기능을 골라 더한다.
-   build — 처음부터 새로 만드는 상품(윗줄), handoff — 이미 만든 화면·코드를 넘겨받는 상품(아랫줄) */
+/* 견적표 맨 위 유형 고르기. landing 만 아래에서 기능을 골라 더한다 */
 export const SITE_KINDS: {
   id: SiteKind
-  row?: 'handoff'
   label: string
   price: number
   tagline: string
@@ -96,27 +94,6 @@ export const SITE_KINDS: {
       '50만원 상당의 상세페이지 디자인 쿠폰 제공',
     ],
     closing: '작업양과 기능 상담 등에 따라 견적이 산정됩니다.',
-  },
-  {
-    id: 'dev-only',
-    row: 'handoff',
-    label: 'AI로 디자인한 화면, 개발만 맡기기',
-    price: 2_000_000,
-    tagline: '이미 만든 디자인을 실제로 동작하는 사이트로 개발합니다',
-    inquiryLabel: 'AI로 디자인한 화면, 개발만 맡기기',
-    includes: [
-      { title: '소스코드 리팩토링', note: '디자인 시스템 개선과 재사용성을 높인 컴포넌트화 등' },
-    ],
-    closing: '화면 수와 기능에 따라 견적이 산정됩니다.',
-  },
-  {
-    id: 'vibe-fix',
-    row: 'handoff',
-    label: '바이브코딩 결과물, 필요한 부분만 맡기기',
-    price: 500_000,
-    tagline: '직접 만든 사이트에서 막힌 부분만 이어서 개발합니다',
-    inquiryLabel: '바이브코딩 결과물, 필요한 부분만 맡기기',
-    closing: '맡기실 부분과 작업 범위를 보고 견적이 산정됩니다.',
   },
 ]
 
