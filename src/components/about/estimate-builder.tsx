@@ -10,6 +10,7 @@ import {
   ADD_ON_GROUPS,
   ESTIMATE_EVENT_LABEL,
   ESTIMATE_PRESETS,
+  LANDING_BASE_POINTS,
   LANDING_PRICE,
   SITE_KINDS,
   WEBSITE_PRICE,
@@ -111,15 +112,25 @@ export function EstimateBuilder() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-8">
         <div className="space-y-8">
           {/* 기본형 — 항상 들어가는 줄 */}
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-violet-200 bg-violet-50/60 px-5 py-4">
-            <div className="flex items-center gap-3">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">✓</span>
-              <div>
-                <p className="text-[15px] font-bold text-neutral-900">랜딩페이지 기본형</p>
-                <p className="mt-0.5 text-xs text-neutral-500">모든 견적의 시작 — 항상 포함됩니다</p>
+          <div className="rounded-2xl border border-violet-200 bg-violet-50/60 px-5 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">✓</span>
+                <div>
+                  <p className="text-[15px] font-bold text-neutral-900">랜딩페이지 기본형</p>
+                </div>
               </div>
+              <p className="shrink-0 text-[15px] font-bold tabular-nums text-neutral-900">{won(LANDING_PRICE.price)}~</p>
             </div>
-            <p className="shrink-0 text-[15px] font-bold tabular-nums text-neutral-900">{won(LANDING_PRICE.price)}~</p>
+            {/* 기본형에 들어 있는 것 — 제목 글자 줄에 맞춰 들여 쓴다 */}
+            <ul className="mt-3 grid gap-x-4 gap-y-1.5 pl-10 sm:grid-cols-2">
+              {LANDING_BASE_POINTS.map((t) => (
+                <li key={t} className="flex items-center gap-1.5 text-[12.5px] text-neutral-600">
+                  <span aria-hidden className="text-[11px] font-bold text-violet-600">✓</span>
+                  {t}
+                </li>
+              ))}
+            </ul>
           </div>
 
           {ADD_ON_GROUPS.map((group) => (

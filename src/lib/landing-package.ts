@@ -10,6 +10,14 @@ export const LANDING_PRICE = {
   caseDiscount: 100_000,
 } as const
 
+/* 소개 견적표의 '랜딩페이지 기본형' 줄 아래 짧은 목록 */
+export const LANDING_BASE_POINTS = [
+  '원페이지 최대 8섹션',
+  '반응형 (PC · 태블릿 · 모바일)',
+  '상담 문의 기능',
+  '1년 무상 배포·서버 관리',
+] as const
+
 export const LANDING_INCLUDES = [
   { title: '최대 8섹션 원페이지 반응형 웹사이트', note: 'PC·태블릿·모바일 화면에 맞춰 보입니다' },
   { title: '상담 문의 기능', note: '문의가 들어오면 이메일로 바로 받아 봅니다' },
