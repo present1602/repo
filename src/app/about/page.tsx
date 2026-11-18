@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { AboutInquiryButton } from '@/components/about-inquiry-button'
 import { DeviceMockup } from '@/components/about/device-mockup'
 import { EstimateBuilder } from '@/components/about/estimate-builder'
-import { ABOUT_INQUIRY_CATEGORY, ESTIMATE_EVENT_LABEL, LANDING_INCLUDES, LANDING_PRICE, SAMPLE_SITE_URL, won } from '@/lib/landing-package'
+import { ABOUT_INQUIRY_CATEGORY, INQUIRY_TYPES, SITE_KINDS, ESTIMATE_EVENT_LABEL, LANDING_INCLUDES, LANDING_PRICE, SAMPLE_SITE_URL, won } from '@/lib/landing-package'
 
 export const metadata: Metadata = {
   title: '소개',
@@ -309,7 +309,35 @@ function AddOns() {
           </p>
         </div>
 
-        <div className="mt-10">
+        {/* 의뢰 유형 세 가지 중 웹사이트 개발만 아래 견적표에서 세 갈래로 나뉜다 */}
+        <div className="mt-10 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 md:p-5">
+          <p className="text-xs font-semibold text-neutral-500">SOOM 의뢰 유형</p>
+          <ul className="mt-3 grid grid-cols-3 gap-2">
+            {INQUIRY_TYPES.map((t) => {
+              const here = t === ABOUT_INQUIRY_CATEGORY
+              return (
+                <li
+                  key={t}
+                  className={`relative flex min-h-11 items-center justify-center rounded-xl px-2 py-2.5 text-center text-[13px] font-semibold break-keep md:text-sm ${
+                    here ? 'bg-violet-600 text-white' : 'border border-neutral-200 bg-white text-neutral-500'
+                  }`}
+                >
+                  {t}
+                  {here && (
+                    <span aria-hidden className="absolute -bottom-2 left-1/2 size-3 -translate-x-1/2 rotate-45 bg-violet-600" />
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+          <p className="mt-4 text-[13px] leading-relaxed text-neutral-600 md:text-sm">
+            이 중 <b className="font-semibold text-violet-700">{ABOUT_INQUIRY_CATEGORY}</b>은 아래처럼{' '}
+            <b className="font-semibold text-neutral-800">{SITE_KINDS.map((k) => k.label).join(' · ')}</b>{' '}
+            세 가지로 나뉘고, 고른 유형에 따라 견적이 산정됩니다.
+          </p>
+        </div>
+
+        <div className="mt-6">
           <EstimateBuilder />
         </div>
       </div>

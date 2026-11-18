@@ -10,10 +10,13 @@ export function AboutInquiryButton({
   className,
   category,
   product,
+  productOptions,
 }: {
   className?: string
   category?: string
   product?: string
+  /* 견적표에서 더한 세부 기능 — 폼에서 고른 분야 아래 '+' 줄로 보인다 */
+  productOptions?: readonly string[]
 }) {
   const [open, setOpen] = useState(false)
 
@@ -27,7 +30,7 @@ export function AboutInquiryButton({
         프로젝트 의뢰하기
         <span aria-hidden="true" className="transition-transform group-hover:translate-x-1 motion-reduce:transform-none">→</span>
       </button>
-      {open && <InquiryModal initialCategory={category} product={product} onClose={() => setOpen(false)} />}
+      {open && <InquiryModal initialCategory={category} product={product} productOptions={productOptions} onClose={() => setOpen(false)} />}
     </>
   )
 }

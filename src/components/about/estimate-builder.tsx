@@ -7,6 +7,7 @@ import { AboutInquiryButton } from '@/components/about-inquiry-button'
 import {
   ABOUT_INQUIRY_CATEGORY,
   ADD_ONS,
+  CONSULT_NOTE,
   ADD_ON_GROUPS,
   ESTIMATE_EVENT_LABEL,
   ESTIMATE_PRESETS,
@@ -61,9 +62,8 @@ export function EstimateBuilder() {
   const range = (lo: number, hi: number) => `${won(lo)}${open || lo !== hi ? '~' : ''}`
   const finalRange = range(min - LANDING_PRICE.caseDiscount, max - LANDING_PRICE.caseDiscount)
 
-  /* 의뢰 폼에 넘길 상품 이름 — 고른 기능은 이름만 덧붙인다(금액은 상담에서 정한다) */
-  const landingProduct =
-    chosen.length > 0 ? `랜딩페이지 기본형 + ${chosen.map((a) => a.title).join(', ')}` : '랜딩페이지 기본형'
+  /* 의뢰 폼에 넘길 고른 기능 이름 — 폼에서 '랜딩페이지 기본형' 아래 '+' 줄로 보인다(금액은 상담에서 정한다) */
+  const chosenTitles = chosen.map((a) => a.title)
 
   const site = SITE_KINDS.find((k) => k.id === kind)!
 
@@ -189,7 +189,8 @@ export function EstimateBuilder() {
 
             <AboutInquiryButton
               category={ABOUT_INQUIRY_CATEGORY}
-              product={landingProduct}
+              product="랜딩페이지"
+              productOptions={chosenTitles}
               className="mt-5 w-full bg-violet-500 text-white hover:bg-violet-400"
             />
           </div>
@@ -207,7 +208,7 @@ export function EstimateBuilder() {
       </div>
         </div>
       ) : (
-        <ConsultEstimate site={site} />
+        <ConsultEstimate site={site} onShowOptions={() => setKind('landing')} />
       )}
     </div>
   )
@@ -225,7 +226,7 @@ function KindCard({ k, checked, onPick }: { k: (typeof SITE_KINDS)[number]; chec
 }
 
 /* 일반 웹사이트·프리미엄 — 고를 기능 없이 기본 제공 범위와 시작가만 보여 준다 */
-function ConsultEstimate({ site }: { site: (typeof SITE_KINDS)[number] }) {
+function ConsultEstimate({ site, onShowOptions }: { site: (typeof SITE_KINDS)[number]; onShowOptions: () => void }) {
   /* 사례 게재 할인은 웹사이트에만 있다(홈 가격 카드와 같다) */
   const discount = site.id === 'website' ? WEBSITE_PRICE.caseDiscount : 0
 
@@ -256,9 +257,17 @@ function ConsultEstimate({ site }: { site: (typeof SITE_KINDS)[number] }) {
           })}
         </ul>
 
-        {site.closing && (
-          <p className="mt-6 border-t border-violet-200 pt-5 text-[13px] leading-relaxed text-neutral-600">{site.closing}</p>
-        )}
+        {/* 랜딩페이지 옵션도 더할 수 있다 — 버튼으로 그 목록을 바로 열어 본다 */}
+        <div className="mt-6 border-t border-violet-200 pt-5">
+          <p className="text-[13px] leading-relaxed text-neutral-600">{CONSULT_NOTE}</p>
+          <button
+            type="button"
+            onClick={onShowOptions}
+            className="mt-2 text-[13px] font-semibold text-violet-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+          >
+            랜딩페이지 옵션 보기 →
+          </button>
+        </div>
       </div>
 
       <aside aria-label="예상 견적" className="lg:sticky lg:top-20">

@@ -154,10 +154,13 @@ export function InquiryModal({
   initialSample = false,
   initialPremium = true,
   product,
+  productOptions,
   onClose,
 }: {
   /* 소개 견적표에서 고른 상품 이름 — 폼에 한 줄로 보여 주고 문의내용 앞에 붙여 보낸다 */
   product?: string
+  /* 견적표에서 product 에 더한 세부 기능 이름들 — 폼에서 product 아래 '+' 줄로 보인다 */
+  productOptions?: readonly string[]
   designerId?: string
   designerName?: string
   /* 그 디자이너의 분야·범위·금액(designerChoices) — 없으면 일반 선택지를 받아 온다 */
@@ -260,7 +263,11 @@ export function InquiryModal({
      서버가 같은 접수로 보고 두 번 저장하지 않는다(012_inquiries.sql). */
   const [submitKey] = useState(() => crypto.randomUUID())
 
-  const estimatePrefix = product ? `[선택한 상품] ${product}\n\n` : ''
+  /* 견적표 구성은 견적표가 골라 둔 분야일 때만 — 의뢰 중에 다른 분야로 바꾸면 보이지도, 보내지도 않는다 */
+  const showProduct = !!product && (!initialCategory || cat?.name === initialCategory)
+  const estimatePrefix = showProduct
+    ? `[선택한 상품] ${[product, productOptions?.join(', ')].filter(Boolean).join(' + ')}\n\n`
+    : ''
 
   const send = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -397,6 +404,22 @@ export function InquiryModal({
                     ))}
                   </div>
                 </fieldset>
+              )}
+
+              {/* 견적표에서 고른 구성 — 고른 분야(웹사이트 개발) 바로 아래에 '+' 로 붙인다.
+                  바꾸려면 창을 닫고 견적표에서 다시 고른다 */}
+              {showProduct && (
+                <div className="-mt-2 rounded-lg border border-violet-200 bg-violet-50/60 px-3.5 py-3">
+                  <p className="text-[11px] font-medium text-violet-700">견적표에서 고른 구성</p>
+                  <ul className="mt-1.5 space-y-1 text-sm">
+                    <li className="font-semibold break-keep text-neutral-900">+ {product}</li>
+                    {productOptions?.map((o) => (
+                      <li key={o} className="pl-3.5 break-keep text-neutral-700">
+                        + {o}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
               {/* 2차 — 그 분야가 받는 범위. 분야를 골라야 열린다.
@@ -545,14 +568,6 @@ export function InquiryModal({
                   </p>
                 </fieldset>
               )}
-            </div>
-          )}
-
-          {/* 견적표에서 고른 상품 — 이름 한 줄만. 바꾸려면 창을 닫고 견적표에서 다시 고른다 */}
-          {product && (
-            <div className="mt-6 flex items-start gap-3 rounded-lg bg-neutral-100 px-3 py-2.5">
-              <span className="shrink-0 pt-px text-xs font-medium text-neutral-500">선택한 상품</span>
-              <span className="min-w-0 flex-1 text-right text-sm font-medium break-keep">{product}</span>
             </div>
           )}
 

@@ -48,8 +48,6 @@ export const SITE_KINDS: {
   tagline: string
   /* website·premium — 기본 제공 범위. note 는 그 줄 아래 작은 회색 글씨 */
   includes?: readonly (string | { title: string; note: string })[]
-  /* website·premium — 견적 안내 */
-  closing?: string
   /* website·premium — 의뢰 폼 '견적표에서 고른 구성'에 들어가는 이름 */
   inquiryLabel?: string
 }[] = [
@@ -57,7 +55,7 @@ export const SITE_KINDS: {
     id: 'landing',
     label: '랜딩페이지',
     price: LANDING_PRICE.price,
-    tagline: '기본형에 필요한 기능만 골라 더합니다',
+    tagline: '랜딩페이지는 기본적으로 원페이지 반응형 웹사이트입니다.',
   },
   {
     id: 'website',
@@ -77,7 +75,6 @@ export const SITE_KINDS: {
       },
       '반응형 (PC · 태블릿 · 모바일)',
     ],
-    closing: '맞춤형 관리 기능 등 원하는 기능들을 선택하실 수 있고, 기능과 작업범위에 따라 견적이 산정됩니다.',
   },
   {
     id: 'premium',
@@ -93,13 +90,19 @@ export const SITE_KINDS: {
       '반응형 (PC · 태블릿 · 모바일)',
       '50만원 상당의 상세페이지 디자인 쿠폰 제공',
     ],
-    closing: '작업양과 기능 상담 등에 따라 견적이 산정됩니다.',
   },
 ]
 
 /* 소개 화면 '의뢰하기'가 골라 두는 의뢰 분야 — 어드민 분야 이름과 같아야 한다.
    이름이 바뀌어 못 찾으면 고르지 않은 채 열릴 뿐 의뢰는 그대로 된다 */
-export const ABOUT_INQUIRY_CATEGORY = '홈페이지/반응형웹'
+export const ABOUT_INQUIRY_CATEGORY = '웹사이트 개발'
+
+/* 소개 화면에 보여 주는 SOOM 의뢰 유형 — 이 중 웹사이트 개발만 견적표(SITE_KINDS)로 나뉜다 */
+export const INQUIRY_TYPES = ['앱 디자인', ABOUT_INQUIRY_CATEGORY, '상세페이지 디자인'] as const
+
+/* 웹사이트·프리미엄 견적 안내 — 랜딩페이지 옵션도 더할 수 있음을 알린다 */
+export const CONSULT_NOTE =
+  '실제 개발 시 "랜딩페이지"에 기재된 옵션들도 모두 추가할 수 있으며, 작업범위에 따라 구체적인 견적이 산정됩니다.'
 
 export type AddOnGroup = 'content' | 'customer' | 'custom'
 
