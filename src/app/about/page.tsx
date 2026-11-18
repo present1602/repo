@@ -301,7 +301,7 @@ function LandingPackage() {
   )
 }
 
-/* 앱 디자인 — 화면만이 아니라 UX 설계부터 한다는 점을 실제 작업 한 장으로 보여 준다 */
+/* 앱디자인/개발 — 화면만이 아니라 UX 설계부터 한다는 점을 실제 작업 한 장으로 보여 준다 */
 function AppDesign() {
   return (
     <section
@@ -311,17 +311,27 @@ function AppDesign() {
     >
       <div className={`${container} grid items-center gap-10 py-16 md:py-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16`}>
         <div>
-          <p className={eyebrow}>APP DESIGN</p>
+          <p className={eyebrow}>APP DESIGN · DEVELOPMENT</p>
           <h2
             id="service-app-title"
             className="mt-4 text-[clamp(1.75rem,3vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]"
           >
-            앱 디자인
+            앱디자인/개발
           </h2>
           <p className="mt-5 max-w-md text-[17px] font-semibold leading-relaxed text-neutral-800 md:text-lg">
             단순한 화면 디자인이 아닌,
             <br />
             <span className="text-violet-600">UX 설계 경험이 있는 전문 디자이너</span>가 디자인합니다.
+          </p>
+          {/* 개발 방식 — 디자인 문장보다 한 단계 낮춰 덧붙인다 */}
+          <p className="mt-4 flex max-w-md items-start gap-2.5 text-[15px] leading-relaxed text-neutral-600">
+            <span aria-hidden className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-md bg-violet-600 font-mono text-[9px] font-bold text-white">
+              {'</>'}
+            </span>
+            <span>
+              크로스플랫폼 앱개발(리액트네이티브)과 웹뷰 방식 혼합으로
+              유연하고 효율적으로 개발합니다.
+            </span>
           </p>
           <div className="mt-8">
             <AboutInquiryButton category={APP_INQUIRY_CATEGORY} />

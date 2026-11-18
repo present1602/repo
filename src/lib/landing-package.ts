@@ -99,12 +99,12 @@ export const ABOUT_INQUIRY_CATEGORY = '웹사이트 개발'
    이 중 웹사이트 개발만 견적표(SITE_KINDS)로 나뉜다 */
 export const SERVICES = [
   { id: 'service-website', label: '웹사이트 개발' },
-  { id: 'service-app', label: '앱 디자인' },
+  { id: 'service-app', label: '앱디자인/개발' },
   { id: 'service-detail', label: '상세페이지 디자인' },
 ] as const
 
 /* 앱·상세페이지 구역의 '의뢰하기'가 골라 둘 분야 — 어드민 분야 이름과 같아야 한다 */
-export const APP_INQUIRY_CATEGORY = '모바일앱(디자인)'
+export const APP_INQUIRY_CATEGORY = '앱디자인/개발'
 export const DETAIL_INQUIRY_CATEGORY = '상세페이지'
 
 /* 상세페이지 구역에 띄우는 모션배너 예시(유튜브 쇼츠 id) */
