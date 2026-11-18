@@ -29,7 +29,7 @@ export const LANDING_INCLUDES = [
    홈 가격 카드(app/page.tsx)와 소개 견적표가 같은 숫자를 쓴다. */
 export const WEBSITE_PRICE = {
   was: 1_490_000,
-  price: 890_000,
+  price: 990_000,
   caseDiscount: 100_000,
 } as const
 
