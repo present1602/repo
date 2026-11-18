@@ -70,25 +70,19 @@ export function EstimateBuilder() {
   return (
     <div>
       {/* 유형 — 랜딩페이지만 아래에서 기능을 고른다 */}
-      <div role="radiogroup" aria-label="사이트 유형" className="grid gap-2.5 sm:grid-cols-3">
-        {SITE_KINDS.map((k) => (
-          <label
-            key={k.id}
-            className="flex cursor-pointer flex-col rounded-2xl border border-neutral-200 bg-white px-4 py-3.5 transition hover:border-violet-300 has-checked:border-violet-600 has-checked:bg-violet-50 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-violet-500"
-          >
-            <input
-              type="radio"
-              name="site-kind"
-              value={k.id}
-              checked={kind === k.id}
-              onChange={() => setKind(k.id)}
-              className="sr-only"
-            />
-            <span className="text-[15px] font-bold leading-snug text-neutral-900">{k.label}</span>
-            <span className="mt-1 text-xs leading-relaxed text-neutral-500">{k.tagline}</span>
-            <span className="mt-2 text-sm font-bold tabular-nums text-violet-700">{won(k.price)}~</span>
-          </label>
-        ))}
+      {/* 윗줄은 새로 만드는 상품, 아랫줄은 이미 만든 화면·코드를 넘겨받는 상품 — 한 라디오 묶음이다 */}
+      <div role="radiogroup" aria-label="사이트 유형">
+        <div className="grid gap-2.5 sm:grid-cols-3">
+          {SITE_KINDS.filter((k) => !k.row).map((k) => (
+            <KindCard key={k.id} k={k} checked={kind === k.id} onPick={() => setKind(k.id)} />
+          ))}
+        </div>
+        <p className="mt-5 mb-2 text-xs font-semibold text-neutral-500">이미 만든 화면이 있다면</p>
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {SITE_KINDS.filter((k) => k.row === 'handoff').map((k) => (
+            <KindCard key={k.id} k={k} checked={kind === k.id} onPick={() => setKind(k.id)} />
+          ))}
+        </div>
       </div>
 
       {kind === 'landing' ? (
@@ -217,6 +211,17 @@ export function EstimateBuilder() {
         <ConsultEstimate site={site} />
       )}
     </div>
+  )
+}
+
+function KindCard({ k, checked, onPick }: { k: (typeof SITE_KINDS)[number]; checked: boolean; onPick: () => void }) {
+  return (
+    <label className="flex cursor-pointer flex-col rounded-2xl border border-neutral-200 bg-white px-4 py-3.5 transition hover:border-violet-300 has-checked:border-violet-600 has-checked:bg-violet-50 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-violet-500">
+      <input type="radio" name="site-kind" value={k.id} checked={checked} onChange={onPick} className="sr-only" />
+      <span className="text-[15px] font-bold leading-snug break-keep text-neutral-900">{k.label}</span>
+      <span className="mt-1 text-xs leading-relaxed text-neutral-500">{k.tagline}</span>
+      <span className="mt-2 text-sm font-bold tabular-nums text-violet-700">{won(k.price)}~</span>
+    </label>
   )
 }
 
