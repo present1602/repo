@@ -89,7 +89,7 @@ export function HomeCta({ prices }: { prices: HomePrice[] }) {
             </button>
 
             <div className="mt-4 space-y-0.5 text-center text-xs leading-relaxed text-neutral-400">
-              {discount != null && <p>추가 할인은 사례 게재에 동의하시면 적용됩니다</p>}
+              {discount != null && <p>10만원 추가 할인은 오픈 이벤트 사례 게재 조건부로 적용되는 한시적인 이벤트 할인입니다.</p>}
               <p>개발 범위에 따라 가격이 달라집니다</p>
             </div>
           </div>
