@@ -65,7 +65,7 @@ export const SITE_KINDS: {
     inquiryLabel: '일반 웹사이트 / 기업형 홈페이지',
     includes: [
       {
-        title: '총 40페이지 이내',
+        title: '총 30페이지 이내',
         note: '15페이지 이상 시 추가비용이 발생할 수 있습니다(관리자페이지 제외).',
       },
       'FAQ 관리 · 팝업 · 기본 관리자페이지',
