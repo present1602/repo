@@ -73,11 +73,12 @@ export function DetailShowcase() {
       const w = phone.offsetWidth
       const h = phone.offsetHeight
       const cx = stage.clientWidth * (wide ? 0.48 : 0.5)
-      /* 좁은 화면은 무대 가운데까지 끌어올리면 케이스를 덮으며 위로 튀어 오른다 —
-         제자리에서 무대 높이의 6% 만 살짝 올리고 조금만 키운다 */
-      const cy = wide ? stage.clientHeight / 2 : phone.offsetTop + h / 2 - stage.clientHeight * 0.06
-      /* 무대 높이의 92% 안에서 가장 크게 — 넓은 화면 1.5배, 좁은 화면 1.12배까지 */
-      const scale = Math.max(1, Math.min(wide ? 1.5 : 1.12, (stage.clientHeight * 0.92) / h))
+      /* 무대 높이의 92% 안에서 가장 크게 — 넓은 화면 1.5배, 좁은 화면 1.38배까지 */
+      const scale = Math.max(1, Math.min(wide ? 1.5 : 1.38, (stage.clientHeight * 0.92) / h))
+      /* 좁은 화면은 제자리에서 가운데를 축으로 커진다 — 위로 끌어올리면 위쪽 케이스를 덮고,
+         아래로만 키우면 너무 내려간다. 커진 만큼 무대 밑으로 내려오므로
+         의뢰 버튼을 띄워 둔다(about/page.tsx 의 mt-20) */
+      const cy = wide ? stage.clientHeight / 2 : phone.offsetTop + h / 2
       phone.style.transform = `translate(${cx - (phone.offsetLeft + w / 2)}px, ${cy - (phone.offsetTop + h / 2)}px) scale(${scale})`
 
       cases.forEach((c, i) => {

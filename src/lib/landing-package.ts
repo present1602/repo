@@ -65,8 +65,8 @@ export const SITE_KINDS: {
     inquiryLabel: '일반 웹사이트 / 기업형 홈페이지',
     includes: [
       {
-        title: '총 40페이지 이내 범위까지 기본 개발 제공',
-        note: '10페이지 이상 시 추가비용이 발생할 수 있습니다 (관리자를 제외한 고객단 페이지 수 기준)',
+        title: '총 40페이지 이내',
+        note: '15페이지 이상 시 추가비용이 발생할 수 있습니다(관리자페이지 제외).',
       },
       'FAQ 관리 · 팝업 · 기본 관리자페이지',
       {
@@ -83,7 +83,7 @@ export const SITE_KINDS: {
     tagline: '기획부터 기능까지 원하는 대로 맞춰 만듭니다',
     inquiryLabel: '프리미엄 맞춤형 홈페이지',
     includes: [
-      '페이지 수 무제한',
+      '페이지 수 제한없음',
       '고도화된 설계가 요구되는 기능도 맞춤 기획/개발',
       '반응형 (PC · 태블릿 · 모바일)',
       '50만원 상당의 상세페이지 디자인 쿠폰 제공',
@@ -135,8 +135,8 @@ export type AddOn = {
 
 export const ADD_ON_GROUPS: { id: AddOnGroup; label: string; hint: string }[] = [
   { id: 'content', label: '콘텐츠를 직접 관리하고 싶다면,', hint: '관리자페이지' },
-  { id: 'customer', label: '고객을 모으고 싶다면', hint: '구독 · 메일 · 회원' },
-  { id: 'custom', label: '우리 업종에 꼭 맞는 기능이 필요하다면', hint: '프리미엄 맞춤 개발' },
+  { id: 'customer', label: '고객관리가 필요하다면,', hint: '구독 · 메일 · 회원' },
+  { id: 'custom', label: '원하는 기능만 추가할 수 있어요', hint: '' },
 ]
 
 export const ADD_ONS: readonly AddOn[] = [
@@ -191,7 +191,7 @@ export const ADD_ONS: readonly AddOn[] = [
     title: '챗봇 기능',
     price: 250_000,
     startingAt: true,
-    summary: '방문자의 자주 묻는 질문에 사이트가 바로 답합니다. 예약 연동 등 맞춤형 기능 혼합도 가능합니다.',
+    summary: '잘 만든 챗봇 하나면, 사장님의 문의 응대 업무시간을 크게 줄여줄 수 있어요. 예약 연동 등 맞춤 기능 연동도 가능합니다.',
     points: ['기본 관리자페이지 제공'],
   },
   {

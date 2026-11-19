@@ -82,7 +82,7 @@ const STEPS = [
     title: '의뢰·상담 & 디자이너 선정',
     description: '필요한 작업과 브랜드의 방향을 함께 정리합니다.\n디자이너를 직접 선택해 의뢰도 가능합니다.',
   },
-  { title: '디자인 · 개발', description: '전문 디자이너가 AI를 활용해 화면과 기능을 구현합니다.' },
+  { title: '디자인 · 개발', description: '' },
   { title: '검수 · 배포', description: '개발자의 코드·기능 검수를 거쳐 서비스를 공개합니다.' },
 ]
 
@@ -154,19 +154,12 @@ export default function AboutPage() {
         <DetailDesign />
       </div>
 
-      <section aria-labelledby="about-process-title" className="border-y border-neutral-200 bg-[#f8f8fa]">
+      {/* <section aria-labelledby="about-process-title" className="border-y border-neutral-200 bg-[#f8f8fa]">
         <div className={`${container} py-16 md:py-20`}>
           <div className="grid gap-5 lg:grid-cols-2 lg:items-end lg:gap-16">
             <div>
               <p className={eyebrow}>HOW WE WORK</p>
-              {/* <h2 id="about-process-title" className="mt-4 text-[clamp(1.625rem,2.6vw,2.25rem)] font-bold leading-snug tracking-[-0.035em]">
-                의뢰부터, 완성까지.
-              </h2> */}
             </div>
-            {/* <p className="max-w-md text-[15px] leading-[1.85] text-neutral-600">
-              브랜드에 맞는 디자이너를 찾는 일부터 시작합니다.
-              방향을 맞춘 뒤 디자인과 개발, 검수까지 이어갑니다.
-            </p> */}
           </div>
           <ol className="mt-10 grid gap-x-8 gap-y-7 md:grid-cols-3">
             {STEPS.map((step, index) => (
@@ -178,7 +171,7 @@ export default function AboutPage() {
             ))}
           </ol>
         </div>
-      </section>
+      </section> */}
 
       <section aria-labelledby="about-responsibility-title" className="bg-[#19172a] text-white">
         <div className={`${container} py-16 md:py-20`}>
@@ -361,8 +354,9 @@ function AppDesign() {
 
 /* 상세페이지 디자인 — 왼쪽 글, 오른쪽 그림 무대(케이스 두 장 + 모션배너, detail-showcase.tsx).
 
-   좁은 화면 차례: 글 → 그림 무대 → 의뢰 버튼(order).
-   글 묶음은 좁은 화면에서 contents 로 풀려 그 안의 버튼만 맨 아래로 내려간다 */
+   글 차례: 소개 문장 → 의뢰 버튼 → 다루는 종류 뱃지.
+   좁은 화면에서도 버튼이 문장 바로 아래에 와서, 그림 무대까지 내려가지
+   않아도 의뢰할 수 있다. */
 function DetailDesign() {
   return (
     <section
@@ -371,34 +365,32 @@ function DetailDesign() {
       className="scroll-mt-32 overflow-hidden border-t border-neutral-200 bg-[#fbf7f8]"
     >
       <div className={`${container} grid gap-10 py-16 md:py-24 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-12`}>
-        <div className="contents lg:block">
-          <div className="order-1">
-            <p className={eyebrow}>DETAIL PAGE</p>
-            <h2
-              id="service-detail-title"
-              className="mt-4 text-[clamp(1.75rem,3vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]"
-            >
-              상세페이지 디자인
-            </h2>
-            <p className="mt-5 max-w-md text-[17px] font-semibold leading-relaxed text-neutral-800 md:text-lg">
-              제품의 매력을 한눈에 담은 상세페이지부터,
-              <br />
-              <span className="text-violet-600">다이나믹한 모션배너</span>까지 의뢰할 수 있습니다.
-            </p>
-            <ul className="mt-5 flex flex-wrap gap-2">
-              {['상세페이지', '썸네일', '모션배너'].map((t) => (
-                <li key={t} className="rounded-full border border-violet-100 bg-white px-3 py-1 text-xs font-semibold text-violet-700">
-                  {t}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="order-3 lg:mt-8">
+        <div>
+          <p className={eyebrow}>DETAIL PAGE</p>
+          <h2
+            id="service-detail-title"
+            className="mt-4 text-[clamp(1.75rem,3vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]"
+          >
+            상세페이지 디자인
+          </h2>
+          <p className="mt-5 max-w-md text-[17px] font-semibold leading-relaxed text-neutral-800 md:text-lg">
+            제품의 매력을 한눈에 담은 상세페이지부터,
+            <br />
+            <span className="text-violet-600">다이나믹한 모션배너</span>까지 의뢰할 수 있습니다.
+          </p>
+          <div className="mt-6 lg:mt-8">
             <AboutInquiryButton category={DETAIL_INQUIRY_CATEGORY} />
           </div>
+          <ul className="mt-5 flex flex-wrap gap-2">
+            {['상세페이지', '모션배너'].map((t) => (
+              <li key={t} className="rounded-full border border-violet-100 bg-white px-3 py-1 text-xs font-semibold text-violet-700">
+                {t}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <div className="order-2 mx-auto w-full max-w-md lg:max-w-none">
+        <div className="mx-auto w-full max-w-md lg:max-w-none">
           <DetailShowcase />
         </div>
       </div>

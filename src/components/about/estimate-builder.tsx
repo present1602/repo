@@ -184,7 +184,7 @@ export function EstimateBuilder() {
 
             {/* 금액을 다 본 뒤, 의뢰 버튼을 누르기 직전에 읽히는 자리 */}
             <p className="mt-4 text-[11.5px] leading-relaxed text-white/50">
-              **구체적인 금액은 세부기능 요구사항에 따라 책정됩니다.
+              **정확한 견적은 세부기능 요구사항에 따라 협의 후 확정됩니다.
             </p>
 
             <AboutInquiryButton
