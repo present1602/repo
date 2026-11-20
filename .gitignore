@@ -1,8 +1,9 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# 모노레포 — 앞에 / 를 붙이지 않은 규칙은 apps/* 아래 어디에서든 적용된다.
 
 # dependencies
-/node_modules
-/.pnp
+node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -11,14 +12,15 @@
 !.yarn/versions
 
 # testing
-/coverage
+coverage/
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
-/build
+build/
+dist/
 
 # misc
 .DS_Store
@@ -32,14 +34,17 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
 
+# turbo
+.turbo
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-!.env.example
 
 # 참고용으로 클론해둔 별도 저장소 — 이 저장소에 포함하지 않는다
 /ref/
@@ -47,8 +52,8 @@ next-env.d.ts
 # Claude Code 개인 설정
 .claude/settings.local.json
 
-# pdf.js wasm·폰트 (scripts/copy-pdfjs-assets.mjs 가 npm install 때 복사)
-/public/pdfjs/
+# pdf.js wasm·폰트 (apps/web/scripts/copy-pdfjs-assets.mjs 가 설치 때 복사)
+/apps/web/public/pdfjs/
 
 # Playwright MCP 가 테스트하며 남기는 스크린샷·로그
-/.playwright-mcp/
+.playwright-mcp/

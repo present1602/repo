@@ -1,0 +1,5 @@
+# 서비스마다 폴더 하나 — 서로 import 하지 않는다(AGENTS.md).
+# apps/marketing/* 는 console·worker·core 가 생기면 잡힌다.
+packages:
+  - "apps/web"
+  - "apps/marketing/*"

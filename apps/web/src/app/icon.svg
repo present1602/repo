@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="soom" x1="8" y1="0" x2="56" y2="64" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7c3aed" />
-      <stop offset="1" stop-color="#3b82f6" />
+      <stop stop-color="#8f4a63" />
+      <stop offset="1" stop-color="#5b2a3d" />
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="16" fill="url(#soom)" />
-  <path d="M44 17H28C22 17 18 20 18 25S22 32 28 32H36C42 32 46 35 46 40S42 47 36 47H20" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M44 17H28C22 17 18 20 18 25S22 32 28 32H36C42 32 46 35 46 40S42 47 36 47H20" fill="none" stroke="#f8f4ef" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
 </svg>
