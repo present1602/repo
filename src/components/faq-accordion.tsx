@@ -27,26 +27,20 @@ export function FaqAccordion({ faqs }: { faqs: Faq[] }) {
   }
 
   return (
-    <div ref={root} className="divide-y divide-neutral-200">
-      {faqs.map((f) => (
-        <details key={f.id} onToggle={closeOthers} className="group py-5">
-          <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-left">
-            <span className="text-base font-semibold">{f.question}</span>
-            {/* 펼침 표시 — 열리면 180도 돈다 */}
-            <svg
-              viewBox="0 0 24 24"
-              className="mt-1 size-5 shrink-0 text-neutral-400 transition group-open:rotate-180"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
+    <div ref={root} className="divide-y divide-line border-y border-ink">
+      {faqs.map((f, i) => (
+        <details key={f.id} onToggle={closeOthers} className="group">
+          <summary className="grid cursor-pointer list-none grid-cols-[2.5rem_1fr_auto] items-start gap-3 py-6 text-left [&::-webkit-details-marker]:hidden md:grid-cols-[3.5rem_1fr_auto]">
+            <span className="font-serif text-xl leading-7 italic text-plum">{String(i + 1).padStart(2, '0')}</span>
+            <span className="text-base leading-7 font-semibold tracking-[-0.02em] transition group-hover:text-plum md:text-[17px]">{f.question}</span>
+            {/* 펼침 표시 — 더하기가 열리면 빼기로 바뀐다 */}
+            <span aria-hidden className="relative mt-1.5 grid size-5 shrink-0 place-items-center text-ink-soft">
+              <span className="absolute h-px w-3.5 bg-current" />
+              <span className="absolute h-3.5 w-px bg-current transition group-open:rotate-90 group-open:opacity-0" />
+            </span>
           </summary>
           {/* 줄바꿈을 적은 그대로 내보낸다(어드민 안내 문구와 같은 약속) */}
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-neutral-600">
+          <p className="-mt-2 whitespace-pre-wrap pb-7 pl-[3.25rem] pr-8 text-sm leading-[1.85] text-ink-soft md:pl-[4.25rem]">
             {f.answer}
           </p>
         </details>

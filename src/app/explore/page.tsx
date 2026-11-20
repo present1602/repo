@@ -32,11 +32,11 @@ export default function ExplorePage() {
 
 function ExploreLoading() {
   return (
-    <div className="grid min-h-[calc(100vh-3.5rem)] place-items-center bg-neutral-100">
+    <div className="grid min-h-[calc(100vh-3.5rem)] place-items-center bg-paper">
       <div
         role="status"
         aria-label="불러오는 중"
-        className="size-7 animate-spin rounded-full border-[3px] border-neutral-300 border-t-violet-600"
+        className="size-7 animate-spin rounded-full border-[3px] border-line border-t-plum"
       />
     </div>
   )

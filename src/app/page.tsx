@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import { HomeFeed } from '@/components/home-feed'
 import { HomeCta, type HomePrice } from '@/components/home-cta'
 import { PriceStack } from '@/components/price-stack'
@@ -12,20 +12,15 @@ import { listRecentWorks } from '@/lib/public-designers'
 import { listActivePopups } from '@/lib/popups-db'
 import { SitePopups } from '@/components/site-popup'
 import { AboutInquiryButton } from '@/components/about-inquiry-button'
+import { HeroCollage } from '@/components/home/hero-collage'
+
 /* 홈에 띄우는 작업 수.
 
    지금은 "최신 40장"으로 고정한다. 어드민이 노출할 작업을 직접 고르는
    기능은 나중에 붙이고, 그때도 이 화면은 listRecentWorks 자리만 바뀐다. */
 const FEED_LIMIT = 40
 
-/* 히어로에 띄우는 시작가.
-
-   예전에는 plans.ts 의 가장 낮은 디자인 플랜 금액(DEFAULT_DESIGN_PRICE)을
-   그대로 썼지만, 그 금액은 '메인 시안 먼저' 플랜의 값이었다. 그 흐름을
-   접으면서 홈이 내세우는 상품이 랜딩페이지·웹사이트 제작으로 바뀌었다.
-
-   지금은 화면에 보여줄 안내 금액이라 여기 적어 둔다. 어드민에서 고치는
-   값으로 옮길 때는 site-settings 에 칸을 만들어 이 상수를 대체한다.
+/* 홈이 내세우는 상품 — 히어로 이벤트 띠·플랜 카드·의뢰 띠가 같이 쓴다.
 
    was 는 할인 전 금액(줄을 긋는다), price 는 정상가, caseDiscount 는 사례
    게재에 동의하면 더 깎아 주는 금액이다 — 최종가는 price - caseDiscount.
@@ -36,8 +31,9 @@ const PRICES: HomePrice[] = [
     /* 소개 화면 견적표와 같은 숫자를 쓴다(landing-package.ts) */
     ...LANDING_PRICE,
     startingAt: true,
-    /* 포함 내용도 소개 화면 '랜딩페이지 기본형'과 같은 목록을 쓴다 */
-    /* 다른 플랜 카드처럼 반응형 줄을 따로 둔다 — 첫 줄 바로 아래 */
+    description: '가게 소개와 상담 문의를 한 페이지에 담는 원페이지 홈페이지입니다.',
+    /* 포함 내용도 소개 화면 '랜딩페이지 기본형'과 같은 목록을 쓴다.
+       다른 플랜 카드처럼 반응형 줄을 따로 둔다 — 첫 줄 바로 아래 */
     items: LANDING_INCLUDES.map((i): string => i.title).toSpliced(1, 0, '반응형 (PC·모바일)'),
   },
   {
@@ -58,42 +54,60 @@ const PRICES: HomePrice[] = [
 
 const EVENT_PRICES = PRICES.filter((p) => p.caseDiscount != null)
 
+/* 히어로 띠에서 상품 이름을 짧게 — 카드 제목은 그대로 둔다 */
+const SHORT_LABEL: Record<string, string> = {
+  '일반 웹사이트/기업형 홈페이지': '업체 웹사이트 · 기업형',
+}
+
+const wrap = 'mx-auto max-w-[1240px] px-5 md:px-8'
+
 export default function Home() {
   return (
-    <main className="flex-1 bg-white">
-      {/* 히어로의 '작업 보기'(#works)가 부드럽게 내려가게 — 이 화면에서만 켠다 */}
+    <main className="flex-1 bg-paper text-ink">
+      {/* 히어로의 '플랜과 가격 보기'(#plans)가 부드럽게 내려가게 — 이 화면에서만 켠다 */}
       <HtmlClass names={['smooth-anchor']} />
       <Hero />
-      <HomePlans />
+      <Promises />
 
-      {/* scroll-mt — 상단 헤더가 sticky 라 앵커로 내려오면 제목이 그 밑에 깔린다.
-          헤더 높이(h-14 = 3.5rem)만큼 미리 띄워 둔다. */}
-      <section id="works" className="mx-auto max-w-7xl scroll-mt-14 px-4 pt-16 pb-16 md:px-8 md:pb-20">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <h2 className="text-xl font-bold tracking-tight md:text-2xl">SOOM 디자이너들의 작업</h2>
-          <ExploreLink className="shrink-0 text-sm text-neutral-500 transition hover:text-neutral-900">
-            전체 디자이너 →
-          </ExploreLink>
+      {/* scroll-mt — 상단 헤더가 sticky 라 앵커로 내려오면 제목이 그 밑에 깔린다 */}
+      <section id="works" aria-labelledby="works-title" className="scroll-mt-16 py-16 md:py-24">
+        <div className={wrap}>
+          <SectionHead
+            eyebrow="Our designers' works"
+            titleId="works-title"
+            title="SOOM 디자이너들의 작업"
+            accent="Find your mood."
+            side={
+              <>
+                <p>업종과 분위기가 비슷한 작업을 먼저 살펴보고, 마음에 드는 디자이너에게 바로 의뢰하세요.</p>
+                <ExploreLink className="group inline-flex min-h-11 items-center gap-3 border border-ink px-4 text-[13px] font-semibold text-ink transition hover:bg-ink hover:text-paper">
+                  전체 디자이너 보기
+                  <span aria-hidden className="font-serif text-lg leading-none transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">↗</span>
+                </ExploreLink>
+              </>
+            }
+          />
+
+          {/* 피드는 캐시하지 않는다 — 디자이너가 작업을 올리거나 프로필을 숨기면
+              곧 반영돼야 한다. 대신 Suspense 로 감싸 히어로가 먼저 나가게 한다.
+              공개 전에는 흐린 임시 이미지 위에 공개 예정 문구를 띄운다(works-teaser.tsx) */}
+          {PRE_LAUNCH ? (
+            <WorksTeaser />
+          ) : (
+            <Suspense fallback={<FeedSkeleton />}>
+              <Feed />
+            </Suspense>
+          )}
         </div>
-
-        {/* 피드는 캐시하지 않는다 — 디자이너가 작업을 올리거나 프로필을 숨기면
-            곧 반영돼야 한다. 대신 Suspense 로 감싸 히어로가 먼저 나가게 한다
-            (탐색 화면과 같은 방식). */}
-        {/* 공개 전에는 흐린 임시 이미지 위에 공개 예정 문구를 띄운다(works-teaser.tsx) */}
-        {PRE_LAUNCH ? (
-          <WorksTeaser />
-        ) : (
-          <Suspense fallback={<FeedSkeleton />}>
-            <Feed />
-          </Suspense>
-        )}
       </section>
 
-      {/* 작업을 쭉 본 뒤 바로 의뢰로 넘어가는 자리 — 푸터 바로 위에 둔다 */}
+      <Process />
+      <HomePlans />
+
+      {/* 작업·플랜을 쭉 본 뒤 바로 의뢰로 넘어가는 자리 — 푸터 바로 위에 둔다 */}
       <HomeCta prices={EVENT_PRICES} />
 
-      {/* 디자인이 아니라 개발을 찾아온 손님을 받는 자리 — 의뢰 띠 바로 아래,
-          푸터 위에 둔다. 의뢰 띠 안에 섞으면 가격·버튼에 묻힌다. */}
+      {/* 디자인이 아니라 개발을 찾아온 손님을 받는 자리 */}
       <AgencyBanner />
 
       {/* 팝업은 게시 기간을 현재 시각으로 거르므로 요청마다 묻는다 —
@@ -115,134 +129,231 @@ async function Feed() {
   return <HomeFeed works={works} />
 }
 
+/* 섹션 공통 머리말 — 왼쪽 제목(+ 이탤릭 영문), 오른쪽 설명 */
+function SectionHead({
+  eyebrow,
+  titleId,
+  title,
+  accent,
+  side,
+}: {
+  eyebrow: string
+  titleId: string
+  title: string
+  accent: string
+  side?: ReactNode
+}) {
+  return (
+    <div className="mb-9 grid gap-4 md:mb-11 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:items-end md:gap-8">
+      <div>
+        <p className="eyebrow">{eyebrow}</p>
+        <h2 id={titleId} className="mt-3.5 text-[clamp(1.6rem,3vw,2.35rem)] leading-[1.3] font-medium tracking-[-0.04em]">
+          {title}
+          <span className="serif-i block text-[1.3em] leading-[1.1]">{accent}</span>
+        </h2>
+      </div>
+      {side && <div className="grid justify-items-start gap-4 text-sm leading-[1.85] text-ink-soft">{side}</div>}
+    </div>
+  )
+}
+
 function Hero() {
   return (
-    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-linear-to-b from-[#f6f3ff] via-[#fcfbff] to-white">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_15%_15%,rgb(221_214_254/0.45),transparent_50%),radial-gradient(ellipse_at_90%_45%,rgb(237_233_254/0.6),transparent_45%)]" />
-      <div aria-hidden="true" className="pointer-events-none absolute -left-64 -top-96 -z-10 size-[40rem] rounded-full border border-white/80 bg-white/25 md:-left-40" />
+    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden">
+      {/* 오른쪽 위에서 아주 옅게 번지는 장밋빛 — 아이보리 바탕이 납작해 보이지 않게 */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_85%_20%,rgb(236_217_212/0.55),transparent_55%)]" />
 
-      <div className="mx-auto max-w-6xl px-5 pb-14 pt-14 text-center md:px-8 md:pb-16 md:pt-20">
-        <span className="inline-flex items-center gap-2 rounded-full border border-violet-200/70 bg-white/80 px-3.5 py-1.5 text-[11px] font-bold tracking-[0.08em] text-violet-700">
-          <span className="size-1.5 rounded-full bg-violet-500" /> DESIGN &amp; DEV
-        </span>
+      <div className={`${wrap} grid items-center gap-12 pb-12 pt-12 md:pt-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-14 lg:pb-16 lg:pt-20`}>
+        <div>
+          <p className="eyebrow">With AI efficiency</p>
+          {/* 넓은 화면에서는 시안처럼 두 줄로 고정한다 — 글자 크기를 칸 폭에 맞춰 잡았다 */}
+          <h1 id="hero-title" className="mt-5 text-[1.55rem] leading-[1.32] min-[400px]:text-[1.7rem] sm:text-[clamp(1.75rem,3.3vw,2.6rem)] font-medium tracking-[-0.045em] text-ink">
+            <span className="sm:whitespace-nowrap">고객을 유입시키는 전문</span>
+            <br />
+            <span className="sm:whitespace-nowrap">디자이너의 감각을 담은 홈페이지</span>
+            <span className="serif-i mt-1 block text-[1.6em] leading-[1.1]">by designers,</span>
+          </h1>
 
-        <h1 id="hero-title" className="mt-6 text-[1.9rem] font-bold leading-[1.3] tracking-[-0.045em] text-neutral-900 sm:text-[2.75rem] md:text-[3.5rem] md:leading-[1.22]">
-          전문 디자이너가 디자인하고,
-          <br />
-          <span className="text-violet-600">전문 개발자</span>가 보증합니다
-        </h1>
+          <p className="mt-6 max-w-[32em] text-[15px] leading-[1.85] text-ink-soft md:text-base">
+            SOOM의 디자이너들은 AI의 효율적인 활용으로
+            <br className="hidden sm:block" /> 저렴한 비용으로 <b className="font-semibold text-ink">만족도 높은 퀄리티</b>와{' '}
+            <b className="font-semibold text-ink">빠른 제작기간</b>을 보장합니다.
+          </p>
 
-        <p className="mx-auto mt-5 max-w-2xl text-sm leading-[1.8] text-neutral-500 md:text-base">
-          SOOM의 디자이너들은 AI의 효율적인 활용으로
-          <br className="hidden sm:block" /> 저렴한 비용으로{' '}
-          <b className="font-semibold text-neutral-700">만족도 높은 퀄리티</b>와{' '}
-          <b className="font-semibold text-neutral-700">빠른 제작기간</b>을 보장합니다.
-        </p>
-
-        <div className="mx-auto mt-8 max-w-3xl md:mt-9">
-          <h2 className="inline-flex items-center gap-1.5 rounded-full border border-orange-200/70 bg-orange-50 px-3.5 py-1.5 text-sm font-bold text-[#ad5637]">
-            <span aria-hidden="true" className="text-orange-400">✦</span>
-            오픈 이벤트 특가
-          </h2>
-
-          <dl className="mt-4 grid gap-3 sm:grid-cols-2 md:gap-4">
-            {EVENT_PRICES.map((p) => (
-              <div key={p.label} className="rounded-2xl border border-violet-100 bg-white/90 p-4 text-left shadow-[0_8px_28px_-16px_rgb(109_40_217/0.18)] md:p-5">
-                <dt className="px-1 text-sm font-bold text-neutral-800 md:text-[15px]">{p.label}</dt>
-                <dd className="mt-3">
-                  <PriceStack {...p} />
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <div className="mt-3 flex items-center justify-between gap-3 px-1">
-            <span className="text-xs leading-relaxed text-neutral-500">VAT 별도 · **개발 범위에 따라 가격이 달라집니다.</span>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <AboutInquiryButton
+              category={ABOUT_INQUIRY_CATEGORY}
+              className="border-transparent bg-linear-to-r from-[#4a2232] to-plum text-white shadow-[0_14px_30px_-16px_rgb(91_42_61/0.8)] hover:from-plum-deep hover:to-[#8f4762] sm:min-w-56"
+            >
+              디자인 상담 신청하기
+            </AboutInquiryButton>
+            <a
+              href="#plans"
+              className="inline-flex min-h-12 items-center justify-center border border-ink px-7 text-sm font-semibold text-ink transition hover:bg-ink hover:text-paper focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-plum sm:min-w-44"
+            >
+              플랜과 가격 보기
+            </a>
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row md:mt-7">
-          <ExploreLink className="inline-flex items-center justify-center gap-3 rounded-xl bg-violet-600 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_4px_12px_-4px_rgb(124_58_237/0.35)] transition hover:bg-violet-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-600">
-            디자이너 탐색하기
-            <span aria-hidden="true">→</span>
-          </ExploreLink>
-          <a href="#works" className="inline-flex items-center justify-center gap-3 rounded-xl border border-violet-200 bg-white/80 px-6 py-3.5 text-sm font-semibold text-neutral-700 transition hover:border-violet-400 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-600">
-            포트폴리오 보기
-            <span aria-hidden="true">→</span>
-          </a>
+        <div>
+          <p className="eyebrow mb-5 lg:mb-6">Website for your studio</p>
+          <HeroCollage />
         </div>
+      </div>
 
-        <ul className="mx-auto mt-12 grid max-w-5xl gap-5 border-t border-violet-100/80 pt-7 text-left md:mt-14 md:grid-cols-3 md:gap-0 md:pt-8">
-          {POINTS.map(([title, note, path]) => (
-            <li key={title} className="flex gap-3 md:px-6 md:not-first:border-l md:not-first:border-violet-100 md:first:pl-0 md:last:pr-0">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100/60 text-violet-600">
-                <svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={path} />
-                </svg>
-              </span>
-              <div>
-                <p className="text-sm font-bold text-neutral-800 md:text-base">{title}</p>
-                <p className="mt-1.5 max-w-[17rem] text-xs leading-relaxed text-neutral-500">{note}</p>
-              </div>
-            </li>
+      {/* 오픈 이벤트 특가 — 히어로 아래를 가로지르는 한 줄 */}
+      <div className={wrap}>
+        <dl className="grid gap-5 border-t border-line py-6 sm:grid-cols-2 lg:grid-cols-[auto_1fr_1fr] lg:items-center lg:gap-0 lg:py-7">
+          <p className="flex items-center gap-2 text-[13px] font-semibold text-plum sm:col-span-2 lg:col-span-1 lg:pr-14">
+            <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-plum motion-reduce:animate-none" />
+            오픈 이벤트 특가
+          </p>
+          {EVENT_PRICES.map((p) => (
+            <div key={p.label} className="lg:px-10 lg:not-last:border-r lg:not-last:border-line">
+              <dt className="text-[13px] text-ink-soft">{SHORT_LABEL[p.label] ?? p.label}</dt>
+              <dd className="mt-1 flex flex-wrap items-baseline gap-x-3 tabular-nums">
+                <s className="text-[13px] text-ink-faint decoration-ink-faint">
+                  <span className="sr-only">정상가 </span>
+                  {p.price.toLocaleString('ko-KR')}원
+                </s>
+                <span>
+                  <b className="text-[1.75rem] font-semibold tracking-[-0.03em] text-ink">
+                    {(p.price - (p.caseDiscount ?? 0)).toLocaleString('ko-KR')}
+                  </b>
+                  <small className="ml-0.5 text-[13px] text-ink-soft">원부터</small>
+                </span>
+              </dd>
+            </div>
           ))}
-        </ul>
+        </dl>
       </div>
     </section>
   )
 }
 
-function HomePlans() {
+/* SOOM 의 약속 세 가지 — 히어로 바로 아래 가로 띠 */
+function Promises() {
   return (
-    <section id="plans" aria-labelledby="plans-title" className="scroll-mt-14 border-y border-neutral-100 bg-neutral-50/70">
-      <div className="mx-auto max-w-6xl px-5 py-14 md:px-8 md:py-20">
-        <div className="mb-7 md:mb-9">
-          <p className="text-[11px] font-bold tracking-[0.16em] text-violet-600">PLANS</p>
-          <h2 id="plans-title" className="mt-3 text-2xl font-bold tracking-tight text-neutral-900 md:text-3xl">홈페이지 제작 플랜</h2>
-          <p className="mt-3 text-sm leading-relaxed text-neutral-500">필요한 구성과 기능을 확인해 보세요.</p>
-        </div>
-
-        {/* 카드마다 줄 수가 달라도(설명 유무 등) 가격·설명·목록이 가로로
-            같은 높이에 오게 — 넓은 화면에서는 각 카드를 부모 격자의 4줄에
-            걸치고(subgrid) 칸마다 빈 자리라도 요소를 둔다 */}
-        <div className="grid gap-4 md:gap-6 lg:grid-cols-3 lg:gap-y-0">
-          {PRICES.filter(({ items }) => items.length > 0).map(({ label, description, items, ...p }) => (
-            <article key={label} className="grid content-start rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 lg:row-span-5 lg:grid-rows-subgrid">
-              <h3 className="text-lg font-bold text-neutral-900">{label}</h3>
-              <div className="mt-5">
-                <PriceStack {...p} vat />
-              </div>
-              <p className="mt-5 text-sm leading-relaxed text-neutral-600">{description}</p>
-              <ul className="mt-6 space-y-3 border-t border-neutral-100 pt-6">
-                {items.map((item) => (
-                  <li key={item} className="flex gap-2.5 text-sm leading-relaxed text-neutral-700">
-                    <span aria-hidden="true" className="shrink-0 text-violet-600">✓</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-              {/* 카드마다 의뢰 — 웹사이트 개발 분야에 이 플랜 이름을 붙여 연다. 넓은 화면에서는 세 버튼이 같은 줄에 선다 */}
-              <div className="mt-7 self-end">
-                <AboutInquiryButton category={ABOUT_INQUIRY_CATEGORY} product={label} className="w-full bg-violet-600 text-white hover:bg-violet-700" />
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {/* 카드마다 두지 않고 여기 한 번만 */}
-        <div className="mt-7 space-y-1 text-xs leading-relaxed text-neutral-500">
-          <p>**개발 범위에 따라 가격이 달라집니다.</p>
-          <p>추가 할인은 완성된 홈페이지를 SOOM 사례로 게재하는 데 동의하시면 적용됩니다.</p>
-        </div>
-      </div>
+    <section aria-label="SOOM의 약속" className="border-y border-line">
+      <ul className={`${wrap} grid md:grid-cols-3`}>
+        {POINTS.map(([en, title, note]) => (
+          <li key={title} className="grid gap-1.5 py-6 not-first:border-t not-first:border-line md:px-9 md:py-8 md:first:pl-0 md:not-first:border-t-0 md:not-first:border-l">
+            <p className="flex items-baseline gap-2.5 text-base font-semibold tracking-[-0.02em]">
+              <em className="font-serif text-lg font-medium text-plum">{en}</em>
+              {title}
+            </p>
+            <p className="text-[13.5px] leading-[1.7] text-ink-soft">{note}</p>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
 
 const POINTS: [string, string, string][] = [
-  ['전문 디자이너', '모든 홈페이지를 전문 디자이너가 직접 디자인합니다.', 'm15 5 4 4 M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z'],
-  ['전문 개발자 보증', '개발자가 코드와 기능을 검수해 안정성을 보증합니다.', 'm7 7-5 5 5 5 M17 7l5 5-5 5 M14 4l-4 16'],
-  ['합리적인 비용', '디자이너 친화적 수익 모델로 플랫폼 수익을 낮췄습니다.', 'M20 6c0 2-3.6 3-8 3S4 8 4 6s3.6-3 8-3 8 1 8 3Z M4 6v6c0 2 3.6 3 8 3s8-1 8-3V6 M4 12v6c0 2 3.6 3 8 3s8-1 8-3v-6'],
+  ['Design', '전문 디자이너', '모든 홈페이지를 전문 디자이너가 직접 디자인합니다.'],
+  ['Code', '전문 개발자 보증', '개발자가 코드와 기능을 검수해 안정성을 보증합니다.'],
+  ['Fair', '합리적인 비용', '디자이너 친화적 수익 모델로 플랫폼 수수료를 낮췄습니다.'],
 ]
+
+/* 의뢰부터 오픈까지 — 네 단계 */
+function Process() {
+  return (
+    <section id="process" aria-labelledby="process-title" className="scroll-mt-16 pb-16 md:pb-24">
+      <div className={wrap}>
+        <SectionHead
+          eyebrow="How it works"
+          titleId="process-title"
+          title="의뢰부터 오픈까지"
+          accent="Simple steps."
+          side={<p>처음 홈페이지를 만드는 사장님도 어렵지 않게. 필요한 건 가게 이야기와 사진 몇 장이면 충분해요.</p>}
+        />
+        <ol className="grid border-t border-ink sm:grid-cols-2 sm:gap-y-7 lg:grid-cols-4">
+          {STEPS.map(([title, note], i) => (
+            <li key={title} className="grid grid-cols-[3.25rem_1fr] content-start gap-x-2 gap-y-1.5 border-b border-line py-5 sm:grid-cols-1 sm:gap-y-2 sm:border-b-0 sm:pt-6 sm:pr-6 sm:pb-0">
+              <span className="row-span-2 font-serif text-[2.1rem] leading-none italic text-plum sm:row-span-1">0{i + 1}</span>
+              <p className="text-base font-semibold tracking-[-0.02em]">{title}</p>
+              <p className="col-start-2 text-[13.5px] leading-[1.75] text-ink-soft sm:col-start-1">{note}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  )
+}
+
+const STEPS: [string, string][] = [
+  ['상담 문의', '업종과 원하는 분위기, 필요한 기능을 알려주세요.'],
+  ['메인 시안 2~3종', '디자이너가 서로 다른 방향의 메인 시안을 보여드려요.'],
+  ['수정과 개발', '고른 시안을 3회까지 다듬고, 개발자가 PC·모바일로 구현합니다.'],
+  ['오픈과 1년 관리', '배포 후 1년 동안 서버 관리를 무상으로 맡아 드려요.'],
+]
+
+function HomePlans() {
+  return (
+    <section id="plans" aria-labelledby="plans-title" className="scroll-mt-16 bg-paper-2 py-16 md:py-24">
+      <div className={wrap}>
+        <SectionHead
+          eyebrow="Plans"
+          titleId="plans-title"
+          title="홈페이지 제작 플랜"
+          accent="Pick your fit."
+          side={<p>필요한 구성과 기능을 확인해 보세요. 개발 범위에 따라 가격이 달라질 수 있어요.</p>}
+        />
+
+        {/* 카드마다 줄 수가 달라도 가격·설명·목록이 가로로 같은 높이에 오게 —
+            넓은 화면에서는 각 카드를 부모 격자의 5줄에 걸치고(subgrid) 칸마다 요소를 둔다 */}
+        <div className="grid max-w-[34rem] gap-5 lg:max-w-none lg:grid-cols-3 lg:gap-y-0">
+          {PRICES.filter(({ items }) => items.length > 0).map(({ label, description, items, ...p }, i) => {
+            const pick = i === 0
+            return (
+              <article
+                key={label}
+                className={`relative grid content-start border bg-card p-7 lg:row-span-5 lg:grid-rows-subgrid lg:gap-y-0 ${
+                  pick ? 'border-plum shadow-[0_30px_60px_-40px_rgb(91_42_61/0.55)]' : 'border-line'
+                }`}
+              >
+                {pick && <span className="absolute -top-px right-6 bg-plum px-2.5 py-1 text-[11px] font-semibold tracking-[0.06em] text-white">오픈 특가</span>}
+                <div>
+                  <h3 className="text-[17px] font-semibold tracking-[-0.02em]">{label}</h3>
+                  <p className="mt-1.5 text-[13px] leading-[1.7] text-ink-soft">{description}</p>
+                </div>
+                <div className="mt-6 border-t border-line pt-5">
+                  <PriceStack {...p} vat />
+                </div>
+                <ul className="mt-6 grid content-start gap-2.5 border-t border-line pt-5">
+                  {items.map((item) => (
+                    <li key={item} className="grid grid-cols-[14px_1fr] gap-2.5 text-[13.5px] leading-[1.6]">
+                      <span aria-hidden className="mt-[0.8em] h-px w-2.5 bg-plum" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                {/* 카드마다 의뢰 — 웹사이트 개발 분야에 이 플랜 이름을 붙여 연다 */}
+                <div className="mt-7 self-end">
+                  <AboutInquiryButton
+                    category={ABOUT_INQUIRY_CATEGORY}
+                    product={label}
+                    className={`w-full ${pick ? 'border-ink bg-ink text-paper hover:border-plum hover:bg-plum' : 'border-ink bg-transparent text-ink hover:bg-ink hover:text-paper'}`}
+                  >
+                    이 플랜으로 의뢰하기
+                  </AboutInquiryButton>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+
+        {/* 카드마다 두지 않고 여기 한 번만 */}
+        <div className="mt-6 space-y-0.5 text-xs leading-relaxed text-ink-faint">
+          <p>**개발 범위에 따라 가격이 달라집니다.</p>
+          <p>추가 할인은 완성된 홈페이지를 SOOM 사례로 게재하는 데 동의하시면 적용되는 한시적 이벤트 할인입니다.</p>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 /* 실제 피드와 같은 벽 모양으로 둔다 — 작업이 들어올 때 화면이 튀지 않게.
    높이를 번갈아 줘서 한 줄로 반듯한 회색 벽돌처럼 보이지 않게 한다. */
@@ -252,7 +363,7 @@ function FeedSkeleton() {
       {Array.from({ length: 12 }, (_, i) => (
         <div key={i} className="mb-3 break-inside-avoid md:mb-4">
           <div
-            className={`animate-pulse rounded-xl bg-neutral-200 ${
+            className={`animate-pulse bg-neutral-200 ${
               i % 3 === 0 ? 'aspect-[3/4]' : i % 3 === 1 ? 'aspect-square' : 'aspect-[1/1.8]'
             }`}
           />

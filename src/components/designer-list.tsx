@@ -183,9 +183,9 @@ export function DesignerList({
   }
 
   return (
-    <div className="flex min-h-full bg-neutral-100 text-neutral-900">
-      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white p-6 lg:block">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">전문 분야</p>
+    <div className="flex min-h-full bg-paper text-ink">
+      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-line bg-paper-2/60 p-6 lg:block">
+        <p className="eyebrow">Specialty</p>
         <ul className="mt-3 space-y-0.5 text-sm">
           {[null, ...allTags].map((t) => {
             const n = countOf(t)
@@ -194,7 +194,7 @@ export function DesignerList({
                 <button
                   onClick={() => pickTag(t)}
                   className={`flex w-full justify-between rounded-md px-2 py-1.5 ${
-                    tag === t ? 'bg-violet-50 font-semibold text-violet-700' : 'text-neutral-600 hover:bg-neutral-100'
+                    tag === t ? 'bg-card font-semibold text-plum ring-1 ring-line' : 'text-ink-soft hover:bg-card hover:text-ink'
                   }`}
                 >
                   {t ?? '전체'} <span className="text-xs text-neutral-400">{n}</span>
@@ -212,14 +212,14 @@ export function DesignerList({
           같은 줄에 서려면. 왼쪽 여백 = (전체 폭 - 본문 폭) / 2 - 사이드바 폭.
           100vw 가 아니라 100% 로 잰다 — 스크롤바 폭이 들어가면 네비바와 어긋난다.
           화면이 좁아 음수가 되면 0 으로 — 사이드바 바로 옆에 붙어 남는 폭을 다 쓴다. */}
-      <main className="mx-auto min-w-0 max-w-7xl flex-1 px-2 py-6 sm:px-4 md:px-8 md:py-8 lg:mx-0 lg:ml-[max(0px,calc((100%_-_80rem)_/_2_-_15rem))]">
+      <main className="mx-auto min-w-0 max-w-7xl flex-1 px-4 py-6 md:px-8 md:py-8 lg:mx-0 lg:ml-[max(0px,calc((100%_-_80rem)_/_2_-_15rem))]">
         {/* 타이틀 영역 우측 끝에 키워드 검색 */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-start gap-3">
             <div>
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-                  {tag ?? 'Designers'}
+                <h1 className="text-[clamp(1.6rem,3vw,2.2rem)] leading-tight font-medium tracking-[-0.04em]">
+                  {tag ?? <span className="serif-i text-[1.3em]">Designers.</span>}
                 </h1>
                 {/* 고른 유형을 제목 옆에 늘 보이게 — 왜 목록이 짧은지 모르면
                     디자이너가 없는 줄 알고 되돌아간다. '모르겠어요'로 닫았으면
@@ -253,7 +253,7 @@ export function DesignerList({
                 )}
               </div>
               {(tag ? descriptions[tag] : allDesc) && (
-                <p className="mt-1 text-sm text-neutral-500">{tag ? descriptions[tag] : allDesc}</p>
+                <p className="mt-2 text-sm leading-relaxed text-ink-soft">{tag ? descriptions[tag] : allDesc}</p>
               )}
             </div>
           </div>
@@ -264,7 +264,7 @@ export function DesignerList({
               onChange={(e) => setQ(e.target.value)}
               placeholder="디자이너 이메일, 키워드 검색"
               aria-describedby="designer-search-hint"
-              className="h-9 w-full min-w-0 rounded-lg border border-neutral-300 bg-white px-3 text-sm outline-none ring-violet-500 focus:ring-2"
+              className="h-10 w-full min-w-0 border border-line bg-card px-3 text-sm outline-none ring-plum/40 placeholder:text-ink-faint focus:border-plum focus:ring-2"
             />
             {/* 기준에 못 미치면 왜 목록이 그대로인지 알린다 — 고장으로 보이지 않게.
                 영문 안내('4글자부터')는 띄우지 않는다 — 한글 안내만 */}
@@ -380,7 +380,7 @@ function DesignerCard({
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
-    <article className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-neutral-200/70">
+    <article className="overflow-hidden border border-line bg-card transition hover:shadow-[0_30px_50px_-40px_rgb(60_30_40/0.5)]">
       <div className="flex flex-wrap items-center gap-3 p-4 md:flex-nowrap md:p-5">
         {/* 프로필 사진과 이름도 상세로 가는 길이다 — 아래 '프로필 보기'
             버튼과 같은 곳으로 간다. 분야 태그와 버튼은 이 링크 밖에 둔다:
@@ -403,7 +403,7 @@ function DesignerCard({
         {d.tags.length > 0 && (
           <div className="order-last flex w-full flex-wrap gap-1.5 md:order-none md:w-auto">
             {d.tags.map((t) => (
-              <span key={t} className="rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600">
+              <span key={t} className="rounded-full border border-line px-2.5 py-0.5 text-[11px] text-ink-soft">
                 {t}
               </span>
             ))}
@@ -413,7 +413,7 @@ function DesignerCard({
         <div className="flex shrink-0 gap-2">
           <Link
             href={href}
-            className="rounded-lg border border-neutral-300 px-4 py-2 text-xs font-semibold text-neutral-800 transition hover:border-neutral-900"
+            className="border border-line px-4 py-2 text-xs font-semibold text-ink transition hover:border-ink"
           >
             프로필 보기
           </Link>
@@ -421,7 +421,7 @@ function DesignerCard({
             designerId={d.id}
             designerName={name}
             choices={choices}
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-violet-600"
+            className="bg-ink px-4 py-2 text-xs font-semibold text-paper transition hover:bg-plum"
           />
         </div>
       </div>
@@ -513,7 +513,7 @@ function DesignerSpotlight({
   const more = d.works_total - n
 
   return (
-    <article className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm ring-1 ring-neutral-200/70 md:p-4">
+    <article className="overflow-hidden border border-line bg-card p-3 md:p-4">
       {/* 그림 칸은 넓은 화면에서 680px 까지만 — 더 키우면 크게 보기(작업 모달)보다
           목록의 그림이 커져 눌러 볼 이유가 없어진다 */}
       <div className="grid gap-5 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] md:items-center md:gap-10 xl:grid-cols-[minmax(0,680px)_minmax(0,1fr)]">
@@ -595,7 +595,7 @@ function DesignerSpotlight({
           {d.tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-1.5">
               {d.tags.map((t) => (
-                <span key={t} className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
+                <span key={t} className="rounded-full border border-line px-2.5 py-1 text-xs text-ink-soft">
                   {t}
                 </span>
               ))}
@@ -613,7 +613,7 @@ function DesignerSpotlight({
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <Link
               href={href}
-              className="rounded-full border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-800 transition hover:border-neutral-900"
+              className="border border-ink px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-ink hover:text-paper"
             >
               프로필 보기
             </Link>
@@ -621,7 +621,7 @@ function DesignerSpotlight({
               designerId={d.id}
               designerName={name}
               choices={choices}
-              className="rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
+              className="border border-ink bg-ink px-5 py-2.5 text-sm font-semibold text-paper transition hover:border-plum hover:bg-plum"
             />
           </div>
         </div>
@@ -671,8 +671,8 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
-        on ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600'
+      className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
+        on ? 'border-ink bg-ink text-paper' : 'border-line text-ink-soft hover:border-ink-soft hover:text-ink'
       }`}
     >
       {children}

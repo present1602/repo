@@ -12,6 +12,7 @@ import { INDEXABLE, SITE_URL } from '@/lib/site-url'
      /auth      로그인 콜백
      /r         초대 링크 — 코드가 들어간 일회용 주소다
      /review    리뷰 작성 링크(토큰)
+     /roster    비공개 경력 페이지 링크(토큰, 1~7일 기한)
      디자이너 상세의 preview  어드민 미리보기(본 화면과 내용이 겹친다)
 
    Disallow 는 "크롤링하지 말라"는 뜻이고 색인 금지 보장은 아니다 —
@@ -28,7 +29,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin', '/api', '/studio', '/auth', '/r/', '/review/', '/designers/*/preview'],
+      disallow: ['/admin', '/api', '/studio', '/auth', '/r/', '/review/', '/roster/', '/designers/*/preview'],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
   }

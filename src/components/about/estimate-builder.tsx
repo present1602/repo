@@ -144,7 +144,7 @@ export function EstimateBuilder() {
 
         {/* 견적서 — 넓은 화면에서는 따라 내려온다 */}
         <aside aria-label="예상 견적" className="lg:sticky lg:top-36">
-          <div className="rounded-3xl bg-[#19172a] p-6 text-white shadow-[0_20px_50px_-25px_rgb(25_23_42/0.7)] md:p-7">
+          <div className="rounded-3xl bg-[#2a2026] p-6 text-white shadow-[0_20px_50px_-25px_rgb(25_23_42/0.7)] md:p-7">
             <p className="text-[11px] font-semibold tracking-[0.18em] text-violet-300">ESTIMATE</p>
             <p className="mt-2 text-lg font-bold">예상 견적</p>
 
@@ -191,7 +191,7 @@ export function EstimateBuilder() {
               category={ABOUT_INQUIRY_CATEGORY}
               product="랜딩페이지"
               productOptions={chosenTitles}
-              className="mt-5 w-full bg-violet-500 text-white hover:bg-violet-400"
+              className="mt-5 w-full border-transparent bg-violet-500 text-white hover:bg-violet-400"
             />
           </div>
         </aside>
@@ -199,7 +199,7 @@ export function EstimateBuilder() {
 
       {/* 모바일 — 고르는 동안 합계가 화면 밖으로 사라지지 않게 아래에 붙여 둔다 */}
       <div className="pointer-events-none sticky bottom-3 z-10 mt-6 lg:hidden">
-        <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-2xl bg-[#19172a]/95 px-4 py-3 text-white shadow-lg backdrop-blur">
+        <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-2xl bg-[#2a2026]/95 px-4 py-3 text-white shadow-lg backdrop-blur">
           <span className="text-base font-extrabold tabular-nums">{range(min, max)}</span>
           <span className="text-right text-[11px] text-white/70">
             이벤트 적용 시 <b className="font-bold tabular-nums text-violet-300">{finalRange}</b>
@@ -271,7 +271,7 @@ function ConsultEstimate({ site, onShowOptions }: { site: (typeof SITE_KINDS)[nu
       </div>
 
       <aside aria-label="예상 견적" className="lg:sticky lg:top-36">
-        <div className="rounded-3xl bg-[#19172a] p-6 text-white shadow-[0_20px_50px_-25px_rgb(25_23_42/0.7)] md:p-7">
+        <div className="rounded-3xl bg-[#2a2026] p-6 text-white shadow-[0_20px_50px_-25px_rgb(25_23_42/0.7)] md:p-7">
           <p className="text-[11px] font-semibold tracking-[0.18em] text-violet-300">ESTIMATE</p>
           <p className="mt-2 text-lg font-bold">예상 견적</p>
 
@@ -299,7 +299,7 @@ function ConsultEstimate({ site, onShowOptions }: { site: (typeof SITE_KINDS)[nu
           <AboutInquiryButton
             category={ABOUT_INQUIRY_CATEGORY}
             product={site.inquiryLabel}
-            className="mt-5 w-full bg-violet-500 text-white hover:bg-violet-400"
+            className="mt-5 w-full border-transparent bg-violet-500 text-white hover:bg-violet-400"
           />
         </div>
       </aside>

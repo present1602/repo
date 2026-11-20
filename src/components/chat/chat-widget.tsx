@@ -19,8 +19,8 @@ import {
 
    답은 토막토막 받아 그린다 — 통째로 기다리면 몇 초간 아무 일도 없는 화면이다.
 
-   관리 화면(/admin, /studio)과 제안서에는 붙이지 않는다 — 푸터와 같은 방침. */
-const HIDDEN = ['/admin', '/studio', '/designers/proposal']
+   관리 화면(/admin, /studio)과 제안서·비공개 경력 페이지에는 붙이지 않는다 — 푸터와 같은 방침. */
+const HIDDEN = ['/admin', '/studio', '/designers/proposal', '/roster']
 
 /* 여는 단추 자리.
 

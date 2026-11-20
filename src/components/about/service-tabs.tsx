@@ -46,11 +46,11 @@ export function ServiceTabs() {
   return (
     <nav
       aria-label="의뢰 유형"
-      className="follow-nav sticky top-14 z-10 border-b border-neutral-200/80 bg-white/85 backdrop-blur"
+      className="follow-nav sticky top-14 z-10 border-b border-line bg-paper/90 backdrop-blur"
     >
       <div className="mx-auto flex max-w-[1200px] items-center gap-4 px-5 py-2.5 md:px-10">
         <span className="hidden shrink-0 text-xs font-semibold text-neutral-500 md:block">SOOM 의뢰 유형</span>
-        <ul className="grid flex-1 grid-cols-3 gap-1 rounded-full bg-neutral-100 p-1 md:max-w-xl">
+        <ul className="grid flex-1 grid-cols-3 gap-1 rounded-full bg-paper-2 p-1 ring-1 ring-line md:max-w-xl">
           {SERVICES.map((s) => {
             const on = s.id === active
             return (
@@ -68,7 +68,7 @@ export function ServiceTabs() {
                     history.replaceState(null, '', `#${s.id}`)
                   }}
                   className={`flex min-h-10 items-center justify-center rounded-full px-2 text-center text-[13px] font-semibold break-keep transition md:text-sm ${
-                    on ? 'bg-violet-600 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
+                    on ? 'bg-ink text-paper shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
                   }`}
                 >
                   {s.label}

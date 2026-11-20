@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 }
 
 const container = 'mx-auto max-w-[1200px] px-5 md:px-10'
-const eyebrow = 'text-[11px] font-semibold tracking-[0.18em] text-violet-600'
+const eyebrow = 'eyebrow'
 
 /* description 은 문단 배열이다 — 한 칸이 한 문단으로 나간다.
    예전에는 한 줄에 <br/> 를 적었는데, React 는 문자열 안의 태그를 글자
@@ -88,15 +88,18 @@ const STEPS = [
 
 export default function AboutPage() {
   return (
-    <main className="flex-1 bg-white text-neutral-950">
-      <section aria-labelledby="about-title" className="bg-[#f5f4ef]">
+    <main className="flex-1 bg-paper text-ink">
+      <section aria-labelledby="about-title" className="relative isolate overflow-hidden bg-paper">
+        {/* 오른쪽 위에서 옅게 번지는 장밋빛 — 홈 히어로와 같은 바탕 */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_85%_10%,rgb(236_217_212/0.6),transparent_55%)]" />
         <div className={`${container} py-16 md:py-24`}>
-          <p className={eyebrow}>ABOUT SOOM</p>
-          <div className="mt-7 grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-16">
-            <h1 id="about-title" className="text-[clamp(1.75rem,3.2vw,2.25rem)] font-bold leading-[1.35] tracking-[-0.04em] text-balance">
-              전문 디자이너의 <span className="text-violet-600">감각적인 디자인</span>에 더해
+          <p className={eyebrow}>About SOOM</p>
+          <div className="mt-6 grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-16">
+            <h1 id="about-title" className="text-[1.6rem] font-medium leading-[1.35] sm:text-[clamp(1.75rem,3.4vw,2.6rem)] tracking-[-0.045em] text-balance">
+              전문 디자이너의 감각적인 디자인에 더해
               <br />
-              전문 개발자가 <span className="text-violet-600">신뢰를 보장</span>합니다.
+              전문 개발자가 신뢰를 보장합니다.
+              <span className="serif-i mt-1 block text-[1.35em] leading-[1.1]">Made by designers.</span>
             </h1>
             <div>
               {/* <p className="text-base font-semibold leading-relaxed md:text-lg">
@@ -119,17 +122,17 @@ export default function AboutPage() {
       <section id="about-promises" aria-labelledby="promises-title" className="scroll-mt-24">
         <div className={`${container} py-16 md:py-20`}>
           <p className={eyebrow}>OUR PROMISES</p>
-          <h2 id="promises-title" className="mt-4 text-[clamp(1.625rem,2.6vw,2.25rem)] font-bold leading-snug tracking-[-0.035em]">
+          <h2 id="promises-title" className="mt-4 text-[clamp(1.625rem,2.6vw,2.25rem)] font-medium leading-snug tracking-[-0.035em]">
             좋은 결과를 위한 세 가지 약속
           </h2>
           <div className="mt-10 grid gap-8 md:grid-cols-3 md:gap-10">
             {PROMISES.map((promise, index) => (
-              <article key={promise.label} className="flex min-w-0 flex-col border-t border-neutral-200 pt-6">
+              <article key={promise.label} className="flex min-w-0 flex-col border-t border-line pt-6">
                 <p className="flex items-baseline justify-between gap-3 text-[11px] font-medium tracking-[0.12em] text-neutral-500">
                   {promise.label}
-                  <span className="font-mono text-violet-600">0{index + 1}</span>
+                  <span className="font-serif text-2xl italic leading-none text-plum">0{index + 1}</span>
                 </p>
-                <h3 className="mt-5 text-xl font-bold leading-snug tracking-tight">{promise.title}</h3>
+                <h3 className="mt-5 text-xl font-semibold leading-snug tracking-[-0.02em]">{promise.title}</h3>
                 {/* 문단마다 <p> 를 따로 둔다 — 두 번째 문단부터 위에 간격을 준다 */}
                 <div className="mt-4 space-y-3 text-[15px] leading-[1.85] text-neutral-600">
                   {promise.description.map((line) => (
@@ -154,7 +157,7 @@ export default function AboutPage() {
         <DetailDesign />
       </div>
 
-      {/* <section aria-labelledby="about-process-title" className="border-y border-neutral-200 bg-[#f8f8fa]">
+      {/* <section aria-labelledby="about-process-title" className="border-y border-line bg-[#f8f8fa]">
         <div className={`${container} py-16 md:py-20`}>
           <div className="grid gap-5 lg:grid-cols-2 lg:items-end lg:gap-16">
             <div>
@@ -173,13 +176,13 @@ export default function AboutPage() {
         </div>
       </section> */}
 
-      <section aria-labelledby="about-responsibility-title" className="bg-[#19172a] text-white">
+      <section aria-labelledby="about-responsibility-title" className="bg-night text-white">
         <div className={`${container} py-16 md:py-20`}>
           <p className="text-[11px] font-semibold tracking-[0.18em] text-violet-300">THE SOOM STANDARD</p>
 
           <h2
             id="about-responsibility-title"
-            className="mt-4 max-w-3xl text-[clamp(1.5rem,2.6vw,2.125rem)] font-bold leading-[1.45] tracking-[-0.035em]"
+            className="mt-4 max-w-3xl text-[clamp(1.5rem,2.6vw,2.125rem)] font-medium leading-[1.45] tracking-[-0.035em]"
           >
             디자이너 선정부터 사후 관리까지,
             <br />
@@ -189,10 +192,8 @@ export default function AboutPage() {
           <div className="mt-10 grid gap-x-10 gap-y-8 md:mt-12 md:grid-cols-3">
             {RESPONSIBILITIES.map((item, index) => (
               <article key={item.title} className="min-w-0 border-t border-white/20 pt-6">
-                <p className="font-mono text-[11px] tracking-wide text-violet-300">
-                  0{index + 1}
-                </p>
-                <h3 className="mt-3 text-lg font-bold leading-snug tracking-tight">{item.title}</h3>
+                <p className="font-serif text-2xl italic leading-none text-violet-300">0{index + 1}</p>
+                <h3 className="mt-3 text-lg font-semibold leading-snug tracking-[-0.02em]">{item.title}</h3>
                 <div className="mt-3 space-y-3 text-[15px] leading-[1.85] text-white/70">
                   {item.description.map((line) => (
                     <p key={line}>{line}</p>
@@ -212,7 +213,7 @@ export default function AboutPage() {
 function LandingPackage() {
   const final = LANDING_PRICE.price - LANDING_PRICE.caseDiscount
   return (
-    <section id="landing-package" aria-labelledby="landing-package-title" className="scroll-mt-24 border-t border-neutral-200 bg-[#f5f4ef]">
+    <section id="landing-package" aria-labelledby="landing-package-title" className="scroll-mt-24 border-t border-line bg-paper-2">
       <div className={`${container} py-16 md:py-24`}>
         <p className={eyebrow}>LANDING PACKAGE</p>
         <div className="mt-4 grid gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center lg:gap-16">
@@ -224,7 +225,7 @@ function LandingPackage() {
                 href={SAMPLE_SITE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group inline-flex min-h-11 items-center gap-2 rounded-full border border-neutral-900 bg-neutral-900 px-5 text-sm font-semibold text-white transition hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-500"
+                className="group inline-flex min-h-11 items-center gap-2 border border-ink bg-ink px-5 text-sm font-semibold text-paper transition hover:border-plum hover:bg-plum focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-500"
               >
                 View sample web
                 <span aria-hidden className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">↗</span>
@@ -235,8 +236,9 @@ function LandingPackage() {
           </div>
 
           <div className="order-1 lg:order-2">
-            <h2 id="landing-package-title" className="text-[clamp(1.75rem,3vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]">
-              랜딩페이지 <span className="text-violet-600">기본형</span>
+            <h2 id="landing-package-title" className="text-[clamp(1.75rem,3vw,2.5rem)] font-medium leading-tight tracking-[-0.04em]">
+              랜딩페이지 기본형
+              <span className="serif-i block text-[1.2em] leading-[1.15]">Landing package.</span>
             </h2>
             <p className="mt-3 text-[15px] leading-[1.85] text-neutral-600">
               브랜드를 소개하고 문의를 받는 한 페이지 웹사이트.
@@ -256,7 +258,7 @@ function LandingPackage() {
             </ul>
 
             {/* 가격 — 정상가를 크게, 이벤트 할인은 아래에 한 단계 작게(견적표와 같은 문구) */}
-            <div className="mt-8 rounded-3xl bg-white p-6 shadow-[0_12px_40px_-24px_rgb(60_40_120/0.35)] ring-1 ring-neutral-200/70">
+            <div className="mt-8 border border-line bg-card p-6 shadow-[0_24px_48px_-32px_rgb(91_42_61/0.4)]">
               <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
                 <div>
                   <p className="text-xs font-medium text-neutral-500">
@@ -272,7 +274,7 @@ function LandingPackage() {
                 <p className="text-xs text-neutral-400">VAT 별도</p>
               </div>
 
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-violet-50 px-4 py-3.5 ring-1 ring-inset ring-violet-100">
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 bg-violet-50 px-4 py-3.5 ring-1 ring-inset ring-violet-100">
                 <p className="flex min-w-0 items-start gap-1.5 text-xs font-semibold leading-snug text-violet-700">
                   <span aria-hidden className="text-orange-400">✦</span>
                   {ESTIMATE_EVENT_LABEL}
@@ -300,14 +302,14 @@ function AppDesign() {
     <section
       id="service-app"
       aria-labelledby="service-app-title"
-      className="scroll-mt-32 overflow-hidden border-t border-neutral-200 bg-[#f4f3fb]"
+      className="scroll-mt-32 overflow-hidden border-t border-line bg-paper-2"
     >
       <div className={`${container} grid items-center gap-10 py-16 md:py-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16`}>
         <div>
           <p className={eyebrow}>APP DESIGN · DEVELOPMENT</p>
           <h2
             id="service-app-title"
-            className="mt-4 text-[clamp(1.75rem,3vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]"
+            className="mt-4 text-[clamp(1.75rem,3vw,2.5rem)] font-medium leading-tight tracking-[-0.04em]"
           >
             앱디자인/개발
           </h2>
@@ -335,13 +337,13 @@ function AppDesign() {
           {/* 휴대폰 뒤에 은은한 보라 빛 — 배경과 사진의 경계를 지운다 */}
           <div
             aria-hidden
-            className="absolute inset-[6%] rounded-full bg-[radial-gradient(circle,rgb(124_58_237/0.2),transparent_70%)] blur-2xl"
+            className="absolute inset-[6%] rounded-full bg-[radial-gradient(circle,rgb(123_58_82/0.2),transparent_70%)] blur-2xl"
           />
           <Image
             src={appShot}
             alt="여행 앱 NO:PLE 의 홈 화면과 로그인 화면 디자인"
             sizes="(min-width: 1024px) 460px, 80vw"
-            className="relative h-auto w-full drop-shadow-[0_30px_40px_rgb(25_23_42/0.18)]"
+            className="relative h-auto w-full mix-blend-multiply"
           />
           <figcaption className="relative mt-3 text-center text-[11.5px] text-neutral-500">
             예) NO:PLE — 여행 일정 앱
@@ -362,14 +364,14 @@ function DetailDesign() {
     <section
       id="service-detail"
       aria-labelledby="service-detail-title"
-      className="scroll-mt-32 overflow-hidden border-t border-neutral-200 bg-[#fbf7f8]"
+      className="scroll-mt-32 overflow-hidden border-t border-line bg-[#f6eeea]"
     >
       <div className={`${container} grid gap-10 py-16 md:py-24 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-12`}>
         <div>
           <p className={eyebrow}>DETAIL PAGE</p>
           <h2
             id="service-detail-title"
-            className="mt-4 text-[clamp(1.75rem,3vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]"
+            className="mt-4 text-[clamp(1.75rem,3vw,2.5rem)] font-medium leading-tight tracking-[-0.04em]"
           >
             상세페이지 디자인
           </h2>
@@ -401,12 +403,12 @@ function DetailDesign() {
 /* 추가 기능 — 기본형 위에 필요한 것만 더하는 구조를 견적표로 보여 준다 */
 function AddOns() {
   return (
-    <section id="add-ons" aria-labelledby="add-ons-title" className="scroll-mt-32 bg-white">
+    <section id="add-ons" aria-labelledby="add-ons-title" className="scroll-mt-32 bg-paper">
       <div className={`${container} py-16 md:py-24`}>
         <p className={eyebrow}>ADD-ONS</p>
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <h2 id="add-ons-title" className="text-[clamp(1.625rem,2.6vw,2.25rem)] font-bold leading-snug tracking-[-0.035em]">
+            <h2 id="add-ons-title" className="text-[clamp(1.625rem,2.6vw,2.25rem)] font-medium leading-snug tracking-[-0.035em]">
               기본형에, 필요한 기능만 더하세요.
             </h2>
             <p className="mt-3 max-w-2xl text-[15px] leading-[1.85] text-neutral-600">
@@ -420,12 +422,12 @@ function AddOns() {
           <p aria-hidden className="hidden items-center gap-2 text-xs font-semibold text-neutral-500 lg:flex">
             <span className="rounded-full bg-violet-600 px-3 py-1.5 text-white">기본형</span>+
             <span className="rounded-full border border-violet-300 px-3 py-1.5 text-violet-700">추가 기능</span>=
-            <span className="rounded-full bg-[#19172a] px-3 py-1.5 text-white">내 견적</span>
+            <span className="rounded-full bg-night px-3 py-1.5 text-white">내 견적</span>
           </p>
         </div>
 
         {/* 웹사이트 개발은 아래 견적표에서 세 갈래로 나뉜다 */}
-        <p className="mt-10 rounded-2xl border border-violet-200 bg-violet-50/60 px-4 py-3.5 text-[13px] leading-relaxed text-neutral-600 md:px-5 md:text-sm">
+        <p className="mt-10 border border-violet-200 bg-violet-50/60 px-4 py-3.5 text-[13px] leading-relaxed text-neutral-600 md:px-5 md:text-sm">
           <b className="font-semibold text-violet-700">{ABOUT_INQUIRY_CATEGORY}</b>은{' '}
           <b className="font-semibold text-neutral-800">{SITE_KINDS.map((k) => k.label).join(' · ')}</b>{' '}
           세 가지로 나뉘고, 고른 유형에 따라 견적이 산정됩니다.

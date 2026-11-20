@@ -24,31 +24,30 @@ export const metadata: Metadata = {
    방침) — 없으면 cacheComponents 아래에서 프리렌더가 막힌다. */
 export default function FaqPage() {
   return (
-    <main className="flex-1 bg-white">
-      <div className="mx-auto max-w-3xl px-5 py-12 md:px-8 md:py-16">
-        <header className="border-b border-neutral-200 pb-8">
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">자주 묻는 질문</h1>
-          {/* <p className="mt-2 text-sm text-neutral-500">
-            의뢰 전에 많이 묻는 것들을 모았습니다. 찾는 내용이 없으면 우하단 채팅으로
-            물어보시거나{' '}
-            <a href="mailto:manager@soom.it" className="text-violet-600 hover:underline">
-              manager@soom.it
-            </a>{' '}
-            으로 보내 주세요.
-          </p> */}
+    <main className="flex-1 bg-paper text-ink">
+      <div className="mx-auto grid max-w-[1240px] gap-10 px-5 py-14 md:px-8 md:py-24 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-20">
+        {/* 왼쪽 머리말 — 넓은 화면에서는 질문을 읽어 내려가는 동안 따라온다 */}
+        <header className="lg:sticky lg:top-28 lg:self-start">
+          <p className="eyebrow">FAQ</p>
+          <h1 className="mt-4 text-[clamp(1.75rem,3.2vw,2.4rem)] leading-[1.3] font-medium tracking-[-0.045em]">
+            자주 묻는 질문
+            <span className="serif-i block text-[1.3em] leading-[1.1]">Good to know.</span>
+          </h1>
         </header>
 
-        <Suspense fallback={<FaqLoading />}>
-          <FaqList />
-        </Suspense>
+        <div className="min-w-0">
+          <Suspense fallback={<FaqLoading />}>
+            <FaqList />
+          </Suspense>
 
-        <p className="mt-12 border-t border-neutral-200 pt-6 text-sm text-neutral-500">
-          환불·계약 같은 자세한 조건은{' '}
-          <Link href="/terms" className="text-violet-600 hover:underline">
-            이용약관
-          </Link>
-          에서 볼 수 있습니다.
-        </p>
+          <p className="mt-10 text-[13px] text-ink-faint">
+            환불·계약 같은 자세한 조건은{' '}
+            <Link href="/terms" className="text-plum underline-offset-4 hover:underline">
+              이용약관
+            </Link>
+            에서 볼 수 있습니다.
+          </p>
+        </div>
       </div>
     </main>
   )
@@ -61,7 +60,7 @@ function FaqLoading() {
       <div
         role="status"
         aria-label="불러오는 중"
-        className="size-7 animate-spin rounded-full border-[3px] border-neutral-300 border-t-violet-600"
+        className="size-7 animate-spin rounded-full border-[3px] border-line border-t-plum"
       />
     </div>
   )
@@ -73,7 +72,7 @@ async function FaqList() {
   /* 마이그레이션 전이거나 아직 켜 둔 질문이 없을 때 — 빈 화면을 두지 않는다 */
   if (faqs.length === 0) {
     return (
-      <p className="py-16 text-center text-sm text-neutral-500">아직 등록된 질문이 없습니다.</p>
+      <p className="py-16 text-center text-sm text-ink-faint">아직 등록된 질문이 없습니다.</p>
     )
   }
 

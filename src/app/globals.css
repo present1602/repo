@@ -1,8 +1,73 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-noto-sans-kr);
+  --font-serif: var(--font-cormorant);
   --font-mono: var(--font-geist-mono);
+}
+
+/* ─────────── 리뉴얼 팔레트 (말린 장미 · 아이보리) ───────────
+
+   고객 화면은 아래 이름 붙인 색(paper·ink·plum …)으로 다시 짰고,
+   스튜디오·어드민은 손대지 않고 톤만 맞춘다 — 그쪽이 쓰는 violet·neutral
+   단계를 같은 계열로 덮어써서, 클래스 이름은 그대로인 채 색만 바뀐다.
+
+   violet 600 = plum(#7b3a52). 흰 바탕 위 글자로 쓰이는 500 이상은
+   4.5:1 대비를 넘게 잡았다. neutral 은 회색 대신 붉은 기가 도는 웜 그레이. */
+@theme {
+  --color-paper: #f8f4ef;
+  --color-paper-2: #f1ebe4;
+  --color-card: #fffdfa;
+  --color-ink: #2b2326;
+  --color-ink-soft: #6f6366;
+  --color-ink-faint: #9b8f91;
+  --color-line: #e4dbd4;
+  --color-plum: #7b3a52;
+  --color-plum-deep: #5b2a3d;
+  --color-blush: #ecd9d4;
+  --color-night: #2a2026;
+
+  --color-violet-50: #faf3f4;
+  --color-violet-100: #f4e4e7;
+  --color-violet-200: #e9cbd2;
+  --color-violet-300: #d9a8b4;
+  --color-violet-400: #c2808f;
+  --color-violet-500: #9c5468;
+  --color-violet-600: #7b3a52;
+  --color-violet-700: #6a3046;
+  --color-violet-800: #5b2a3d;
+  --color-violet-900: #4a2232;
+  --color-violet-950: #2e141f;
+
+  --color-neutral-50: #faf7f4;
+  --color-neutral-100: #f3eee9;
+  --color-neutral-200: #e6ddd6;
+  --color-neutral-300: #d4c9c2;
+  --color-neutral-400: #a49899;
+  --color-neutral-500: #7d7174;
+  --color-neutral-600: #655a5d;
+  --color-neutral-700: #4f4447;
+  --color-neutral-800: #3a3033;
+  --color-neutral-900: #2b2326;
+  --color-neutral-950: #1d1719;
+}
+
+/* 이탤릭 세리프 강조 — "by designers," 처럼 한 덩어리를 영문 손글씨 느낌으로 */
+@utility serif-i {
+  font-family: var(--font-serif), 'Times New Roman', serif;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--color-plum);
+}
+
+/* 섹션 머리 위 작은 영문 표지 */
+@utility eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-plum);
 }
 
 /* 제안서를 PC용 PDF로 찍는 동안(html[data-pdf=pc], pdf-export.tsx)에는
@@ -66,16 +131,16 @@
 /* 스튜디오 미리보기에서 바뀐 포함 항목 — 연보라 바탕으로 두 번 깜빡이고 바탕이 빠지며 자리를 잡는다
    (plan-panel.tsx 의 TierBox). 동작 줄이기를 켠 사용자에게는 바탕만 잠깐 칠한다 */
 @keyframes item-flash {
-  0% { opacity: 0; background-color: rgb(237 233 254); }
+  0% { opacity: 0; background-color: rgb(236 217 212); }
   15% { opacity: 1; }
   30% { opacity: 0.2; }
   45% { opacity: 1; }
   60% { opacity: 0.2; }
-  75% { opacity: 1; background-color: rgb(237 233 254); }
+  75% { opacity: 1; background-color: rgb(236 217 212); }
   100% { opacity: 1; background-color: transparent; }
 }
 @keyframes item-tint {
-  from { background-color: rgb(237 233 254); }
+  from { background-color: rgb(236 217 212); }
   to { background-color: transparent; }
 }
 .item-flash {

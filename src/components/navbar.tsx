@@ -29,23 +29,21 @@ export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
     <>
       {/* 좁은 화면에서는 내려 읽는 동안 위로 미끄러져 숨고, 올리면 다시 내려온다(useHideOnScroll) */}
       <header
-        className={`sticky top-0 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur transition-transform duration-300 ease-out motion-reduce:transition-none ${
+        className={`sticky top-0 z-20 border-b border-line bg-paper/90 backdrop-blur-md transition-transform duration-300 ease-out motion-reduce:transition-none ${
           hidden ? 'max-md:-translate-y-full' : ''
         }`}
       >
-        <div className="mx-auto flex min-h-14 max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 md:px-8">
-          {/* 글자에 보라→파랑 그라데이션을 입힌다 — 배경을 글자 모양으로 잘라 낸다 */}
-          <Link
-            href="/"
-            className="bg-gradient-to-r from-violet-600 to-blue-500 bg-clip-text text-lg font-black tracking-tight text-transparent"
-          >
-            SOOM
+        <div className="mx-auto flex min-h-14 max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 md:px-8">
+          {/* 세리프 영문 로고 + 작은 한글 이름 — 검색어로 쓰이는 '에이전시숨'을 화면 글자로도 둔다 */}
+          <Link href="/" aria-label="SOOM 홈" className="flex items-baseline gap-2.5 text-ink">
+            <span className="font-serif text-[1.6rem] leading-none font-semibold tracking-[0.08em]">SOOM</span>
+            <span className="hidden text-[10px] font-medium tracking-[0.14em] text-ink-faint sm:inline">에이전시숨</span>
           </Link>
 
-          <nav aria-label="주요 메뉴" className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-4 gap-y-2 sm:gap-x-7">
+          <nav aria-label="주요 메뉴" className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-4 gap-y-2 sm:gap-x-8">
             {items.filter(({ visible }) => visible).map(({ key, href, name }) => {
               const active = pathname === href || pathname?.startsWith(`${href}/`)
-              const className = `inline-flex min-h-10 items-center whitespace-nowrap border-b-2 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-500 ${active ? 'border-violet-600 text-violet-700' : 'border-transparent text-neutral-600 hover:text-neutral-900'}`
+              const className = `inline-flex min-h-10 items-center whitespace-nowrap border-b text-sm transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-plum ${active ? 'border-plum font-medium text-ink' : 'border-transparent text-ink-soft hover:text-ink'}`
               return key === 'explore' ? (
                 <ExploreLink key={key} className={className}>{name}</ExploreLink>
               ) : (
@@ -58,7 +56,7 @@ export function Navbar({ menus }: { menus?: Partial<SiteMenus> | null }) {
             <button
               type="button"
               onClick={() => setInquiry(true)}
-              className="ml-1 rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-700 sm:ml-3"
+              className="ml-1 inline-flex min-h-10 items-center bg-ink px-4 text-[13px] font-semibold text-paper transition hover:bg-plum sm:ml-2 sm:px-5"
             >
               의뢰하기
             </button>

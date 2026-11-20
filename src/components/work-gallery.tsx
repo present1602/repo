@@ -69,7 +69,7 @@ function Card({ work: w, onOpen }: { work: PublicWork; onOpen: () => void }) {
    모달을 열면 원본 전체를 볼 수 있다. */
 function Thumbnail({ work: w }: { work: PublicWork }) {
   return (
-    <WorkThumb work={w} imgClassName="group-hover:opacity-90">
+    <WorkThumb work={w} fadeTo="to-paper" imgClassName="group-hover:opacity-90">
       {w.ai_used && <AiBadge />}
     </WorkThumb>
   )

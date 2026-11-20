@@ -65,7 +65,7 @@ export function HomeFeed({ works }: { works: FeedWork[] }) {
    긴 것은 거기서 끊어 아래를 흰색으로 녹인다. */
 function Thumbnail({ work: w }: { work: FeedWork }) {
   return (
-    <WorkThumb work={w} rounded="rounded-xl" imgClassName="transition-transform duration-500 group-hover:scale-[1.03]">
+    <WorkThumb work={w} rounded="rounded-xl" fadeTo="to-paper" imgClassName="transition-transform duration-500 group-hover:scale-[1.03]">
       {/* 제목은 데스크톱에서 호버할 때만 겹쳐 보여준다 —
           좁은 화면에는 호버가 없어 영영 가려지므로 띄우지 않는다. */}
       {w.title && (

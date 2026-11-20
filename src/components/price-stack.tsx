@@ -1,13 +1,13 @@
 import type { HomePrice } from './home-cta'
 
-/* 홈 가격 블록 — 히어로·플랜 카드(서버)와 의뢰 띠(클라이언트)가 같이 쓴다.
-   훅이 없어 어느 쪽에서 불러도 된다.
+/* 플랜 카드의 가격 블록 — 훅이 없어 서버·클라이언트 어디서 불러도 된다.
 
-   가격은 세 단계로 읽힌다.
-     1) 정상가 줄 — 할인 전 금액(was)에 줄을 긋고 바로 옆에 지금 정상가(price)
-     2) 보라 상자 — 사례 게재에 동의하면 caseDiscount 만큼 더 깎은 최종가를 가장 크게
-   caseDiscount 가 없는 상품(프리미엄)은 정상가 줄에 줄 그은 금액만 두고,
-   상자에 price 를 '할인가'로 크게 둔다. */
+   가격은 세 줄로 읽힌다.
+     1) 정가 줄 — 할인 전 금액(was)에 줄을 긋고 옆에 지금 정상가(price)
+     2) 최종가 — 사례 게재에 동의하면 caseDiscount 만큼 더 깎은 금액을 가장 크게
+     3) 추가 할인 안내 · VAT
+   caseDiscount 가 없는 상품(프리미엄)은 줄 그은 금액만 두고 price 를 크게 둔다.
+   그 자리(3번째 줄)는 비워 둔 채 높이만 지켜, 카드끼리 가격 줄이 나란히 선다. */
 const won = (n: number) => n.toLocaleString('ko-KR')
 
 export function PriceStack({
@@ -17,7 +17,6 @@ export function PriceStack({
   startingAt,
   vat = false,
 }: Pick<HomePrice, 'price' | 'was' | 'caseDiscount' | 'startingAt'> & {
-  /* 큰 금액 오른쪽 위에 작게 'VAT 별도' — 따로 한 줄을 두지 않는 자리(플랜 카드)에서 켠다 */
   vat?: boolean
 }) {
   const tilde = startingAt ? '~' : ''
@@ -26,45 +25,23 @@ export function PriceStack({
 
   return (
     <div className="text-left">
-      <div className="flex min-h-6 items-baseline justify-between gap-3 px-1 text-sm">
-        <span className="shrink-0 text-xs font-medium text-neutral-500">정상가</span>
-        <span className="flex flex-wrap items-baseline justify-end gap-x-2 tabular-nums">
-          {was != null && (
-            <s className="text-xs text-neutral-400 decoration-neutral-400">
-              <span className="sr-only">할인 전 </span>
-              {won(was)}원
-            </s>
-          )}
-          {hasCase && (
-            <span className="font-bold text-neutral-800">
-              {won(price)}원{tilde}
-            </span>
-          )}
-        </span>
-      </div>
-
-      <div className="mt-2.5 rounded-xl bg-violet-50 px-4 py-3.5 ring-1 ring-inset ring-violet-100">
-        <div className="flex items-center gap-2">
-          {/* <span className="text-xs font-semibold text-violet-700">{hasCase ? '사례 게재 동의 시' : '할인가'}</span> */}
-          {hasCase && (
-            <>
-              <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
-                기간한정 
-              </span>
-              <span>
-              {caseDiscount / 10_000}만원 추가 할인 
-              </span>
-            </>
-          )}
-        </div>
-        <p className="mt-1 text-[1.75rem] font-extrabold leading-tight tabular-nums tracking-tight text-violet-600 sm:text-3xl">
-          {won(final)}
-          <span className="ml-0.5 text-sm font-semibold">원{tilde}</span>
-          {vat && (
-            <sup className="ml-1.5 align-super text-[10.5px] font-medium tracking-normal text-neutral-500">VAT 별도</sup>
-          )}
-        </p>
-      </div>
+      <p className="flex min-h-5 flex-wrap items-baseline gap-x-2 text-xs tabular-nums text-ink-faint">
+        {was != null && (
+          <s className="decoration-ink-faint">
+            <span className="sr-only">할인 전 </span>
+            {won(was)}원
+          </s>
+        )}
+        {hasCase && <span>정상가 {won(price)}원{tilde}</span>}
+      </p>
+      <p className="mt-1 flex flex-wrap items-baseline gap-1.5">
+        <b className="text-[2rem] leading-[1.15] font-semibold tracking-[-0.04em] tabular-nums text-ink">{won(final)}</b>
+        <small className="text-sm text-ink-soft">원{tilde}</small>
+      </p>
+      <p className={`mt-1 text-xs font-semibold text-plum ${hasCase ? '' : 'invisible'}`} aria-hidden={!hasCase}>
+        {hasCase ? `사례 게재 동의 시 ${caseDiscount / 10_000}만원 추가 할인` : '—'}
+      </p>
+      {vat && <p className="mt-0.5 text-[11px] text-ink-faint">VAT 별도</p>}
     </div>
   )
 }

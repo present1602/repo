@@ -25,7 +25,7 @@ const IMAGES: [string, number, number][] = [
 export function WorksTeaser() {
   return (
     /* 높이를 잘라 아래로 더 이어질 것처럼 보이게 — 끝을 흰색으로 흐려 사진이 중간에 끊긴다 */
-    <div className="relative h-[28rem] overflow-hidden rounded-2xl md:h-[36rem]">
+    <div className="relative h-[28rem] overflow-hidden md:h-[36rem]">
       <div
         aria-hidden
         className="pointer-events-none columns-2 gap-3 blur-[10px] select-none md:columns-3 md:gap-4 lg:columns-4"
@@ -42,10 +42,10 @@ export function WorksTeaser() {
         ))}
       </div>
 
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-white/0 to-white" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-paper/0 to-paper" />
 
       <div className="absolute inset-0 grid place-items-center px-6">
-        <p className="rounded-2xl bg-white/90 px-8 py-5 text-xl font-black tracking-[0.2em] shadow-lg ring-1 ring-neutral-200 backdrop-blur md:text-2xl">
+        <p className="rounded-2xl bg-card/90 px-8 py-5 font-serif text-2xl font-semibold tracking-[0.2em] shadow-lg ring-1 ring-line backdrop-blur md:text-2xl">
           COMING SOON
         </p>
       </div>

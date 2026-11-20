@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Cormorant_Garamond, Geist_Mono, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
 import Script from "next/script";
@@ -9,9 +9,21 @@ import { ErrorToaster } from "@/components/error-toast";
 import { ChatWidgetData } from "@/components/chat/chat-widget-data";
 import { INDEXABLE, SITE_URL } from "@/lib/site-url";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+/* 본문 — 한글 글꼴이 크고 조각(unicode-range)이 많아 미리 싣지 않는다.
+   쓰는 글자가 나올 때 그 조각만 받아 온다. */
+const notoSansKr = Noto_Sans_KR({
+  variable: "--font-noto-sans-kr",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  preload: false,
+});
+
+/* 영문 이탤릭 강조("by designers,")와 로고에만 쓴다 */
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  style: ["normal", "italic"],
 });
 
 const geistMono = Geist_Mono({
@@ -219,12 +231,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${notoSansKr.variable} ${cormorant.variable} ${geistMono.variable} h-full bg-paper antialiased`}
     >
       {/* min-h-screen — 내용이 짧아도 화면 끝까지 늘어난다.
           min-h-full(=100%) 은 부모 높이에 기대므로 내용만큼만 차지해,
           스튜디오 좌측 메뉴 같은 세로 레이아웃이 바닥까지 닿지 못한다. */}
-      <body className="flex min-h-screen flex-col bg-neutral-100 text-neutral-900">
+      <body className="flex min-h-screen flex-col bg-paper text-ink">
         {/* 어느 화면인지 알아야 붙일지 정할 수 있다 — 푸터와 같은 방식으로
             Suspense 뒤에 둔다.
 

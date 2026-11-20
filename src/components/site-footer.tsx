@@ -10,8 +10,9 @@ import { Footer } from './footer'
    화면 끝까지 늘어나는 구조라 푸터가 끼면 그 짜임이 깨진다.
 
    제안서(/designers/proposal)는 자체 쪽번호 바와 끝맺음을 가진 한 권짜리
-   문서다 — 그 아래 사이트 푸터가 또 붙으면 마무리가 두 번 난다. */
-const HIDDEN = ['/admin', '/studio', '/designers/proposal']
+   문서다 — 그 아래 사이트 푸터가 또 붙으면 마무리가 두 번 난다.
+   비공개 경력 페이지(/roster)도 같다. */
+const HIDDEN = ['/admin', '/studio', '/designers/proposal', '/roster']
 
 export function SiteFooter() {
   const pathname = usePathname() ?? ''

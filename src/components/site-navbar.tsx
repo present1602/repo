@@ -14,8 +14,11 @@ import { type SiteMenus } from '@/lib/site-menu-shape'
    어드민은 자체 사이드바·상단 바(admin/layout.tsx)를 가진다 — 방문자용
    메뉴(탐색·의뢰하기)가 위에 붙으면 관리 화면과 사이트가 섞여 보인다.
 
-   스튜디오는 디자이너 화면이라 따로 만든 바(StudioNavbar)를 붙인다. */
-const HIDDEN = ['/admin', '/designers/proposal']
+   스튜디오는 디자이너 화면이라 따로 만든 바(StudioNavbar)를 붙인다.
+
+   비공개 경력 페이지(/roster)는 링크를 받은 사람만 보는 한 장짜리 문서다 —
+   자체 머리말과 왼쪽 이름 목록을 가진다. */
+const HIDDEN = ['/admin', '/designers/proposal', '/roster']
 
 const under = (pathname: string, p: string) => pathname === p || pathname.startsWith(`${p}/`)
 

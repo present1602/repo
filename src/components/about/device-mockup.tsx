@@ -14,7 +14,7 @@ export function DeviceMockup() {
     <div className="relative mx-auto w-full max-w-[640px] pb-[6%] pr-[9%]">
       {/* 아이맥 — 흰 베젤 화면 + 연보라 턱 + 받침 */}
       <div className="relative">
-        <div className="overflow-hidden rounded-[clamp(10px,2.4%,18px)] shadow-[0_30px_60px_-30px_rgb(40_30_80/0.45)] ring-1 ring-black/5">
+        <div className="overflow-hidden rounded-[clamp(10px,2.4%,18px)] shadow-[0_30px_60px_-30px_rgb(60_30_40/0.45)] ring-1 ring-black/5">
           <div className="bg-white p-[1.6%] pb-[1.4%]">
             <div className="overflow-hidden rounded-[3px] bg-neutral-900 ring-1 ring-black/70">
               <Image
@@ -27,20 +27,20 @@ export function DeviceMockup() {
             </div>
           </div>
           {/* 턱 — 높이를 % 로 주면 부모 높이가 없어 0 이 된다. 너비 기준인 aspect 로 잡는다 */}
-          <div className="aspect-[100/6.5] bg-linear-to-b from-[#ece8f7] to-[#ddd6f0]" />
+          <div className="aspect-[100/6.5] bg-linear-to-b from-[#f1ebe4] to-[#e4dbd4]" />
         </div>
         {/* 받침 — 위가 좁고 아래가 넓은 사다리꼴 */}
         <div
           aria-hidden
-          className="mx-auto aspect-[22/10] w-[22%] bg-linear-to-b from-[#d6d0e6] to-[#c7c0db]"
+          className="mx-auto aspect-[22/10] w-[22%] bg-linear-to-b from-[#ddd3cb] to-[#cfc3ba]"
           style={{ clipPath: 'polygon(8% 0, 92% 0, 100% 100%, 0 100%)' }}
         />
-        <div aria-hidden className="mx-auto aspect-[26/1.1] w-[26%] rounded-b-md bg-[#bdb5d3]" />
+        <div aria-hidden className="mx-auto aspect-[26/1.1] w-[26%] rounded-b-md bg-[#c6b9b0]" />
       </div>
 
       {/* 갤럭시 — 얇고 고른 검은 베젤, 가운데 펀치홀 카메라 */}
       <div className="absolute bottom-0 right-0 w-[25%]">
-        <div className="relative rounded-[18%/8.5%] bg-[#1b1b1f] p-[4.5%] shadow-[0_24px_40px_-16px_rgb(20_15_40/0.55)] ring-1 ring-white/10">
+        <div className="relative rounded-[18%/8.5%] bg-[#1b1b1f] p-[4.5%] shadow-[0_24px_40px_-16px_rgb(40_20_30/0.55)] ring-1 ring-white/10">
           {/* 옆 버튼 — 오른쪽 모서리에 음량·전원 */}
           <span aria-hidden className="absolute -right-[2.5%] top-[18%] h-[12%] w-[2.5%] rounded-r-sm bg-[#2a2a30]" />
           <span aria-hidden className="absolute -right-[2.5%] top-[33%] h-[7%] w-[2.5%] rounded-r-sm bg-[#2a2a30]" />

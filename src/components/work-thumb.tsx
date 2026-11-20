@@ -41,12 +41,15 @@ export function WorkThumb({
   work: w,
   rounded = 'rounded-lg',
   imgClassName = '',
+  fadeTo = 'to-white',
   children,
 }: {
   work: Pick<PublicWork, 'thumb_url' | 'title' | 'width' | 'height' | 'crop_x' | 'crop_y' | 'crop_w' | 'crop_h'>
   rounded?: string
   /* 호버 효과 등 — 그림에 붙인다 */
   imgClassName?: string
+  /* 긴 그림을 끊는 자리의 흐림 색 — 깔린 바탕색과 같아야 경계가 안 보인다 */
+  fadeTo?: string
   /* 그림 위에 겹칠 것(제목 등) */
   children?: React.ReactNode
 }) {
@@ -91,7 +94,7 @@ export function WorkThumb({
         /* pointer-events-none — 이 덮개가 클릭을 가로채면 모달이 안 열린다 */
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-white"
+          className={`pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent ${fadeTo}`}
         />
       )}
       {children}

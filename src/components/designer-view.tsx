@@ -66,7 +66,7 @@ export async function DesignerView({
   })
 
   return (
-    <div className="flex-1 bg-white">
+    <div className="flex-1 bg-paper">
       {!preview && <RefCapture designerId={d.id} />}
       <div className="mx-auto max-w-7xl px-5 pb-16 md:px-8">
         <nav className="py-5 text-sm text-neutral-500">
@@ -74,7 +74,7 @@ export async function DesignerView({
         </nav>
 
         {/* 머리 — 사진·이름·한 줄 소개를 한 줄로, 분야는 오른쪽 */}
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-200 pb-6">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-6">
           <div className="flex min-w-0 items-center gap-3.5">
             {d.avatar_url ? (
               <Img
@@ -90,7 +90,7 @@ export async function DesignerView({
               </div>
             )}
             <div className="min-w-0">
-              <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">{name}</h1>
+              <h1 className="truncate text-2xl font-medium tracking-[-0.04em] md:text-3xl">{name}</h1>
               {d.one_liner && <p className="mt-0.5 text-sm text-neutral-600">{d.one_liner}</p>}
             </div>
           </div>
@@ -98,7 +98,7 @@ export async function DesignerView({
           {d.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {d.tags.map((t) => (
-                <span key={t} className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600">
+                <span key={t} className="rounded-full border border-line px-3 py-1 text-xs text-ink-soft">
                   {t}
                 </span>
               ))}
@@ -115,7 +115,7 @@ export async function DesignerView({
             {d.bio && <BioText text={d.bio} />}
 
             <div className="mb-5 flex items-baseline justify-between">
-              <h2 className="text-xl font-bold tracking-tight md:text-2xl">Works</h2>
+              <h2 className="serif-i text-3xl leading-none md:text-4xl">Works.</h2>
               {d.works.length > 0 && (
                 <span className="text-xs text-neutral-500">{d.works.length}개의 작업</span>
               )}
@@ -141,12 +141,12 @@ export async function DesignerView({
 /* 실제 화면과 같은 골격 — 프로필이 들어올 때 레이아웃이 튀지 않게 */
 export function DetailSkeleton() {
   return (
-    <div className="flex-1 bg-white">
+    <div className="flex-1 bg-paper">
       <div className="mx-auto max-w-7xl px-5 pb-16 md:px-8">
         <div className="py-5">
           <div className="h-4 w-20 animate-pulse rounded bg-neutral-200" />
         </div>
-        <div className="flex items-center gap-3.5 border-b border-neutral-200 pb-6">
+        <div className="flex items-center gap-3.5 border-b border-line pb-6">
           <div className="size-12 animate-pulse rounded-full bg-neutral-200 md:size-14" />
           <div className="space-y-2">
             <div className="h-7 w-40 animate-pulse rounded bg-neutral-200" />

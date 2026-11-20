@@ -12,11 +12,9 @@ export function StudioNavbar() {
   return (
     <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur">
       <div className="flex h-14 items-center px-6">
-        <Link
-          href="/"
-          className="bg-gradient-to-r from-violet-600 to-blue-500 bg-clip-text text-lg font-black tracking-tight text-transparent"
-        >
-          SOOM
+        <Link href="/" className="flex items-baseline gap-2 text-ink">
+          <span className="font-serif text-2xl leading-none font-semibold tracking-[0.08em]">SOOM</span>
+          <span className="text-[10px] font-medium tracking-[0.14em] text-ink-faint">STUDIO</span>
         </Link>
       </div>
     </header>
