@@ -57,7 +57,7 @@ export function HomeCta({ prices }: { prices: HomePrice[] }) {
           className="group inline-flex min-h-12 items-center gap-4 border border-ink bg-ink px-7 text-sm font-semibold text-paper transition hover:border-plum hover:bg-plum focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-plum"
         >
           의뢰하기
-          <span aria-hidden="true" className="font-serif text-lg leading-none transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">↗</span>
+          <span aria-hidden="true" className="transition-transform group-hover:translate-x-1 motion-reduce:transform-none">→</span>
         </button>
 
         <div className="space-y-0.5 text-xs leading-relaxed text-ink-faint">

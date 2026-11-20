@@ -77,14 +77,13 @@ export default function Home() {
             titleId="works-title"
             title="SOOM 디자이너들의 작업"
             accent="Find your mood."
+            lede="업종과 분위기가 비슷한 작업을 먼저 살펴보고, 마음에 드는 디자이너에게 의뢰하세요."
+            sideEnd
             side={
-              <>
-                <p>업종과 분위기가 비슷한 작업을 먼저 살펴보고, 마음에 드는 디자이너에게 바로 의뢰하세요.</p>
-                <ExploreLink className="group inline-flex min-h-11 items-center gap-3 border border-ink px-4 text-[13px] font-semibold text-ink transition hover:bg-ink hover:text-paper">
-                  전체 디자이너 보기
-                  <span aria-hidden className="font-serif text-lg leading-none transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">↗</span>
-                </ExploreLink>
-              </>
+              <ExploreLink className="group inline-flex min-h-11 items-center gap-3 border border-ink px-4 text-[13px] font-semibold text-ink transition hover:bg-ink hover:text-paper">
+                디자이너 보기
+                <span aria-hidden="true" className="">→</span>
+              </ExploreLink>
             }
           />
 
@@ -135,13 +134,19 @@ function SectionHead({
   titleId,
   title,
   accent,
+  lede,
   side,
+  sideEnd = false,
 }: {
   eyebrow: string
   titleId: string
   title: string
   accent: string
+  /* 제목(영문 한 줄) 바로 아래 설명 — 오른쪽 칸을 버튼만 두고 싶을 때 */
+  lede?: string
   side?: ReactNode
+  /* 넓은 화면에서 오른쪽 칸을 오른쪽 끝에 붙인다(버튼 하나만 둘 때) */
+  sideEnd?: boolean
 }) {
   return (
     <div className="mb-9 grid gap-4 md:mb-11 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:items-end md:gap-8">
@@ -151,8 +156,13 @@ function SectionHead({
           {title}
           <span className="serif-i block text-[1.3em] leading-[1.1]">{accent}</span>
         </h2>
+        {lede && <p className="mt-4 max-w-[34em] text-sm leading-[1.85] text-ink-soft">{lede}</p>}
       </div>
-      {side && <div className="grid justify-items-start gap-4 text-sm leading-[1.85] text-ink-soft">{side}</div>}
+      {side && (
+        <div className={`grid justify-items-start gap-4 text-sm leading-[1.85] text-ink-soft ${sideEnd ? 'md:justify-items-end' : ''}`}>
+          {side}
+        </div>
+      )}
     </div>
   )
 }
@@ -168,7 +178,7 @@ function Hero() {
           <p className="eyebrow">With AI efficiency</p>
           {/* 넓은 화면에서는 시안처럼 두 줄로 고정한다 — 글자 크기를 칸 폭에 맞춰 잡았다 */}
           <h1 id="hero-title" className="mt-5 text-[1.55rem] leading-[1.32] min-[400px]:text-[1.7rem] sm:text-[clamp(1.75rem,3.3vw,2.6rem)] font-medium tracking-[-0.045em] text-ink">
-            <span className="sm:whitespace-nowrap">고객을 유입시키는 전문</span>
+            <span className="sm:whitespace-nowrap">고객을 유입시키는</span>
             <br />
             <span className="sm:whitespace-nowrap">디자이너의 감각을 담은 홈페이지</span>
             <span className="serif-i mt-1 block text-[1.6em] leading-[1.1]">by designers,</span>

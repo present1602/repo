@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { PublicWork } from '@/lib/designer-shape'
 import type { WorkPage } from '@/lib/portfolio-limits'
@@ -249,6 +249,14 @@ export function WorkModal<W extends PublicWork>({
      시트를 내려 둔 상태는 그대로 이어 간다 — 그림만 넘겨 보려고 내린 것이니
      넘길 때마다 다시 올라오면 매번 도로 내려야 한다.
      effect 가 아니라 렌더 중에 맞춘다(React 의 "렌더 중 상태 조정"). */
+  /* '아래로 더 있음' 안내 — 모달을 열 때마다 한 번. 한 번 내리고 나면 이 모달을
+     닫을 때까지 다시 띄우지 않는다(맨 위로 돌아와도, 다른 작업으로 넘겨도).
+     닫았다 다시 열면 컴포넌트가 새로 붙어 처음부터 다시 보인다. */
+  const [scrollable, setScrollable] = useState(false)
+  const [hintDone, setHintDone] = useState(false)
+  const showHint = scrollable && !hintDone
+  const markHintDone = useCallback(() => setHintDone(true), [])
+
   const [seenId, setSeenId] = useState(w.id)
   if (seenId !== w.id) {
     setSeenId(w.id)
@@ -336,6 +344,22 @@ export function WorkModal<W extends PublicWork>({
               프로젝트 보기 ↗
             </a>
           )}
+          {/* 아래로 더 있음 — 가볍게 위아래로 흔들린다. 그림 조작을 막지 않게
+              클릭을 통과시키고, 화면 읽기 프로그램에는 읽히지 않게 둔다(장식) */}
+          <div
+            aria-hidden
+            style={{ bottom: sheetH + (w.link_url ? 76 : 20) }}
+            className={`pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 transition-opacity duration-300 ${
+              showHint ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <span className="hint-bob flex items-center gap-1.5 whitespace-nowrap rounded-full bg-neutral-900/75 px-4 py-2 text-xs font-medium text-white shadow-lg backdrop-blur-sm">
+              아래로 스크롤해 더 보기
+              <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 6l4 4 4-4" />
+              </svg>
+            </span>
+          </div>
           <div
             className={`flex h-full ${jump ? '' : 'transition-transform duration-[280ms] ease-out'}`}
             style={{
@@ -376,6 +400,8 @@ export function WorkModal<W extends PublicWork>({
                       }
                       onDrag={off === 0 && works.length > 1 ? dragTo : undefined}
                       onScrollDown={off === 0 ? setHideSheet : undefined}
+                      onScrollable={off === 0 ? setScrollable : undefined}
+                      onScrolled={off === 0 && !hintDone ? markHintDone : undefined}
                       onTap={
                         off === 0
                           ? () => {
@@ -603,6 +629,8 @@ function ZoomImage({
   onSwipe,
   onDrag,
   onScrollDown,
+  onScrollable,
+  onScrolled,
   onTap,
 }: {
   src: string
@@ -618,6 +646,10 @@ function ZoomImage({
   onDrag?: (px: number) => void
   /* 내려 보는 중인지 — 아래 설명 칸을 접고 펴는 데 쓴다 */
   onScrollDown?: (down: boolean) => void
+  /* 내려 볼 거리가 있는지 — 처음 열었을 때 '아래로 더 있음' 안내를 띄울지 정한다 */
+  onScrollable?: (v: boolean) => void
+  /* 처음으로 조금이라도 내렸을 때 — 그 안내를 거둔다 */
+  onScrolled?: () => void
   /* 그림을 가볍게 눌렀을 때 — 설명 칸을 숨기거나 되돌린다 */
   onTap?: () => void
 }) {
@@ -701,6 +733,20 @@ function ZoomImage({
     ro.observe(box)
     return () => ro.disconnect()
   }, [])
+
+  /* 내려 볼 거리가 있는지 — 칸과 그 안 내용의 크기가 바뀔 때마다 다시 잰다
+     (그림이 늦게 받아지거나, 창 크기·배율이 바뀌는 경우). 한 화면 높이의
+     조금 넘는 정도(40px)는 안내할 만한 거리가 아니라 뺀다. */
+  useEffect(() => {
+    const box = boxRef.current
+    if (!box || !onScrollable) return
+    const check = () => onScrollable(box.scrollHeight > box.clientHeight + 40)
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(box)
+    if (box.firstElementChild) ro.observe(box.firstElementChild)
+    return () => ro.disconnect()
+  }, [onScrollable, src])
 
   const MAX_ZOOM = ZOOMS[ZOOMS.length - 1]
 
@@ -918,6 +964,7 @@ function ZoomImage({
 
   const onScroll = () => {
     const box = boxRef.current
+    if (box && onScrolled && box.scrollTop > 8) onScrolled()
     if (!box || !onScrollDown) return
     const top = box.scrollTop
     const dy = top - lastTop.current

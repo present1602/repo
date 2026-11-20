@@ -24,7 +24,7 @@ export function AgencyBanner() {
           className="group inline-flex min-h-12 shrink-0 items-center gap-4 self-start border border-[#efe6e9]/35 px-6 text-sm font-semibold transition hover:bg-[#efe6e9] hover:text-night focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d9a9b9] md:self-center"
         >
           에이전시숨으로
-          <span aria-hidden className="font-serif text-lg leading-none transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">↗</span>
+          <span aria-hidden="true" className="transition-transform group-hover:translate-x-1 motion-reduce:transform-none">→</span>
           <span className="sr-only"> (새 탭에서 열기)</span>
         </a>
       </div>

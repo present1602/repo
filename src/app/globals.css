@@ -217,3 +217,13 @@
     overflow-y: auto;
   }
 }
+
+/* 작업 모달의 '아래로 스크롤해 더 보기' 안내 — 위아래로 가볍게 흔들린다(work-modal.tsx).
+   동작 줄이기를 켠 사용자에게는 멈춘 채로 둔다 */
+@keyframes hint-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hint-bob { animation: hint-bob 1.4s ease-in-out infinite; }
+}

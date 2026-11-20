@@ -458,12 +458,17 @@ export default function ProposalV14Page() {
                 aria-hidden
                 className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgb(139_92_246/0.5),transparent_55%)]"
               />
-              <div className="relative flex items-center justify-between">
+              <div className="relative flex items-center justify-between gap-3">
                 <span className="text-[10px] tracking-[0.3em] text-violet-200">FIRST DEAL GIFT</span>
-                <span className="rounded-full bg-violet-500 px-3 py-1 text-[10px] font-semibold tracking-[0.15em]">
-                  선착순 7명
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-violet-500 px-3 py-1 text-[10px] font-semibold tracking-[0.15em]">
+                  선착순 6명
+                  <small className="rounded-full bg-white/20 px-1.5 text-[9px] font-medium tracking-normal">마감</small>
                 </span>
               </div>
+              {/* 모집이 끝났음을 배지 바로 아래에 알린다 */}
+              <p className="relative mt-2 text-right text-[11px] leading-relaxed text-white/70">
+                공개모집은 이제 종료되었습니다. 지원해주신 분들 감사드립니다.
+              </p>
               <p className="relative mt-6 text-sm text-white/80">네이버페이 상품권</p>
               <p className="relative mt-1 whitespace-nowrap text-[min(16cqw,3.75rem)] font-light tracking-tight">
                 ₩30,000
@@ -474,11 +479,14 @@ export default function ProposalV14Page() {
               {[
                 ['기간', '11월 한정'],
                 ['조건', '의뢰 1건 이상 수행'],
-                ['대상', '선착순 7명 한정'],
+                ['대상', '선착순 6명 한정'],
               ].map(([k, v]) => (
                 <div key={k} className="flex items-center justify-between gap-4 py-3">
                   <dt className="text-xs tracking-[0.2em] text-neutral-500">{k}</dt>
-                  <dd className="font-medium">{v}</dd>
+                  <dd className="flex items-center gap-1.5 font-medium">
+                    {v}
+                    {k === '대상' && <small className="text-[11px] font-normal text-neutral-400">(마감)</small>}
+                  </dd>
                 </div>
               ))}
             </dl>
